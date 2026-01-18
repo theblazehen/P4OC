@@ -1,0 +1,237 @@
+package com.pocketcode.ui.screens.chat
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.pocketcode.core.network.ApiResult
+import com.pocketcode.core.network.ConnectionState
+import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.OpenCodeEventSource
+import com.pocketcode.core.network.safeApiCall
+import com.pocketcode.data.remote.dto.PartInputDto
+import com.pocketcode.data.remote.dto.PermissionResponseRequest
+import com.pocketcode.data.remote.dto.SendMessageRequest
+import com.pocketcode.data.remote.mapper.MessageMapper
+import com.pocketcode.data.remote.mapper.PartMapper
+import com.pocketcode.data.remote.mapper.SessionMapper
+import com.pocketcode.domain.model.*
+import com.pocketcode.ui.navigation.Screen
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class ChatViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val api: OpenCodeApi,
+    private val eventSource: OpenCodeEventSource,
+    private val sessionMapper: SessionMapper,
+    private val messageMapper: MessageMapper,
+    private val partMapper: PartMapper
+) : ViewModel() {
+
+    private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)!!
+
+    private val _uiState = MutableStateFlow(ChatUiState())
+    val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private val _messages = MutableStateFlow<List<MessageWithParts>>(emptyList())
+    val messages: StateFlow<List<MessageWithParts>> = _messages.asStateFlow()
+
+    val connectionState: StateFlow<ConnectionState> = eventSource.connectionState
+
+    init {
+        loadSession()
+        loadMessages()
+        observeEvents()
+        eventSource.connect()
+    }
+
+    private fun loadSession() {
+        viewModelScope.launch {
+            val result = safeApiCall { api.getSession(sessionId) }
+            when (result) {
+                is ApiResult.Success -> {
+                    val session = sessionMapper.mapToDomain(result.data)
+                    _uiState.update { it.copy(session = session) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { it.copy(error = "Failed to load session") }
+                }
+            }
+        }
+    }
+
+    private fun loadMessages() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+
+            val result = safeApiCall { api.getMessages(sessionId) }
+
+            when (result) {
+                is ApiResult.Success -> {
+                    val messageList = result.data.map { dto ->
+                        MessageWithParts(
+                            message = messageMapper.mapToDomain(dto.message),
+                            parts = dto.parts.map { partMapper.mapToDomain(it) }
+                        )
+                    }
+                    _messages.value = messageList
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { 
+                        it.copy(isLoading = false, error = "Failed to load messages") 
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeEvents() {
+        viewModelScope.launch {
+            eventSource.events.collect { event ->
+                handleEvent(event)
+            }
+        }
+    }
+
+    private fun handleEvent(event: OpenCodeEvent) {
+        when (event) {
+            is OpenCodeEvent.MessageUpdated -> {
+                if (event.message.sessionID == sessionId) {
+                    updateMessage(event.message)
+                }
+            }
+            is OpenCodeEvent.MessagePartUpdated -> {
+                if (event.part.sessionID == sessionId) {
+                    updatePart(event.part, event.delta)
+                }
+            }
+            is OpenCodeEvent.PermissionRequested -> {
+                if (event.permission.sessionID == sessionId) {
+                    _uiState.update { it.copy(pendingPermission = event.permission) }
+                }
+            }
+            is OpenCodeEvent.SessionStatusChanged -> {
+                if (event.sessionID == sessionId) {
+                    val isBusy = event.status is SessionStatus.Busy || event.status is SessionStatus.Retry
+                    _uiState.update { it.copy(isBusy = isBusy) }
+                }
+            }
+            is OpenCodeEvent.SessionUpdated -> {
+                if (event.session.id == sessionId) {
+                    _uiState.update { it.copy(session = event.session) }
+                }
+            }
+            else -> {}
+        }
+    }
+
+    private fun updateMessage(message: Message) {
+        _messages.update { currentMessages ->
+            val index = currentMessages.indexOfFirst { it.message.id == message.id }
+            if (index >= 0) {
+                currentMessages.toMutableList().apply {
+                    this[index] = this[index].copy(message = message)
+                }
+            } else {
+                currentMessages + MessageWithParts(message, emptyList())
+            }
+        }
+    }
+
+    private fun updatePart(part: Part, delta: String?) {
+        _messages.update { currentMessages ->
+            currentMessages.map { mwp ->
+                if (mwp.message.id == part.messageID) {
+                    val partIndex = mwp.parts.indexOfFirst { it.id == part.id }
+                    val updatedParts = if (partIndex >= 0) {
+                        mwp.parts.toMutableList().apply {
+                            this[partIndex] = if (delta != null && part is Part.Text) {
+                                val existingText = (this[partIndex] as? Part.Text)?.text ?: ""
+                                part.copy(text = existingText + delta, isStreaming = true)
+                            } else {
+                                part
+                            }
+                        }
+                    } else {
+                        mwp.parts + part
+                    }
+                    mwp.copy(parts = updatedParts)
+                } else {
+                    mwp
+                }
+            }
+        }
+    }
+
+    fun updateInput(text: String) {
+        _uiState.update { it.copy(inputText = text) }
+    }
+
+    fun sendMessage() {
+        val text = _uiState.value.inputText.trim()
+        if (text.isEmpty()) return
+
+        _uiState.update { it.copy(inputText = "", isSending = true) }
+
+        viewModelScope.launch {
+            val request = SendMessageRequest(
+                parts = listOf(PartInputDto(type = "text", text = text))
+            )
+
+            val result = safeApiCall { api.sendMessageAsync(sessionId, request) }
+
+            when (result) {
+                is ApiResult.Success -> {
+                    _uiState.update { it.copy(isSending = false, isBusy = true) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { 
+                        it.copy(
+                            isSending = false, 
+                            inputText = text,
+                            error = "Failed to send: ${result.message}"
+                        ) 
+                    }
+                }
+            }
+        }
+    }
+
+    fun respondToPermission(permissionId: String, response: String) {
+        viewModelScope.launch {
+            val request = PermissionResponseRequest(response = response)
+            safeApiCall { api.respondToPermission(sessionId, permissionId, request) }
+            _uiState.update { it.copy(pendingPermission = null) }
+        }
+    }
+
+    fun abortSession() {
+        viewModelScope.launch {
+            safeApiCall { api.abortSession(sessionId) }
+            _uiState.update { it.copy(isBusy = false) }
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        eventSource.disconnect()
+    }
+}
+
+data class ChatUiState(
+    val session: Session? = null,
+    val inputText: String = "",
+    val isLoading: Boolean = false,
+    val isSending: Boolean = false,
+    val isBusy: Boolean = false,
+    val pendingPermission: Permission? = null,
+    val error: String? = null
+)
