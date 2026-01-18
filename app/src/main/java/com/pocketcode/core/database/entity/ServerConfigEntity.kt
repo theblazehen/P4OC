@@ -2,7 +2,6 @@ package com.pocketcode.core.database.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import kotlinx.datetime.Instant
 
 @Entity(tableName = "server_configs")
 data class ServerConfigEntity(
@@ -12,5 +11,5 @@ data class ServerConfigEntity(
     val username: String?,
     val password: String?,
     val isLocal: Boolean,
-    val lastConnected: Instant?
+    val lastConnected: Long?
 )

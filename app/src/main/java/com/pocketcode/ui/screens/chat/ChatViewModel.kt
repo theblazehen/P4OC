@@ -72,10 +72,7 @@ class ChatViewModel @Inject constructor(
             when (result) {
                 is ApiResult.Success -> {
                     val messageList = result.data.map { dto ->
-                        MessageWithParts(
-                            message = messageMapper.mapToDomain(dto.message),
-                            parts = dto.parts.map { partMapper.mapToDomain(it) }
-                        )
+                        messageMapper.mapWrapperToDomain(dto, partMapper)
                     }
                     _messages.value = messageList
                     _uiState.update { it.copy(isLoading = false) }

@@ -173,7 +173,7 @@ private fun SessionCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = session.title,
+                    text = session.title ?: "Untitled",
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -288,7 +288,8 @@ private fun NewSessionDialog(
     )
 }
 
-private fun formatDateTime(instant: Instant): String {
+private fun formatDateTime(epochMillis: Long): String {
+    val instant = Instant.fromEpochMilliseconds(epochMillis)
     val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
     return "${local.monthNumber}/${local.dayOfMonth}/${local.year} ${local.hour}:${local.minute.toString().padStart(2, '0')}"
 }

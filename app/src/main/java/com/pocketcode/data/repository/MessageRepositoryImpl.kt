@@ -53,10 +53,7 @@ class MessageRepositoryImpl @Inject constructor(
         return safeApiCall {
             val dtos = api.getMessages(sessionId, limit)
             val messagesWithParts = dtos.map { dto ->
-                MessageWithParts(
-                    message = messageMapper.mapToDomain(dto.message),
-                    parts = dto.parts.map { partMapper.mapToDomain(it) }
-                )
+                messageMapper.mapWrapperToDomain(dto, partMapper)
             }
             messagesWithParts.forEach { mwp ->
                 messageDao.insertMessageWithParts(

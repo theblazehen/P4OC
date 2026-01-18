@@ -115,7 +115,6 @@ class SessionRepositoryImpl @Inject constructor(
         version = version,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        archivedAt = archivedAt,
         summary = if (summaryAdditions != null && summaryDeletions != null && summaryFiles != null) {
             SessionSummary(summaryAdditions, summaryDeletions, summaryFiles)
         } else null,
@@ -132,7 +131,6 @@ class SessionRepositoryImpl @Inject constructor(
         version = version,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        archivedAt = archivedAt,
         summaryAdditions = summary?.additions,
         summaryDeletions = summary?.deletions,
         summaryFiles = summary?.files,

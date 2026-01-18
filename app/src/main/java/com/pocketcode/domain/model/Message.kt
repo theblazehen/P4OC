@@ -1,19 +1,18 @@
 package com.pocketcode.domain.model
 
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
 @Serializable
 sealed class Message {
     abstract val id: String
     abstract val sessionID: String
-    abstract val createdAt: Instant
+    abstract val createdAt: Long
 
     @Serializable
     data class User(
         override val id: String,
         override val sessionID: String,
-        override val createdAt: Instant,
+        override val createdAt: Long,
         val agent: String,
         val model: ModelRef
     ) : Message()
@@ -22,8 +21,8 @@ sealed class Message {
     data class Assistant(
         override val id: String,
         override val sessionID: String,
-        override val createdAt: Instant,
-        val completedAt: Instant? = null,
+        override val createdAt: Long,
+        val completedAt: Long? = null,
         val parentID: String,
         val providerID: String,
         val modelID: String,

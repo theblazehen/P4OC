@@ -116,11 +116,7 @@ class ServerViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isConnecting = true, error = null) }
 
-            val url = state.remoteUrl.let {
-                if (!it.startsWith("http://") && !it.startsWith("https://")) {
-                    "http://$it"
-                } else it
-            }
+            val url = normalizeServerUrl(state.remoteUrl)
 
             settingsDataStore.setServerConfig(
                 url = url,
@@ -146,6 +142,27 @@ class ServerViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun normalizeServerUrl(input: String): String {
+        var url = input.trim()
+        
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "http://$url"
+        }
+        
+        val hasPort = url.substringAfter("://").contains(":")
+        if (!hasPort) {
+            val schemeEnd = url.indexOf("://") + 3
+            val pathStart = url.indexOf("/", schemeEnd)
+            url = if (pathStart == -1) {
+                "$url:4096"
+            } else {
+                "${url.substring(0, pathStart)}:4096${url.substring(pathStart)}"
+            }
+        }
+        
+        return url
     }
 }
 

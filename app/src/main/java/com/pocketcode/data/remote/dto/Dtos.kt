@@ -1,14 +1,19 @@
 package com.pocketcode.data.remote.dto
 
-import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class HealthResponse(
-    val status: String,
+    val healthy: Boolean,
     val version: String? = null
+)
+
+@Serializable
+data class TimeDto(
+    val created: Long,
+    val updated: Long? = null
 )
 
 @Serializable
@@ -18,11 +23,9 @@ data class SessionDto(
     @SerialName("projectID") val projectID: String,
     val directory: String,
     @SerialName("parentID") val parentID: String? = null,
-    val title: String,
+    val title: String? = null,
     val version: String,
-    @SerialName("createdAt") val createdAt: Instant,
-    @SerialName("updatedAt") val updatedAt: Instant,
-    @SerialName("archivedAt") val archivedAt: Instant? = null,
+    val time: TimeDto,
     val summary: SessionSummaryDto? = null,
     @SerialName("shareUrl") val shareUrl: String? = null
 )
@@ -59,20 +62,36 @@ data class ForkSessionRequest(
 )
 
 @Serializable
-data class MessageDto(
+data class MessageWrapperDto(
+    val info: MessageInfoDto,
+    val parts: List<PartDto>
+)
+
+@Serializable
+data class MessageInfoDto(
     val id: String,
     @SerialName("sessionID") val sessionID: String,
-    @SerialName("createdAt") val createdAt: Instant,
+    val time: MessageTimeDto,
     val role: String,
-    @SerialName("completedAt") val completedAt: Instant? = null,
     @SerialName("parentID") val parentID: String? = null,
-    @SerialName("providerID") val providerID: String? = null,
-    @SerialName("modelID") val modelID: String? = null,
+    val model: ModelRefDto? = null,
     val agent: String? = null,
     val cost: Double? = null,
     val tokens: TokenUsageDto? = null,
     val error: MessageErrorDto? = null,
-    val model: ModelRefDto? = null
+    val path: PathDto? = null
+)
+
+@Serializable
+data class MessageTimeDto(
+    val created: Long,
+    val completed: Long? = null
+)
+
+@Serializable
+data class PathDto(
+    val cwd: String? = null,
+    val root: String? = null
 )
 
 @Serializable
@@ -97,18 +116,14 @@ data class MessageErrorDto(
 )
 
 @Serializable
-data class MessageWithPartsDto(
-    val message: MessageDto,
-    val parts: List<PartDto>
-)
-
-@Serializable
 data class PartDto(
     val id: String,
     @SerialName("sessionID") val sessionID: String,
     @SerialName("messageID") val messageID: String,
     val type: String,
+    val time: PartTimeDto? = null,
     val text: String? = null,
+    val synthetic: Boolean? = null,
     @SerialName("callID") val callID: String? = null,
     @SerialName("toolName") val toolName: String? = null,
     val state: ToolStateDto? = null,
@@ -120,15 +135,20 @@ data class PartDto(
 )
 
 @Serializable
+data class PartTimeDto(
+    val start: Long? = null,
+    val end: Long? = null
+)
+
+@Serializable
 data class ToolStateDto(
     val status: String,
-    val input: JsonObject,
+    val input: JsonObject? = null,
     @SerialName("rawInput") val rawInput: String? = null,
     val title: String? = null,
     val output: String? = null,
     val error: String? = null,
-    @SerialName("startedAt") val startedAt: Instant? = null,
-    @SerialName("endedAt") val endedAt: Instant? = null,
+    val time: PartTimeDto? = null,
     val metadata: JsonObject? = null
 )
 
@@ -152,8 +172,8 @@ data class PermissionDto(
     @SerialName("sessionID") val sessionID: String,
     @SerialName("messageID") val messageID: String,
     val title: String,
-    val metadata: JsonObject,
-    @SerialName("createdAt") val createdAt: Instant
+    val metadata: JsonObject? = null,
+    val time: TimeDto? = null
 )
 
 @Serializable

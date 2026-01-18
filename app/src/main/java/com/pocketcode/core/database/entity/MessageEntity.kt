@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import kotlinx.datetime.Instant
 
 @Entity(
     tableName = "messages",
@@ -21,9 +20,9 @@ import kotlinx.datetime.Instant
 data class MessageEntity(
     @PrimaryKey val id: String,
     val sessionID: String,
-    val createdAt: Instant,
+    val createdAt: Long,
     val role: String,
-    val completedAt: Instant?,
+    val completedAt: Long?,
     val parentID: String?,
     val providerID: String?,
     val modelID: String?,

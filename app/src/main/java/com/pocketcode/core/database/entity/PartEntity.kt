@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import kotlinx.datetime.Instant
 
 @Entity(
     tableName = "parts",
@@ -32,8 +31,8 @@ data class PartEntity(
     val toolStateTitle: String?,
     val toolStateOutput: String?,
     val toolStateError: String?,
-    val toolStateStartedAt: Instant?,
-    val toolStateEndedAt: Instant?,
+    val toolStateStartedAt: Long?,
+    val toolStateEndedAt: Long?,
     val toolStateMetadata: String?,
     val mime: String?,
     val filename: String?,

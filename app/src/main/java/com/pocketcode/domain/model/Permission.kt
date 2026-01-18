@@ -1,6 +1,5 @@
 package com.pocketcode.domain.model
 
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
@@ -12,7 +11,7 @@ data class Permission(
     val messageID: String,
     val title: String,
     val metadata: JsonObject,
-    val createdAt: Instant
+    val createdAt: Long
 )
 
 enum class PermissionResponse(val value: String) {

@@ -3,6 +3,8 @@ package com.pocketcode.data.remote.mapper
 import com.pocketcode.data.remote.dto.*
 import com.pocketcode.domain.model.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,9 +19,8 @@ class SessionMapper @Inject constructor() {
         parentID = dto.parentID,
         title = dto.title,
         version = dto.version,
-        createdAt = dto.createdAt,
-        updatedAt = dto.updatedAt,
-        archivedAt = dto.archivedAt,
+        createdAt = dto.time.created,
+        updatedAt = dto.time.updated ?: dto.time.created,
         summary = dto.summary?.let { mapSummaryToDomain(it) },
         shareUrl = dto.shareUrl
     )
@@ -40,11 +41,11 @@ class SessionMapper @Inject constructor() {
 
 @Singleton
 class MessageMapper @Inject constructor() {
-    fun mapToDomain(dto: MessageDto): Message = when (dto.role) {
+    fun mapToDomain(dto: MessageInfoDto): Message = when (dto.role) {
         "user" -> Message.User(
             id = dto.id,
             sessionID = dto.sessionID,
-            createdAt = dto.createdAt,
+            createdAt = dto.time.created,
             agent = dto.agent ?: "",
             model = dto.model?.let { ModelRef(it.providerID, it.modelID) }
                 ?: ModelRef("", "")
@@ -52,17 +53,23 @@ class MessageMapper @Inject constructor() {
         else -> Message.Assistant(
             id = dto.id,
             sessionID = dto.sessionID,
-            createdAt = dto.createdAt,
-            completedAt = dto.completedAt,
+            createdAt = dto.time.created,
+            completedAt = dto.time.completed,
             parentID = dto.parentID ?: "",
-            providerID = dto.providerID ?: "",
-            modelID = dto.modelID ?: "",
+            providerID = dto.model?.providerID ?: "",
+            modelID = dto.model?.modelID ?: "",
             agent = dto.agent ?: "",
             cost = dto.cost ?: 0.0,
             tokens = dto.tokens?.let { mapTokensToDomain(it) } ?: TokenUsage(0, 0),
             error = dto.error?.let { MessageError(it.code, it.message) }
         )
     }
+
+    fun mapWrapperToDomain(dto: MessageWrapperDto, partMapper: PartMapper): MessageWithParts =
+        MessageWithParts(
+            message = mapToDomain(dto.info),
+            parts = dto.parts.map { partMapper.mapToDomain(it) }
+        )
 
     private fun mapTokensToDomain(dto: TokenUsageDto): TokenUsage = TokenUsage(
         input = dto.input,
@@ -96,7 +103,7 @@ class PartMapper @Inject constructor() {
             callID = dto.callID ?: "",
             toolName = dto.toolName ?: "",
             state = dto.state?.let { mapToolStateToDomain(it) }
-                ?: ToolState.Pending(kotlinx.serialization.json.buildJsonObject {}, "")
+                ?: ToolState.Pending(buildJsonObject {}, "")
         )
         "file" -> Part.File(
             id = dto.id,
@@ -122,31 +129,35 @@ class PartMapper @Inject constructor() {
         )
     }
 
-    private fun mapToolStateToDomain(dto: ToolStateDto): ToolState = when (dto.status) {
-        "pending" -> ToolState.Pending(
-            input = dto.input,
-            rawInput = dto.rawInput ?: ""
-        )
-        "running" -> ToolState.Running(
-            input = dto.input,
-            title = dto.title,
-            startedAt = dto.startedAt!!
-        )
-        "completed" -> ToolState.Completed(
-            input = dto.input,
-            output = dto.output ?: "",
-            title = dto.title ?: "",
-            startedAt = dto.startedAt!!,
-            endedAt = dto.endedAt!!,
-            metadata = dto.metadata
-        )
-        "error" -> ToolState.Error(
-            input = dto.input,
-            error = dto.error ?: "",
-            startedAt = dto.startedAt!!,
-            endedAt = dto.endedAt!!
-        )
-        else -> ToolState.Pending(dto.input, dto.rawInput ?: "")
+    private fun mapToolStateToDomain(dto: ToolStateDto): ToolState {
+        val input = dto.input ?: buildJsonObject {}
+        val time = dto.time
+        return when (dto.status) {
+            "pending" -> ToolState.Pending(
+                input = input,
+                rawInput = dto.rawInput ?: ""
+            )
+            "running" -> ToolState.Running(
+                input = input,
+                title = dto.title,
+                startedAt = time?.start ?: 0L
+            )
+            "completed" -> ToolState.Completed(
+                input = input,
+                output = dto.output ?: "",
+                title = dto.title ?: "",
+                startedAt = time?.start ?: 0L,
+                endedAt = time?.end ?: 0L,
+                metadata = dto.metadata
+            )
+            "error" -> ToolState.Error(
+                input = input,
+                error = dto.error ?: "",
+                startedAt = time?.start ?: 0L,
+                endedAt = time?.end ?: 0L
+            )
+            else -> ToolState.Pending(input, dto.rawInput ?: "")
+        }
     }
 }
 
@@ -157,48 +168,52 @@ class EventMapper @Inject constructor(
     private val messageMapper: MessageMapper,
     private val partMapper: PartMapper
 ) {
-    fun mapToEvent(dto: EventDataDto): OpenCodeEvent? = when (dto.type) {
-        "message.updated" -> {
-            val messageDto = json.decodeFromJsonElement<MessageDto>(dto.properties)
-            OpenCodeEvent.MessageUpdated(messageMapper.mapToDomain(messageDto))
-        }
-        "message.part.updated" -> {
-            val partDto = json.decodeFromJsonElement<PartUpdateDto>(dto.properties)
-            OpenCodeEvent.MessagePartUpdated(
-                part = partMapper.mapToDomain(partDto.part),
-                delta = partDto.delta
-            )
-        }
-        "session.created" -> {
-            val sessionDto = json.decodeFromJsonElement<SessionDto>(dto.properties)
-            OpenCodeEvent.SessionCreated(sessionMapper.mapToDomain(sessionDto))
-        }
-        "session.updated" -> {
-            val sessionDto = json.decodeFromJsonElement<SessionDto>(dto.properties)
-            OpenCodeEvent.SessionUpdated(sessionMapper.mapToDomain(sessionDto))
-        }
-        "session.status" -> {
-            val statusDto = json.decodeFromJsonElement<SessionStatusEventDto>(dto.properties)
-            OpenCodeEvent.SessionStatusChanged(
-                sessionID = statusDto.sessionID,
-                status = sessionMapper.mapStatusToDomain(statusDto.status)
-            )
-        }
-        "permission.updated" -> {
-            val permissionDto = json.decodeFromJsonElement<PermissionDto>(dto.properties)
-            OpenCodeEvent.PermissionRequested(
-                Permission(
-                    id = permissionDto.id,
-                    type = permissionDto.type,
-                    sessionID = permissionDto.sessionID,
-                    messageID = permissionDto.messageID,
-                    title = permissionDto.title,
-                    metadata = permissionDto.metadata,
-                    createdAt = permissionDto.createdAt
+    fun mapToEvent(dto: EventDataDto): OpenCodeEvent? = try {
+        when (dto.type) {
+            "message.updated" -> {
+                val wrapper = json.decodeFromJsonElement<MessageWrapperDto>(dto.properties)
+                OpenCodeEvent.MessageUpdated(messageMapper.mapToDomain(wrapper.info))
+            }
+            "message.part.updated" -> {
+                val partDto = json.decodeFromJsonElement<PartUpdateDto>(dto.properties)
+                OpenCodeEvent.MessagePartUpdated(
+                    part = partMapper.mapToDomain(partDto.part),
+                    delta = partDto.delta
                 )
-            )
+            }
+            "session.created" -> {
+                val sessionDto = json.decodeFromJsonElement<SessionDto>(dto.properties)
+                OpenCodeEvent.SessionCreated(sessionMapper.mapToDomain(sessionDto))
+            }
+            "session.updated" -> {
+                val sessionDto = json.decodeFromJsonElement<SessionDto>(dto.properties)
+                OpenCodeEvent.SessionUpdated(sessionMapper.mapToDomain(sessionDto))
+            }
+            "session.status" -> {
+                val statusDto = json.decodeFromJsonElement<SessionStatusEventDto>(dto.properties)
+                OpenCodeEvent.SessionStatusChanged(
+                    sessionID = statusDto.sessionID,
+                    status = sessionMapper.mapStatusToDomain(statusDto.status)
+                )
+            }
+            "permission.updated" -> {
+                val permissionDto = json.decodeFromJsonElement<PermissionDto>(dto.properties)
+                OpenCodeEvent.PermissionRequested(
+                    Permission(
+                        id = permissionDto.id,
+                        type = permissionDto.type,
+                        sessionID = permissionDto.sessionID,
+                        messageID = permissionDto.messageID,
+                        title = permissionDto.title,
+                        metadata = permissionDto.metadata ?: buildJsonObject {},
+                        createdAt = permissionDto.time?.created ?: 0L
+                    )
+                )
+            }
+            else -> null
         }
-        else -> null
+    } catch (e: Exception) {
+        null
     }
 }
 

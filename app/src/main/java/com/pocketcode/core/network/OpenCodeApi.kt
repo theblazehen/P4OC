@@ -42,13 +42,13 @@ interface OpenCodeApi {
     suspend fun getMessages(
         @Path("sessionId") sessionId: String,
         @Query("limit") limit: Int? = null
-    ): List<MessageWithPartsDto>
+    ): List<MessageWrapperDto>
 
     @POST("session/{sessionId}/message")
     suspend fun sendMessage(
         @Path("sessionId") sessionId: String,
         @Body request: SendMessageRequest
-    ): MessageWithPartsDto
+    ): MessageWrapperDto
 
     @POST("session/{sessionId}/prompt_async")
     suspend fun sendMessageAsync(

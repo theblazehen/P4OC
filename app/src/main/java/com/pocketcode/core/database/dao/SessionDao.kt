@@ -9,7 +9,7 @@ interface SessionDao {
     @Query("SELECT * FROM sessions ORDER BY updatedAt DESC")
     fun getAllSessions(): Flow<List<SessionEntity>>
 
-    @Query("SELECT * FROM sessions WHERE archivedAt IS NULL ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM sessions ORDER BY updatedAt DESC")
     fun getActiveSessions(): Flow<List<SessionEntity>>
 
     @Query("SELECT * FROM sessions WHERE id = :id")
