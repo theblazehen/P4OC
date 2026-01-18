@@ -8,10 +8,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.pocketcode.domain.model.*
+import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
 fun ChatMessage(
@@ -88,6 +88,8 @@ private fun AssistantMessage(
 
 @Composable
 private fun TextPart(part: Part.Text) {
+    val syntaxHighlightBg = MaterialTheme.colorScheme.surfaceContainerHighest
+    
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
@@ -96,9 +98,14 @@ private fun TextPart(part: Part.Text) {
             modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = part.text,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            MarkdownText(
+                markdown = part.text,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                syntaxHighlightColor = syntaxHighlightBg,
+                linkColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f, fill = false)
             )
             if (part.isStreaming) {
                 CircularProgressIndicator(
