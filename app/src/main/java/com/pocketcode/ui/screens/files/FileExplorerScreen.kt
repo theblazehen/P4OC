@@ -107,14 +107,6 @@ private fun FileItem(
         trailingContent = {
             if (file.isDirectory) {
                 Icon(Icons.Default.ChevronRight, contentDescription = null)
-            } else {
-                file.size?.let { size ->
-                    Text(
-                        text = formatFileSize(size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         },
         modifier = Modifier.clickable(onClick = onClick)

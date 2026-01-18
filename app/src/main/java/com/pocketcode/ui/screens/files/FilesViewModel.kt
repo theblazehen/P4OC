@@ -54,8 +54,9 @@ class FilesViewModel @Inject constructor(
                         FileNode(
                             name = dto.name,
                             path = dto.path,
-                            isDirectory = dto.isDirectory,
-                            size = dto.size
+                            absolute = dto.absolute,
+                            type = dto.type,
+                            ignored = dto.ignored
                         )
                     }.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
 

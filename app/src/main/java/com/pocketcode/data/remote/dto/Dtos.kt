@@ -13,35 +13,60 @@ data class HealthResponse(
 @Serializable
 data class TimeDto(
     val created: Long,
-    val updated: Long? = null
+    val updated: Long? = null,
+    val compacting: Long? = null
 )
 
 @Serializable
 data class SessionDto(
     val id: String,
-    val slug: String,
     @SerialName("projectID") val projectID: String,
     val directory: String,
     @SerialName("parentID") val parentID: String? = null,
-    val title: String? = null,
+    val title: String,
     val version: String,
     val time: TimeDto,
     val summary: SessionSummaryDto? = null,
-    @SerialName("shareUrl") val shareUrl: String? = null
+    val share: SessionShareDto? = null,
+    val revert: SessionRevertDto? = null
 )
 
 @Serializable
 data class SessionSummaryDto(
     val additions: Int,
     val deletions: Int,
-    val files: Int
+    val files: Int,
+    val diffs: List<FileDiffDto>? = null
+)
+
+@Serializable
+data class FileDiffDto(
+    val file: String,
+    val before: String,
+    val after: String,
+    val additions: Int,
+    val deletions: Int
+)
+
+@Serializable
+data class SessionShareDto(
+    val url: String
+)
+
+@Serializable
+data class SessionRevertDto(
+    @SerialName("messageID") val messageID: String,
+    @SerialName("partID") val partID: String? = null,
+    val snapshot: String? = null,
+    val diff: String? = null
 )
 
 @Serializable
 data class SessionStatusDto(
-    val status: String,
+    val type: String,
     val attempt: Int? = null,
-    val message: String? = null
+    val message: String? = null,
+    val next: Long? = null
 )
 
 @Serializable
@@ -79,7 +104,10 @@ data class MessageInfoDto(
     val cost: Double? = null,
     val tokens: TokenUsageDto? = null,
     val error: MessageErrorDto? = null,
-    val path: PathDto? = null
+    val path: PathDto? = null,
+    val summary: Boolean? = null,
+    val finish: String? = null,
+    val mode: String? = null
 )
 
 @Serializable
@@ -105,14 +133,19 @@ data class TokenUsageDto(
     val input: Int = 0,
     val output: Int = 0,
     val reasoning: Int = 0,
-    @SerialName("cacheRead") val cacheRead: Int = 0,
-    @SerialName("cacheWrite") val cacheWrite: Int = 0
+    val cache: TokenCacheDto? = null
+)
+
+@Serializable
+data class TokenCacheDto(
+    val read: Int = 0,
+    val write: Int = 0
 )
 
 @Serializable
 data class MessageErrorDto(
-    val code: String,
-    val message: String
+    val name: String,
+    val data: JsonObject? = null
 )
 
 @Serializable
@@ -124,14 +157,16 @@ data class PartDto(
     val time: PartTimeDto? = null,
     val text: String? = null,
     val synthetic: Boolean? = null,
+    val ignored: Boolean? = null,
     @SerialName("callID") val callID: String? = null,
-    @SerialName("toolName") val toolName: String? = null,
+    @SerialName("tool") val toolName: String? = null,
     val state: ToolStateDto? = null,
     val mime: String? = null,
     val filename: String? = null,
     val url: String? = null,
     val hash: String? = null,
-    val files: List<String>? = null
+    val files: List<String>? = null,
+    val metadata: JsonObject? = null
 )
 
 @Serializable
@@ -144,7 +179,7 @@ data class PartTimeDto(
 data class ToolStateDto(
     val status: String,
     val input: JsonObject? = null,
-    @SerialName("rawInput") val rawInput: String? = null,
+    val raw: String? = null,
     val title: String? = null,
     val output: String? = null,
     val error: String? = null,
@@ -186,24 +221,26 @@ data class PermissionResponseRequest(
 data class FileNodeDto(
     val name: String,
     val path: String,
-    @SerialName("isDirectory") val isDirectory: Boolean,
-    val size: Long? = null,
-    val children: List<FileNodeDto>? = null
+    val absolute: String,
+    val type: String,
+    val ignored: Boolean = false
 )
 
 @Serializable
 data class FileContentDto(
-    val path: String,
+    val type: String,
     val content: String,
-    @SerialName("mimeType") val mimeType: String? = null,
-    val size: Long? = null
+    val diff: String? = null,
+    val encoding: String? = null,
+    val mimeType: String? = null
 )
 
 @Serializable
 data class FileStatusDto(
     val path: String,
     val status: String,
-    val staged: Boolean = false
+    val added: Int = 0,
+    val removed: Int = 0
 )
 
 @Serializable
@@ -272,4 +309,12 @@ data class AgentDto(
 data class EventDataDto(
     val type: String,
     val properties: JsonObject
+)
+
+@Serializable
+data class TodoDto(
+    val id: String,
+    val content: String,
+    val status: String,
+    val priority: String
 )

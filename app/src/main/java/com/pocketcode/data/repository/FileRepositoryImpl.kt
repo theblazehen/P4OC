@@ -27,10 +27,10 @@ class FileRepositoryImpl @Inject constructor(
         return safeApiCall {
             val dto = api.readFile(path)
             FileContent(
-                path = dto.path,
+                type = dto.type,
                 content = dto.content,
-                mimeType = dto.mimeType,
-                size = dto.size
+                diff = dto.diff,
+                mimeType = dto.mimeType
             )
         }
     }
@@ -42,7 +42,8 @@ class FileRepositoryImpl @Inject constructor(
                 FileStatus(
                     path = dto.path,
                     status = dto.status,
-                    staged = dto.staged
+                    added = dto.added,
+                    removed = dto.removed
                 )
             }
         }
@@ -72,8 +73,8 @@ class FileRepositoryImpl @Inject constructor(
     private fun com.pocketcode.data.remote.dto.FileNodeDto.toDomain(): FileNode = FileNode(
         name = name,
         path = path,
-        isDirectory = isDirectory,
-        size = size,
-        children = children?.map { it.toDomain() }
+        absolute = absolute,
+        type = type,
+        ignored = ignored
     )
 }

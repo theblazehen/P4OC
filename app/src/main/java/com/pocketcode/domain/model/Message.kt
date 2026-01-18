@@ -50,8 +50,8 @@ data class TokenUsage(
 
 @Serializable
 data class MessageError(
-    val code: String,
-    val message: String
+    val name: String,
+    val data: String? = null
 )
 
 data class MessageWithParts(

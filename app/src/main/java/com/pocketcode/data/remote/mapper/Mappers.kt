@@ -13,7 +13,6 @@ import javax.inject.Singleton
 class SessionMapper @Inject constructor() {
     fun mapToDomain(dto: SessionDto): Session = Session(
         id = dto.id,
-        slug = dto.slug,
         projectID = dto.projectID,
         directory = dto.directory,
         parentID = dto.parentID,
@@ -22,7 +21,7 @@ class SessionMapper @Inject constructor() {
         createdAt = dto.time.created,
         updatedAt = dto.time.updated ?: dto.time.created,
         summary = dto.summary?.let { mapSummaryToDomain(it) },
-        shareUrl = dto.shareUrl
+        shareUrl = dto.share?.url
     )
 
     private fun mapSummaryToDomain(dto: SessionSummaryDto): SessionSummary = SessionSummary(
@@ -31,7 +30,7 @@ class SessionMapper @Inject constructor() {
         files = dto.files
     )
 
-    fun mapStatusToDomain(dto: SessionStatusDto): SessionStatus = when (dto.status) {
+    fun mapStatusToDomain(dto: SessionStatusDto): SessionStatus = when (dto.type) {
         "idle" -> SessionStatus.Idle
         "busy" -> SessionStatus.Busy
         "retry" -> SessionStatus.Retry(dto.attempt ?: 0, dto.message ?: "")
@@ -61,7 +60,7 @@ class MessageMapper @Inject constructor() {
             agent = dto.agent ?: "",
             cost = dto.cost ?: 0.0,
             tokens = dto.tokens?.let { mapTokensToDomain(it) } ?: TokenUsage(0, 0),
-            error = dto.error?.let { MessageError(it.code, it.message) }
+            error = dto.error?.let { MessageError(it.name, it.data?.toString()) }
         )
     }
 
@@ -75,8 +74,8 @@ class MessageMapper @Inject constructor() {
         input = dto.input,
         output = dto.output,
         reasoning = dto.reasoning,
-        cacheRead = dto.cacheRead,
-        cacheWrite = dto.cacheWrite
+        cacheRead = dto.cache?.read ?: 0,
+        cacheWrite = dto.cache?.write ?: 0
     )
 }
 
@@ -135,7 +134,7 @@ class PartMapper @Inject constructor() {
         return when (dto.status) {
             "pending" -> ToolState.Pending(
                 input = input,
-                rawInput = dto.rawInput ?: ""
+                rawInput = dto.raw ?: ""
             )
             "running" -> ToolState.Running(
                 input = input,
@@ -156,7 +155,7 @@ class PartMapper @Inject constructor() {
                 startedAt = time?.start ?: 0L,
                 endedAt = time?.end ?: 0L
             )
-            else -> ToolState.Pending(input, dto.rawInput ?: "")
+            else -> ToolState.Pending(input, dto.raw ?: "")
         }
     }
 }
@@ -171,7 +170,7 @@ class EventMapper @Inject constructor(
     fun mapToEvent(dto: EventDataDto): OpenCodeEvent? = try {
         when (dto.type) {
             "message.updated" -> {
-                val wrapper = json.decodeFromJsonElement<MessageWrapperDto>(dto.properties)
+                val wrapper = json.decodeFromJsonElement<MessageEventDto>(dto.properties)
                 OpenCodeEvent.MessageUpdated(messageMapper.mapToDomain(wrapper.info))
             }
             "message.part.updated" -> {
@@ -182,12 +181,12 @@ class EventMapper @Inject constructor(
                 )
             }
             "session.created" -> {
-                val sessionDto = json.decodeFromJsonElement<SessionDto>(dto.properties)
-                OpenCodeEvent.SessionCreated(sessionMapper.mapToDomain(sessionDto))
+                val wrapper = json.decodeFromJsonElement<SessionEventDto>(dto.properties)
+                OpenCodeEvent.SessionCreated(sessionMapper.mapToDomain(wrapper.info))
             }
             "session.updated" -> {
-                val sessionDto = json.decodeFromJsonElement<SessionDto>(dto.properties)
-                OpenCodeEvent.SessionUpdated(sessionMapper.mapToDomain(sessionDto))
+                val wrapper = json.decodeFromJsonElement<SessionEventDto>(dto.properties)
+                OpenCodeEvent.SessionUpdated(sessionMapper.mapToDomain(wrapper.info))
             }
             "session.status" -> {
                 val statusDto = json.decodeFromJsonElement<SessionStatusEventDto>(dto.properties)
@@ -227,4 +226,14 @@ private data class PartUpdateDto(
 private data class SessionStatusEventDto(
     val sessionID: String,
     val status: SessionStatusDto
+)
+
+@kotlinx.serialization.Serializable
+private data class SessionEventDto(
+    val info: SessionDto
+)
+
+@kotlinx.serialization.Serializable
+private data class MessageEventDto(
+    val info: MessageInfoDto
 )

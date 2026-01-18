@@ -5,11 +5,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Session(
     val id: String,
-    val slug: String,
     val projectID: String,
     val directory: String,
     val parentID: String? = null,
-    val title: String?,
+    val title: String,
     val version: String,
     val createdAt: Long,
     val updatedAt: Long,

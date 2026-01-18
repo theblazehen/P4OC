@@ -18,7 +18,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
-import kotlinx.datetime.Instant
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -38,40 +37,35 @@ class ChatViewModelTest {
     private lateinit var partMapper: PartMapper
 
     private val testDispatcher = StandardTestDispatcher()
-    private val testInstant = Instant.parse("2026-01-18T12:00:00Z")
+    private val testTimeMillis = 1737194400000L
 
     private val eventsFlow = MutableSharedFlow<OpenCodeEvent>()
     private val connectionStateFlow = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
 
     private val testSessionDto = SessionDto(
         id = "session-1",
-        slug = "test-session",
         projectID = "project-1",
         directory = "/test/dir",
         parentID = null,
         title = "Test Session",
         version = "1.0",
-        createdAt = testInstant,
-        updatedAt = testInstant,
-        archivedAt = null,
+        time = TimeDto(created = testTimeMillis, updated = testTimeMillis),
         summary = null,
-        shareUrl = null
+        share = null
     )
 
-    private val testMessageDto = MessageDto(
+    private val testMessageInfoDto = MessageInfoDto(
         id = "msg-1",
         sessionID = "session-1",
-        createdAt = testInstant,
+        time = MessageTimeDto(created = testTimeMillis),
         role = "user",
-        completedAt = null,
         parentID = null,
-        providerID = null,
-        modelID = null,
+        model = null,
         agent = "default",
         cost = null,
         tokens = null,
         error = null,
-        model = null
+        path = null
     )
 
     private val testPartDto = PartDto(
@@ -79,6 +73,7 @@ class ChatViewModelTest {
         sessionID = "session-1",
         messageID = "msg-1",
         type = "text",
+        time = null,
         text = "Hello world",
         callID = null,
         toolName = null,
@@ -88,6 +83,11 @@ class ChatViewModelTest {
         url = null,
         hash = null,
         files = null
+    )
+
+    private val testMessageWrapperDto = MessageWrapperDto(
+        info = testMessageInfoDto,
+        parts = listOf(testPartDto)
     )
 
     @Before
@@ -148,7 +148,7 @@ class ChatViewModelTest {
 
     @Test
     fun `loadMessages populates messages list`() = runTest {
-        val messagesWithParts = listOf(MessageWithPartsDto(testMessageDto, listOf(testPartDto)))
+        val messagesWithParts = listOf(testMessageWrapperDto)
         coEvery { api.getSession("session-1") } returns testSessionDto
         coEvery { api.getMessages("session-1", null) } returns messagesWithParts
 

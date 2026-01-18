@@ -5,8 +5,9 @@ import com.pocketcode.core.database.entity.MessageEntity
 import com.pocketcode.core.database.entity.PartEntity
 import com.pocketcode.core.network.ApiResult
 import com.pocketcode.core.network.OpenCodeApi
-import com.pocketcode.data.remote.dto.MessageDto
-import com.pocketcode.data.remote.dto.MessageWithPartsDto
+import com.pocketcode.data.remote.dto.MessageInfoDto
+import com.pocketcode.data.remote.dto.MessageTimeDto
+import com.pocketcode.data.remote.dto.MessageWrapperDto
 import com.pocketcode.data.remote.dto.PartDto
 import com.pocketcode.data.remote.mapper.MessageMapper
 import com.pocketcode.data.remote.mapper.PartMapper
@@ -15,7 +16,6 @@ import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Before
@@ -34,12 +34,12 @@ class MessageRepositoryImplTest {
     private lateinit var json: Json
     private lateinit var repository: MessageRepositoryImpl
 
-    private val testInstant = Instant.parse("2026-01-18T12:00:00Z")
+    private val testTimeMillis = 1737194400000L
 
     private val testMessageEntity = MessageEntity(
         id = "msg-1",
         sessionID = "session-1",
-        createdAt = testInstant,
+        createdAt = testTimeMillis,
         role = "user",
         completedAt = null,
         parentID = null,
@@ -80,20 +80,18 @@ class MessageRepositoryImplTest {
         files = null
     )
 
-    private val testMessageDto = MessageDto(
+    private val testMessageInfoDto = MessageInfoDto(
         id = "msg-1",
         sessionID = "session-1",
-        createdAt = testInstant,
+        time = MessageTimeDto(created = testTimeMillis),
         role = "user",
-        completedAt = null,
         parentID = null,
-        providerID = null,
-        modelID = null,
+        model = null,
         agent = "default",
         cost = null,
         tokens = null,
         error = null,
-        model = null
+        path = null
     )
 
     private val testPartDto = PartDto(
@@ -101,6 +99,7 @@ class MessageRepositoryImplTest {
         sessionID = "session-1",
         messageID = "msg-1",
         type = "text",
+        time = null,
         text = "Hello world",
         callID = null,
         toolName = null,
@@ -110,6 +109,11 @@ class MessageRepositoryImplTest {
         url = null,
         hash = null,
         files = null
+    )
+
+    private val testMessageWrapperDto = MessageWrapperDto(
+        info = testMessageInfoDto,
+        parts = listOf(testPartDto)
     )
 
     @Before
@@ -146,7 +150,7 @@ class MessageRepositoryImplTest {
 
     @Test
     fun `fetchMessages fetches from API and caches to database`() = runTest {
-        val dtos = listOf(MessageWithPartsDto(message = testMessageDto, parts = listOf(testPartDto)))
+        val dtos = listOf(testMessageWrapperDto)
         coEvery { api.getMessages("session-1", null) } returns dtos
         coEvery { messageDao.insertMessageWithParts(any(), any()) } just Runs
 

@@ -107,7 +107,6 @@ class SessionRepositoryImpl @Inject constructor(
 
     private fun SessionEntity.toDomain(): Session = Session(
         id = id,
-        slug = slug,
         projectID = projectID,
         directory = directory,
         parentID = parentID,
@@ -123,7 +122,6 @@ class SessionRepositoryImpl @Inject constructor(
 
     private fun Session.toEntity(): SessionEntity = SessionEntity(
         id = id,
-        slug = slug,
         projectID = projectID,
         directory = directory,
         parentID = parentID,

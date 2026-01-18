@@ -4,17 +4,14 @@ import com.pocketcode.core.database.dao.SessionDao
 import com.pocketcode.core.database.entity.SessionEntity
 import com.pocketcode.core.network.ApiResult
 import com.pocketcode.core.network.OpenCodeApi
-import com.pocketcode.data.remote.dto.CreateSessionRequest
 import com.pocketcode.data.remote.dto.SessionDto
-import com.pocketcode.data.remote.dto.UpdateSessionRequest
+import com.pocketcode.data.remote.dto.TimeDto
 import com.pocketcode.data.remote.mapper.SessionMapper
-import com.pocketcode.domain.model.Session
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -30,34 +27,29 @@ class SessionRepositoryImplTest {
     private lateinit var sessionMapper: SessionMapper
     private lateinit var repository: SessionRepositoryImpl
 
-    private val testInstant = Instant.parse("2026-01-18T12:00:00Z")
+    private val testTimeMillis = 1737194400000L
 
     private val testSessionDto = SessionDto(
         id = "session-1",
-        slug = "test-session",
         projectID = "project-1",
         directory = "/test/dir",
         parentID = null,
         title = "Test Session",
         version = "1.0",
-        createdAt = testInstant,
-        updatedAt = testInstant,
-        archivedAt = null,
+        time = TimeDto(created = testTimeMillis, updated = testTimeMillis),
         summary = null,
-        shareUrl = null
+        share = null
     )
 
     private val testSessionEntity = SessionEntity(
         id = "session-1",
-        slug = "test-session",
         projectID = "project-1",
         directory = "/test/dir",
         parentID = null,
         title = "Test Session",
         version = "1.0",
-        createdAt = testInstant,
-        updatedAt = testInstant,
-        archivedAt = null,
+        createdAt = testTimeMillis,
+        updatedAt = testTimeMillis,
         summaryAdditions = null,
         summaryDeletions = null,
         summaryFiles = null,

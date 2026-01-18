@@ -163,8 +163,8 @@ class MessageRepositoryImpl @Inject constructor(
             tokensReasoning = tokens.reasoning,
             tokensCacheRead = tokens.cacheRead,
             tokensCacheWrite = tokens.cacheWrite,
-            errorCode = error?.code,
-            errorMessage = error?.message
+            errorCode = error?.name,
+            errorMessage = error?.data
         )
     }
 
