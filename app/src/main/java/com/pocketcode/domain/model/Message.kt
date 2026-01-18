@@ -14,7 +14,10 @@ sealed class Message {
         override val sessionID: String,
         override val createdAt: Long,
         val agent: String,
-        val model: ModelRef
+        val model: ModelRef,
+        val summary: MessageSummary? = null,
+        val system: String? = null,
+        val tools: Map<String, Boolean>? = null
     ) : Message()
 
     @Serializable
@@ -26,10 +29,14 @@ sealed class Message {
         val parentID: String,
         val providerID: String,
         val modelID: String,
+        val mode: String,
         val agent: String,
         val cost: Double,
         val tokens: TokenUsage,
-        val error: MessageError? = null
+        val path: MessagePath? = null,
+        val error: MessageError? = null,
+        val finish: String? = null,
+        val summary: Boolean? = null
     ) : Message()
 }
 
@@ -51,10 +58,34 @@ data class TokenUsage(
 @Serializable
 data class MessageError(
     val name: String,
-    val data: String? = null
+    val message: String? = null,
+    val statusCode: Int? = null,
+    val isRetryable: Boolean = false
+)
+
+@Serializable
+data class ApiError(
+    val message: String,
+    val statusCode: Int? = null,
+    val isRetryable: Boolean = false,
+    val responseHeaders: Map<String, String>? = null,
+    val responseBody: String? = null
 )
 
 data class MessageWithParts(
     val message: Message,
     val parts: List<Part>
+)
+
+@Serializable
+data class MessageSummary(
+    val title: String? = null,
+    val body: String? = null,
+    val diffs: List<FileDiff> = emptyList()
+)
+
+@Serializable
+data class MessagePath(
+    val cwd: String,
+    val root: String
 )

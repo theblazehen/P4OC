@@ -7,6 +7,7 @@ import com.pocketcode.domain.model.FileContent
 import com.pocketcode.domain.model.FileNode
 import com.pocketcode.domain.model.FileStatus
 import com.pocketcode.domain.model.SearchResult
+import com.pocketcode.domain.model.Submatch
 import com.pocketcode.domain.repository.FileRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,11 +55,11 @@ class FileRepositoryImpl @Inject constructor(
             val dtos = api.searchText(pattern)
             dtos.map { dto ->
                 SearchResult(
-                    file = dto.file,
-                    line = dto.line,
-                    column = dto.column,
-                    match = dto.match,
-                    context = dto.context
+                    path = dto.path,
+                    lineNumber = dto.lineNumber,
+                    lines = dto.lines,
+                    absoluteOffset = dto.absoluteOffset,
+                    submatches = dto.submatches?.map { Submatch(it.match, it.start, it.end) }
                 )
             }
         }

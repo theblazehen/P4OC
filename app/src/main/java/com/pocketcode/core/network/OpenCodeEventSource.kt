@@ -12,9 +12,8 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import okhttp3.sse.EventSource
-import okhttp3.sse.EventSourceListener
-import okhttp3.sse.EventSources
+import okio.BufferedSource
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,8 +29,6 @@ class OpenCodeEventSource @Inject constructor(
         private const val RECONNECT_DELAY_MS = 3000L
     }
 
-    private var eventSource: EventSource? = null
-
     private val _events = MutableSharedFlow<OpenCodeEvent>(
         replay = 0,
         extraBufferCapacity = 64,
@@ -42,13 +39,15 @@ class OpenCodeEventSource @Inject constructor(
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
-    private var reconnectJob: Job? = null
+    private var sseJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun connect() {
+        Log.d(TAG, "connect() called, state=${_connectionState.value}, jobActive=${sseJob?.isActive}")
         if (_connectionState.value is ConnectionState.Connected) return
+        if (sseJob?.isActive == true) return
 
-        scope.launch {
+        sseJob = scope.launch {
             val baseUrl = settingsDataStore.serverUrl.first()
 
             _connectionState.value = ConnectionState.Connecting
@@ -56,50 +55,69 @@ class OpenCodeEventSource @Inject constructor(
             val request = Request.Builder()
                 .url("$baseUrl/event")
                 .header("Accept", "text/event-stream")
+                .header("Cache-Control", "no-cache")
                 .build()
 
-            eventSource = EventSources.createFactory(okHttpClient)
-                .newEventSource(request, object : EventSourceListener() {
+            try {
+                val response = okHttpClient.newCall(request).execute()
+                
+                if (!response.isSuccessful) {
+                    throw IOException("Unexpected response: ${response.code}")
+                }
 
-                    override fun onOpen(eventSource: EventSource, response: Response) {
-                        Log.d(TAG, "SSE connected")
-                        _connectionState.value = ConnectionState.Connected
-                        _events.tryEmit(OpenCodeEvent.Connected)
-                    }
+                Log.d(TAG, "SSE connected")
+                _connectionState.value = ConnectionState.Connected
+                _events.tryEmit(OpenCodeEvent.Connected)
 
-                    override fun onEvent(
-                        eventSource: EventSource,
-                        id: String?,
-                        type: String?,
-                        data: String
-                    ) {
-                        parseAndEmitEvent(data)
-                    }
+                response.body?.source()?.let { source ->
+                    readSseStream(source)
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.e(TAG, "SSE error", e)
+                _connectionState.value = ConnectionState.Error(e.message)
+                _events.tryEmit(OpenCodeEvent.Error(e))
+                scheduleReconnect()
+            }
+        }
+    }
 
-                    override fun onClosed(eventSource: EventSource) {
-                        Log.d(TAG, "SSE closed")
-                        _connectionState.value = ConnectionState.Disconnected
-                        _events.tryEmit(OpenCodeEvent.Disconnected(null))
+    private suspend fun readSseStream(source: BufferedSource) {
+        var eventData = StringBuilder()
+        
+        try {
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                
+                when {
+                    line.startsWith("data:") -> {
+                        val data = line.removePrefix("data:").trim()
+                        eventData.append(data)
                     }
-
-                    override fun onFailure(
-                        eventSource: EventSource,
-                        t: Throwable?,
-                        response: Response?
-                    ) {
-                        Log.e(TAG, "SSE error", t)
-                        _connectionState.value = ConnectionState.Error(t?.message)
-                        _events.tryEmit(OpenCodeEvent.Error(t ?: Exception("SSE error")))
-                        scheduleReconnect()
+                    line.isEmpty() && eventData.isNotEmpty() -> {
+                        parseAndEmitEvent(eventData.toString())
+                        eventData = StringBuilder()
                     }
-                })
+                    line.startsWith(":") -> {
+                        // Comment/heartbeat, ignore
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Error reading SSE stream", e)
+        } finally {
+            Log.d(TAG, "SSE stream ended")
+            _connectionState.value = ConnectionState.Disconnected
+            _events.tryEmit(OpenCodeEvent.Disconnected(null))
+            scheduleReconnect()
         }
     }
 
     fun disconnect() {
-        reconnectJob?.cancel()
-        eventSource?.cancel()
-        eventSource = null
+        Log.d(TAG, "disconnect() called")
+        sseJob?.cancel()
+        sseJob = null
         _connectionState.value = ConnectionState.Disconnected
     }
 
@@ -114,10 +132,11 @@ class OpenCodeEventSource @Inject constructor(
     }
 
     private fun scheduleReconnect() {
-        reconnectJob?.cancel()
-        reconnectJob = scope.launch {
+        scope.launch {
             delay(RECONNECT_DELAY_MS)
-            connect()
+            if (_connectionState.value !is ConnectionState.Connected) {
+                connect()
+            }
         }
     }
 }

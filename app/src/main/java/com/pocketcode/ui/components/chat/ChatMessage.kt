@@ -74,6 +74,14 @@ private fun AssistantMessage(
                 is Part.Tool -> ToolPart(part, onToolApprove, onToolDeny)
                 is Part.File -> FilePart(part)
                 is Part.Patch -> PatchPart(part)
+                // New part types - render as minimal UI or skip
+                is Part.StepStart -> {} // No UI for step markers
+                is Part.StepFinish -> {} // No UI for step markers
+                is Part.Snapshot -> {} // No UI for snapshots
+                is Part.Agent -> {} // Could show agent switch indicator
+                is Part.Retry -> {} // Could show retry indicator
+                is Part.Compaction -> {} // No UI for compaction
+                is Part.Subtask -> {} // Could show subtask info
             }
         }
 

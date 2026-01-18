@@ -91,6 +91,22 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @Named("sse")
+    fun provideSseOkHttpClient(
+        @Named("auth") authInterceptor: Interceptor
+    ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(authInterceptor)
+        // No body logging for SSE - it blocks forever trying to read the stream
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.HEADERS
+        })
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.SECONDS) // No timeout for SSE
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    @Provides
+    @Singleton
     fun provideRetrofit(
         okHttpClient: OkHttpClient,
         json: Json,
@@ -114,12 +130,12 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOpenCodeEventSource(
-        okHttpClient: OkHttpClient,
+        @Named("sse") sseClient: OkHttpClient,
         json: Json,
         settingsDataStore: SettingsDataStore,
         eventMapper: EventMapper
     ): OpenCodeEventSource = OpenCodeEventSource(
-        okHttpClient = okHttpClient,
+        okHttpClient = sseClient,
         json = json,
         settingsDataStore = settingsDataStore,
         eventMapper = eventMapper

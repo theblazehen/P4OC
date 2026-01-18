@@ -1,5 +1,6 @@
 package com.pocketcode.ui.screens.chat
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import com.pocketcode.core.network.OpenCodeEventSource
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.PartInputDto
 import com.pocketcode.data.remote.dto.PermissionResponseRequest
+import com.pocketcode.data.remote.dto.QuestionReplyRequest
 import com.pocketcode.data.remote.dto.SendMessageRequest
 import com.pocketcode.data.remote.mapper.MessageMapper
 import com.pocketcode.data.remote.mapper.PartMapper
@@ -66,18 +68,23 @@ class ChatViewModel @Inject constructor(
     private fun loadMessages() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            Log.d("ChatViewModel", "loadMessages() called for session: $sessionId")
 
             val result = safeApiCall { api.getMessages(sessionId) }
 
             when (result) {
                 is ApiResult.Success -> {
+                    Log.d("ChatViewModel", "API returned ${result.data.size} message wrappers")
                     val messageList = result.data.map { dto ->
+                        Log.d("ChatViewModel", "Mapping message: ${dto.info.id}, role=${dto.info.role}, parts=${dto.parts.size}")
                         messageMapper.mapWrapperToDomain(dto, partMapper)
                     }
+                    Log.d("ChatViewModel", "Mapped to ${messageList.size} MessageWithParts")
                     _messages.value = messageList
                     _uiState.update { it.copy(isLoading = false) }
                 }
                 is ApiResult.Error -> {
+                    Log.e("ChatViewModel", "Failed to load messages: ${result.message}", result.throwable)
                     _uiState.update { 
                         it.copy(isLoading = false, error = "Failed to load messages") 
                     }
@@ -109,6 +116,11 @@ class ChatViewModel @Inject constructor(
             is OpenCodeEvent.PermissionRequested -> {
                 if (event.permission.sessionID == sessionId) {
                     _uiState.update { it.copy(pendingPermission = event.permission) }
+                }
+            }
+            is OpenCodeEvent.QuestionAsked -> {
+                if (event.request.sessionID == sessionId) {
+                    _uiState.update { it.copy(pendingQuestion = event.request) }
                 }
             }
             is OpenCodeEvent.SessionStatusChanged -> {
@@ -206,6 +218,18 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun respondToQuestion(questionId: String, answers: List<List<String>>) {
+        viewModelScope.launch {
+            val request = QuestionReplyRequest(answers = answers)
+            safeApiCall { api.respondToQuestion(sessionId, questionId, request) }
+            _uiState.update { it.copy(pendingQuestion = null) }
+        }
+    }
+
+    fun dismissQuestion() {
+        _uiState.update { it.copy(pendingQuestion = null) }
+    }
+
     fun abortSession() {
         viewModelScope.launch {
             safeApiCall { api.abortSession(sessionId) }
@@ -230,5 +254,6 @@ data class ChatUiState(
     val isSending: Boolean = false,
     val isBusy: Boolean = false,
     val pendingPermission: Permission? = null,
+    val pendingQuestion: QuestionRequest? = null,
     val error: String? = null
 )

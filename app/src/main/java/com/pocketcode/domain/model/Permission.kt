@@ -7,8 +7,10 @@ import kotlinx.serialization.json.JsonObject
 data class Permission(
     val id: String,
     val type: String,
+    val pattern: List<String>? = null,
     val sessionID: String,
     val messageID: String,
+    val callID: String? = null,
     val title: String,
     val metadata: JsonObject,
     val createdAt: Long

@@ -111,6 +111,7 @@ class MessageRepositoryImpl @Inject constructor(
                 parentID = parentID ?: "",
                 providerID = providerID ?: "",
                 modelID = modelID ?: "",
+                mode = "",
                 agent = agent ?: "",
                 cost = cost ?: 0.0,
                 tokens = TokenUsage(
@@ -164,7 +165,7 @@ class MessageRepositoryImpl @Inject constructor(
             tokensCacheRead = tokens.cacheRead,
             tokensCacheWrite = tokens.cacheWrite,
             errorCode = error?.name,
-            errorMessage = error?.data
+            errorMessage = error?.message
         )
     }
 
@@ -383,5 +384,37 @@ class MessageRepositoryImpl @Inject constructor(
             hash = hash,
             files = files
         )
+        // New part types - store minimal info, these are typically not persisted long-term
+        is Part.StepStart -> createMinimalEntity(id, sessionID, messageID, "step-start")
+        is Part.StepFinish -> createMinimalEntity(id, sessionID, messageID, "step-finish")
+        is Part.Snapshot -> createMinimalEntity(id, sessionID, messageID, "snapshot")
+        is Part.Agent -> createMinimalEntity(id, sessionID, messageID, "agent")
+        is Part.Retry -> createMinimalEntity(id, sessionID, messageID, "retry")
+        is Part.Compaction -> createMinimalEntity(id, sessionID, messageID, "compaction")
+        is Part.Subtask -> createMinimalEntity(id, sessionID, messageID, "subtask")
     }
+
+    private fun createMinimalEntity(id: String, sessionID: String, messageID: String, type: String) = PartEntity(
+        id = id,
+        sessionID = sessionID,
+        messageID = messageID,
+        type = type,
+        text = null,
+        callID = null,
+        toolName = null,
+        toolStateStatus = null,
+        toolStateInput = null,
+        toolStateRawInput = null,
+        toolStateTitle = null,
+        toolStateOutput = null,
+        toolStateError = null,
+        toolStateStartedAt = null,
+        toolStateEndedAt = null,
+        toolStateMetadata = null,
+        mime = null,
+        filename = null,
+        url = null,
+        hash = null,
+        files = null
+    )
 }

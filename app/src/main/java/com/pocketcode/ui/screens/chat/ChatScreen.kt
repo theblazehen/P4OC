@@ -19,6 +19,7 @@ import com.pocketcode.domain.model.Permission
 import com.pocketcode.ui.components.chat.ChatInputBar
 import com.pocketcode.ui.components.chat.ChatMessage
 import com.pocketcode.ui.components.chat.PermissionDialog
+import com.pocketcode.ui.components.question.QuestionDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +109,16 @@ fun ChatScreen(
                     onAllow = { viewModel.respondToPermission(permission.id, "allow") },
                     onDeny = { viewModel.respondToPermission(permission.id, "deny") },
                     onAlways = { viewModel.respondToPermission(permission.id, "always") }
+                )
+            }
+
+            uiState.pendingQuestion?.let { questionRequest ->
+                QuestionDialog(
+                    questionData = com.pocketcode.domain.model.QuestionData(questionRequest.questions),
+                    onDismiss = viewModel::dismissQuestion,
+                    onSubmit = { answers ->
+                        viewModel.respondToQuestion(questionRequest.id, answers)
+                    }
                 )
             }
 

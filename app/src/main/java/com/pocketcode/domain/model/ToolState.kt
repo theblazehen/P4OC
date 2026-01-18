@@ -17,7 +17,8 @@ sealed class ToolState {
     data class Running(
         override val input: JsonObject,
         val title: String?,
-        val startedAt: Long
+        val startedAt: Long,
+        val metadata: JsonObject? = null
     ) : ToolState()
 
     @Serializable
@@ -27,7 +28,9 @@ sealed class ToolState {
         val title: String,
         val startedAt: Long,
         val endedAt: Long,
-        val metadata: JsonObject? = null
+        val compactedAt: Long? = null,
+        val metadata: JsonObject? = null,
+        val attachments: List<Part>? = null
     ) : ToolState()
 
     @Serializable
@@ -35,6 +38,7 @@ sealed class ToolState {
         override val input: JsonObject,
         val error: String,
         val startedAt: Long,
-        val endedAt: Long
+        val endedAt: Long,
+        val metadata: JsonObject? = null
     ) : ToolState()
 }
