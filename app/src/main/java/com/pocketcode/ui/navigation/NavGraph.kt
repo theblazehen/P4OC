@@ -10,10 +10,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.pocketcode.ui.screens.chat.ChatScreen
+import com.pocketcode.ui.screens.diff.DiffViewerScreen
 import com.pocketcode.ui.screens.files.FileExplorerScreen
 import com.pocketcode.ui.screens.files.FileViewerScreen
+import com.pocketcode.ui.screens.git.GitScreen
 import com.pocketcode.ui.screens.server.ServerScreen
 import com.pocketcode.ui.screens.sessions.SessionListScreen
+import com.pocketcode.ui.screens.settings.ProviderConfigScreen
 import com.pocketcode.ui.screens.settings.SettingsScreen
 import com.pocketcode.ui.screens.setup.SetupScreen
 import com.pocketcode.ui.screens.terminal.TerminalScreen
@@ -99,7 +102,8 @@ fun NavGraph(
             ChatScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onOpenTerminal = { navController.navigate(Screen.Terminal.route) },
-                onOpenFiles = { navController.navigate(Screen.Files.route) }
+                onOpenFiles = { navController.navigate(Screen.Files.route) },
+                onOpenGit = { navController.navigate(Screen.Git.route) }
             )
         }
 
@@ -138,7 +142,41 @@ fun NavGraph(
                     navController.navigate(Screen.Server.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onProviderConfig = {
+                    navController.navigate(Screen.ProviderConfig.route)
                 }
+            )
+        }
+
+        composable(Screen.ProviderConfig.route) {
+            ProviderConfigScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Git.route) {
+            GitScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.DiffViewer.route,
+            arguments = listOf(
+                navArgument(Screen.DiffViewer.ARG_CONTENT) { type = NavType.StringType },
+                navArgument(Screen.DiffViewer.ARG_FILE_NAME) { 
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val encodedContent = backStackEntry.arguments?.getString(Screen.DiffViewer.ARG_CONTENT) ?: ""
+            val encodedFileName = backStackEntry.arguments?.getString(Screen.DiffViewer.ARG_FILE_NAME) ?: ""
+            DiffViewerScreen(
+                diffContent = Uri.decode(encodedContent),
+                fileName = Uri.decode(encodedFileName).takeIf { it.isNotEmpty() },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

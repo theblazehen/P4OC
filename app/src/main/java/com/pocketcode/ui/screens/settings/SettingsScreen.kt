@@ -19,7 +19,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    onProviderConfig: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDisconnectDialog by remember { mutableStateOf(false) }
@@ -51,6 +52,16 @@ fun SettingsScreen(
                         contentDescription = null
                     )
                 }
+            )
+
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("Provider & Model") },
+                supportingContent = { Text("Configure AI providers and models") },
+                leadingContent = { Icon(Icons.Default.SmartToy, contentDescription = null) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                modifier = Modifier.clickable { onProviderConfig() }
             )
 
             HorizontalDivider()

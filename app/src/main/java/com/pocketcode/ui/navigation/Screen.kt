@@ -21,5 +21,16 @@ sealed class Screen(val route: String) {
         const val ARG_PATH = "path"
     }
     
+    data object DiffViewer : Screen("diff?content={content}&fileName={fileName}") {
+        fun createRoute(diffContent: String, fileName: String? = null) = 
+            "diff?content=${Uri.encode(diffContent)}&fileName=${Uri.encode(fileName ?: "")}"
+        const val ARG_CONTENT = "content"
+        const val ARG_FILE_NAME = "fileName"
+    }
+    
+    data object ProviderConfig : Screen("settings/providers")
+    
+    data object Git : Screen("git")
+    
     data object Settings : Screen("settings")
 }

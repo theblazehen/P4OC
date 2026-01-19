@@ -71,7 +71,7 @@ private fun AssistantMessage(
             when (part) {
                 is Part.Text -> TextPart(part)
                 is Part.Reasoning -> ReasoningPart(part)
-                is Part.Tool -> ToolPart(part, onToolApprove, onToolDeny)
+                is Part.Tool -> EnhancedToolPart(part, onToolApprove, onToolDeny)
                 is Part.File -> FilePart(part)
                 is Part.Patch -> PatchPart(part)
                 // New part types - render as minimal UI or skip
@@ -168,111 +168,7 @@ private fun ReasoningPart(part: Part.Reasoning) {
     }
 }
 
-@Composable
-private fun ToolPart(
-    part: Part.Tool,
-    onApprove: (String) -> Unit,
-    onDeny: (String) -> Unit
-) {
-    val state = part.state
-    val (containerColor, icon, statusText) = when (state) {
-        is ToolState.Pending -> Triple(
-            MaterialTheme.colorScheme.secondaryContainer,
-            Icons.Default.HourglassEmpty,
-            "Pending approval"
-        )
-        is ToolState.Running -> Triple(
-            MaterialTheme.colorScheme.primaryContainer,
-            Icons.Default.PlayArrow,
-            "Running..."
-        )
-        is ToolState.Completed -> Triple(
-            MaterialTheme.colorScheme.surfaceVariant,
-            Icons.Default.CheckCircle,
-            state.title
-        )
-        is ToolState.Error -> Triple(
-            MaterialTheme.colorScheme.errorContainer,
-            Icons.Default.Error,
-            "Error: ${state.error}"
-        )
-    }
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = containerColor)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = part.toolName,
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (state is ToolState.Running) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                }
-            }
-
-            if (state is ToolState.Pending) {
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { onDeny(part.callID) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Deny")
-                    }
-                    Button(
-                        onClick = { onApprove(part.callID) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Allow")
-                    }
-                }
-            }
-
-            if (state is ToolState.Completed && state.output.isNotBlank()) {
-                var showOutput by remember { mutableStateOf(false) }
-                TextButton(
-                    onClick = { showOutput = !showOutput },
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(if (showOutput) "Hide output" else "Show output")
-                }
-                if (showOutput) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = state.output.take(500) + if (state.output.length > 500) "..." else "",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace
-                            ),
-                            modifier = Modifier.padding(8.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun FilePart(part: Part.File) {

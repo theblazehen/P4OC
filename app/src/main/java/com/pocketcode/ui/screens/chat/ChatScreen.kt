@@ -27,7 +27,8 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onOpenFiles: () -> Unit
+    onOpenFiles: () -> Unit,
+    onOpenGit: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val messages by viewModel.messages.collectAsState()
@@ -49,6 +50,7 @@ fun ChatScreen(
                 onBack = onNavigateBack,
                 onTerminal = onOpenTerminal,
                 onFiles = onOpenFiles,
+                onGit = onOpenGit,
                 onAbort = viewModel::abortSession,
                 isBusy = uiState.isBusy
             )
@@ -148,6 +150,7 @@ private fun ChatTopBar(
     onBack: () -> Unit,
     onTerminal: () -> Unit,
     onFiles: () -> Unit,
+    onGit: () -> Unit,
     onAbort: () -> Unit,
     isBusy: Boolean
 ) {
@@ -181,6 +184,9 @@ private fun ChatTopBar(
             }
             IconButton(onClick = onFiles) {
                 Icon(Icons.Default.Folder, contentDescription = "Files")
+            }
+            IconButton(onClick = onGit) {
+                Icon(Icons.Default.AccountTree, contentDescription = "Git")
             }
         }
     )
