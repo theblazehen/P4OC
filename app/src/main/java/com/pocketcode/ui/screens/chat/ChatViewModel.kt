@@ -7,9 +7,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.network.ApiResult
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.ConnectionState
-import com.pocketcode.core.network.OpenCodeApi
-import com.pocketcode.core.network.OpenCodeEventSource
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.ExecuteCommandRequest
 import com.pocketcode.data.remote.dto.PartInputDto
@@ -32,8 +31,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val api: OpenCodeApi,
-    private val eventSource: OpenCodeEventSource,
+    private val connectionManager: ConnectionManager,
     private val sessionMapper: SessionMapper,
     private val messageMapper: MessageMapper,
     private val partMapper: PartMapper,
@@ -52,17 +50,20 @@ class ChatViewModel @Inject constructor(
     private val pendingPermissions = ConcurrentLinkedQueue<Permission>()
     private val pendingQuestions = ConcurrentLinkedQueue<QuestionRequest>()
 
-    val connectionState: StateFlow<ConnectionState> = eventSource.connectionState
+    val connectionState: StateFlow<ConnectionState> = connectionManager.connectionState
 
     init {
         loadSession()
         loadMessages()
         observeEvents()
-        eventSource.connect()
     }
 
     private fun loadSession() {
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.getSession(sessionId) }
             when (result) {
                 is ApiResult.Success -> {
@@ -81,6 +82,10 @@ class ChatViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             Log.d("ChatViewModel", "loadMessages() called for session: $sessionId")
 
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.getMessages(sessionId) }
 
             when (result) {
@@ -107,7 +112,7 @@ class ChatViewModel @Inject constructor(
 
     private fun observeEvents() {
         viewModelScope.launch {
-            eventSource.events.collect { event ->
+            connectionManager.getEventSource()?.events?.collect { event ->
                 handleEvent(event)
             }
         }
@@ -210,6 +215,10 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(inputText = "", isSending = true) }
 
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isSending = false, inputText = text, error = "Not connected") }
+                return@launch
+            }
             val request = SendMessageRequest(
                 parts = listOf(PartInputDto(type = "text", text = text))
             )
@@ -235,6 +244,7 @@ class ChatViewModel @Inject constructor(
 
     fun respondToPermission(permissionId: String, response: String) {
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
             val request = PermissionResponseRequest(response = response)
             safeApiCall { api.respondToPermission(sessionId, permissionId, request) }
             _uiState.update { it.copy(pendingPermission = null) }
@@ -244,6 +254,7 @@ class ChatViewModel @Inject constructor(
 
     fun respondToQuestion(questionId: String, answers: List<List<String>>) {
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
             val request = QuestionReplyRequest(answers = answers)
             safeApiCall { api.respondToQuestion(sessionId, questionId, request) }
             _uiState.update { it.copy(pendingQuestion = null) }
@@ -258,6 +269,7 @@ class ChatViewModel @Inject constructor(
 
     fun abortSession() {
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
             safeApiCall { api.abortSession(sessionId) }
             _uiState.update { it.copy(isBusy = false) }
         }
@@ -270,6 +282,10 @@ class ChatViewModel @Inject constructor(
     fun loadCommands() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCommands = true) }
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoadingCommands = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.listCommands() }
             when (result) {
                 is ApiResult.Success -> {
@@ -286,6 +302,10 @@ class ChatViewModel @Inject constructor(
     fun executeCommand(commandName: String, arguments: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSending = true) }
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isSending = false, error = "Not connected") }
+                return@launch
+            }
             val request = ExecuteCommandRequest(
                 command = commandName,
                 arguments = arguments
@@ -307,6 +327,10 @@ class ChatViewModel @Inject constructor(
     fun loadTodos() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingTodos = true) }
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoadingTodos = false) }
+                return@launch
+            }
             val result = safeApiCall { api.getSessionTodos(sessionId) }
             when (result) {
                 is ApiResult.Success -> {
@@ -322,7 +346,6 @@ class ChatViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        eventSource.disconnect()
     }
 }
 

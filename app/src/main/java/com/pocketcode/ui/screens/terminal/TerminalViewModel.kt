@@ -5,8 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
-import com.pocketcode.core.network.OpenCodeEventSource
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.PtyWebSocketClient
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.CreatePtyRequest
@@ -27,8 +26,7 @@ import javax.inject.Inject
 @HiltViewModel
 class TerminalViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val api: OpenCodeApi,
-    private val eventSource: OpenCodeEventSource,
+    private val connectionManager: ConnectionManager,
     private val ptyWebSocket: PtyWebSocketClient
 ) : ViewModel() {
 
@@ -135,7 +133,7 @@ class TerminalViewModel @Inject constructor(
 
     private fun observeEvents() {
         viewModelScope.launch {
-            eventSource.events.collect { event ->
+            connectionManager.getEventSource()?.events?.collect { event ->
                 when (event) {
                     is OpenCodeEvent.PtyCreated -> {
                         _uiState.update { state ->
@@ -191,6 +189,10 @@ class TerminalViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.listPtySessions() }
 
             when (result) {
@@ -229,6 +231,10 @@ class TerminalViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true) }
 
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isCreating = false, error = "Not connected") }
+                return@launch
+            }
             val request = CreatePtyRequest(title = title ?: "Terminal")
 
             val result = safeApiCall { api.createPtySession(request) }
@@ -279,6 +285,7 @@ class TerminalViewModel @Inject constructor(
             if (_uiState.value.selectedPtyId == ptyId) {
                 ptyWebSocket.disconnect()
             }
+            val api = connectionManager.getApi() ?: return@launch
             val result = safeApiCall { api.deletePtySession(ptyId) }
             when (result) {
                 is ApiResult.Success -> {

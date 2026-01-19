@@ -3,7 +3,7 @@ package com.pocketcode.ui.screens.files
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.domain.model.FileNode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FilesViewModel @Inject constructor(
-    private val api: OpenCodeApi
+    private val connectionManager: ConnectionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FilesUiState())
@@ -46,6 +46,10 @@ class FilesViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.listFiles(path) }
 
             when (result) {
@@ -81,6 +85,10 @@ class FilesViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, fileContent = null, error = null) }
 
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.readFile(path) }
 
             when (result) {

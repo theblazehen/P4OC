@@ -4,7 +4,7 @@ import com.pocketcode.core.database.dao.MessageDao
 import com.pocketcode.core.database.entity.MessageEntity
 import com.pocketcode.core.database.entity.PartEntity
 import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.PartInputDto
 import com.pocketcode.data.remote.dto.PermissionResponseRequest
@@ -22,7 +22,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -31,7 +30,7 @@ import javax.inject.Singleton
 
 @Singleton
 class MessageRepositoryImpl @Inject constructor(
-    private val api: OpenCodeApi,
+    private val connectionManager: ConnectionManager,
     private val messageDao: MessageDao,
     private val messageMapper: MessageMapper,
     private val partMapper: PartMapper,
@@ -54,6 +53,7 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchMessages(sessionId: String, limit: Int?): ApiResult<List<MessageWithParts>> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dtos = api.getMessages(sessionId, limit)
             val messagesWithParts = dtos.map { dto ->
@@ -70,6 +70,7 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun sendMessage(sessionId: String, text: String): ApiResult<Unit> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             api.sendMessageAsync(
                 sessionId,
@@ -85,6 +86,7 @@ class MessageRepositoryImpl @Inject constructor(
         permissionId: String,
         response: String
     ): ApiResult<Boolean> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             api.respondToPermission(
                 sessionId,
@@ -393,7 +395,6 @@ class MessageRepositoryImpl @Inject constructor(
             hash = hash,
             files = files
         )
-        // New part types - store minimal info, these are typically not persisted long-term
         is Part.StepStart -> createMinimalEntity(id, sessionID, messageID, "step-start")
         is Part.StepFinish -> createMinimalEntity(id, sessionID, messageID, "step-finish")
         is Part.Snapshot -> createMinimalEntity(id, sessionID, messageID, "snapshot")

@@ -1,7 +1,6 @@
 package com.pocketcode.core.network
 
 import android.util.Log
-import com.pocketcode.core.datastore.SettingsDataStore
 import com.pocketcode.data.remote.dto.EventDataDto
 import com.pocketcode.data.remote.mapper.EventMapper
 import com.pocketcode.domain.model.OpenCodeEvent
@@ -11,17 +10,13 @@ import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.Response
 import okio.BufferedSource
 import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class OpenCodeEventSource @Inject constructor(
+class OpenCodeEventSource(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
-    private val settingsDataStore: SettingsDataStore,
+    private val baseUrl: String,
     private val eventMapper: EventMapper
 ) {
     companion object {
@@ -48,8 +43,6 @@ class OpenCodeEventSource @Inject constructor(
         if (sseJob?.isActive == true) return
 
         sseJob = scope.launch {
-            val baseUrl = settingsDataStore.serverUrl.first()
-
             _connectionState.value = ConnectionState.Connecting
 
             val request = Request.Builder()
@@ -99,7 +92,6 @@ class OpenCodeEventSource @Inject constructor(
                         eventData = StringBuilder()
                     }
                     line.startsWith(":") -> {
-                        // Comment/heartbeat, ignore
                     }
                 }
             }

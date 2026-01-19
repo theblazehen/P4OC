@@ -3,9 +3,8 @@ package com.pocketcode.ui.screens.server
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.datastore.SettingsDataStore
-import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
-import com.pocketcode.core.network.safeApiCall
+import com.pocketcode.core.network.ConnectionManager
+import com.pocketcode.core.network.ServerConfig
 import com.pocketcode.core.termux.TermuxBridge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +18,7 @@ import javax.inject.Inject
 class ServerViewModel @Inject constructor(
     private val termuxBridge: TermuxBridge,
     private val settingsDataStore: SettingsDataStore,
-    private val api: OpenCodeApi
+    private val connectionManager: ConnectionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUiState())
@@ -82,27 +81,23 @@ class ServerViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isConnecting = true, error = null) }
             
-            settingsDataStore.setServerConfig(
-                url = "http://localhost:4096",
-                name = "Local (Termux)",
-                isLocal = true
-            )
+            val config = ServerConfig.LOCAL_DEFAULT
+            val result = connectionManager.connect(config)
 
-            val result = safeApiCall { api.health() }
-            
-            when (result) {
-                is ApiResult.Success -> {
+            result.fold(
+                onSuccess = {
+                    settingsDataStore.saveLastConnection(config)
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
-                }
-                is ApiResult.Error -> {
+                },
+                onFailure = { error ->
                     _uiState.update { 
                         it.copy(
                             isConnecting = false, 
-                            error = "Failed to connect: ${result.message}"
+                            error = "Failed to connect: ${error.message}"
                         ) 
                     }
                 }
-            }
+            )
         }
     }
 
@@ -117,30 +112,30 @@ class ServerViewModel @Inject constructor(
             _uiState.update { it.copy(isConnecting = true, error = null) }
 
             val url = normalizeServerUrl(state.remoteUrl)
-
-            settingsDataStore.setServerConfig(
+            val config = ServerConfig(
                 url = url,
                 name = "Remote Server",
                 isLocal = false,
-                username = state.username.takeIf { it.isNotBlank() },
-                password = state.password.takeIf { it.isNotBlank() }
+                username = state.username.takeIf { it.isNotBlank() }
             )
+            val password = state.password.takeIf { it.isNotBlank() }
 
-            val result = safeApiCall { api.health() }
+            val result = connectionManager.connect(config, password)
 
-            when (result) {
-                is ApiResult.Success -> {
+            result.fold(
+                onSuccess = {
+                    settingsDataStore.saveLastConnection(config)
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
-                }
-                is ApiResult.Error -> {
+                },
+                onFailure = { error ->
                     _uiState.update { 
                         it.copy(
                             isConnecting = false, 
-                            error = "Failed to connect: ${result.message}"
+                            error = "Failed to connect: ${error.message}"
                         ) 
                     }
                 }
-            }
+            )
         }
     }
 

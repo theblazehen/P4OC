@@ -1,7 +1,7 @@
 package com.pocketcode.data.repository
 
 import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.domain.model.FileContent
 import com.pocketcode.domain.model.FileNode
@@ -15,10 +15,11 @@ import javax.inject.Singleton
 
 @Singleton
 class FileRepositoryImpl @Inject constructor(
-    private val api: OpenCodeApi
+    private val connectionManager: ConnectionManager
 ) : FileRepository {
 
     override suspend fun listFiles(path: String?): ApiResult<List<FileNode>> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dtos = api.listFiles(path)
             dtos.map { it.toDomain() }
@@ -26,6 +27,7 @@ class FileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun readFile(path: String): ApiResult<FileContent> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dto = api.readFile(path)
             FileContent(
@@ -38,6 +40,7 @@ class FileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getFileStatus(): ApiResult<List<FileStatus>> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dtos = api.getFileStatus()
             dtos.map { dto ->
@@ -52,6 +55,7 @@ class FileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun searchText(pattern: String): ApiResult<List<SearchResult>> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dtos = api.searchText(pattern)
             dtos.map { dto ->
@@ -67,6 +71,7 @@ class FileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun searchFiles(query: String, type: String?, limit: Int?): ApiResult<List<String>> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             api.searchFiles(query, type, limit)
         }

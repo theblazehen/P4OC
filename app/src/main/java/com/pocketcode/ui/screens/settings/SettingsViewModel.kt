@@ -3,7 +3,7 @@ package com.pocketcode.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.datastore.SettingsDataStore
-import com.pocketcode.core.network.OpenCodeEventSource
+import com.pocketcode.core.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -12,7 +12,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
-    private val eventSource: OpenCodeEventSource
+    private val connectionManager: ConnectionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -43,13 +43,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun disconnect() {
-        eventSource.disconnect()
+        connectionManager.disconnect()
         viewModelScope.launch {
-            settingsDataStore.setServerConfig(
-                url = SettingsDataStore.DEFAULT_LOCAL_URL,
-                name = "Local (Termux)",
-                isLocal = true
-            )
+            settingsDataStore.clearLastConnection()
         }
     }
 }

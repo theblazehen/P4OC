@@ -1,30 +1,31 @@
 package com.pocketcode.data.repository
 
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.ConnectionState
-import com.pocketcode.core.network.OpenCodeEventSource
 import com.pocketcode.domain.model.OpenCodeEvent
 import com.pocketcode.domain.repository.EventRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class EventRepositoryImpl @Inject constructor(
-    private val eventSource: OpenCodeEventSource
+    private val connectionManager: ConnectionManager
 ) : EventRepository {
 
     override val events: Flow<OpenCodeEvent>
-        get() = eventSource.events
+        get() = connectionManager.getEventSource()?.events ?: emptyFlow()
 
     override val connectionState: StateFlow<ConnectionState>
-        get() = eventSource.connectionState
+        get() = connectionManager.connectionState
 
     override fun connect() {
-        eventSource.connect()
+        connectionManager.getEventSource()?.connect()
     }
 
     override fun disconnect() {
-        eventSource.disconnect()
+        connectionManager.disconnect()
     }
 }

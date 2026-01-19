@@ -2,7 +2,7 @@ package com.pocketcode.ui.screens.git
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.domain.model.FileStatus
 import com.pocketcode.domain.model.VcsInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,7 +23,7 @@ data class GitUiState(
 
 @HiltViewModel
 class GitViewModel @Inject constructor(
-    private val api: OpenCodeApi
+    private val connectionManager: ConnectionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GitUiState())
@@ -36,6 +36,10 @@ class GitViewModel @Inject constructor(
     fun loadGitInfo() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, hasVcs = false, error = "Not connected") }
+                return@launch
+            }
             try {
                 val vcsInfo = api.getVcsInfo()
                 val fileStatuses = try {

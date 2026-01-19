@@ -3,7 +3,7 @@ package com.pocketcode.data.repository
 import com.pocketcode.core.database.dao.SessionDao
 import com.pocketcode.core.database.entity.SessionEntity
 import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.CreateSessionRequest
 import com.pocketcode.data.remote.dto.ForkSessionRequest
@@ -20,7 +20,7 @@ import javax.inject.Singleton
 
 @Singleton
 class SessionRepositoryImpl @Inject constructor(
-    private val api: OpenCodeApi,
+    private val connectionManager: ConnectionManager,
     private val sessionDao: SessionDao,
     private val sessionMapper: SessionMapper
 ) : SessionRepository {
@@ -38,6 +38,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchSessions(): ApiResult<List<Session>> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dtos = api.listSessions()
             val sessions = dtos.map { sessionMapper.mapToDomain(it) }
@@ -47,6 +48,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchSession(id: String): ApiResult<Session> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dto = api.getSession(id)
             val session = sessionMapper.mapToDomain(dto)
@@ -56,6 +58,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun createSession(title: String?, parentId: String?): ApiResult<Session> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dto = api.createSession(CreateSessionRequest(parentID = parentId, title = title))
             val session = sessionMapper.mapToDomain(dto)
@@ -65,6 +68,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateSession(id: String, title: String?, archived: Boolean?): ApiResult<Session> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dto = api.updateSession(id, UpdateSessionRequest(title = title, archived = archived))
             val session = sessionMapper.mapToDomain(dto)
@@ -74,6 +78,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteSession(id: String): ApiResult<Boolean> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val result = api.deleteSession(id)
             if (result) {
@@ -84,6 +89,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun forkSession(id: String, messageId: String): ApiResult<Session> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dto = api.forkSession(id, ForkSessionRequest(messageID = messageId))
             val session = sessionMapper.mapToDomain(dto)
@@ -93,12 +99,14 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun abortSession(id: String): ApiResult<Boolean> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             api.abortSession(id)
         }
     }
 
     override suspend fun getSessionStatuses(): ApiResult<Map<String, SessionStatus>> {
+        val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val statusMap = api.getSessionStatuses()
             statusMap.mapValues { sessionMapper.mapStatusToDomain(it.value) }

@@ -17,7 +17,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.safeApiCall
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,7 +46,7 @@ data class SkillsState(
 
 @HiltViewModel
 class SkillsViewModel @Inject constructor(
-    private val api: OpenCodeApi
+    private val connectionManager: ConnectionManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(SkillsState())
@@ -59,6 +59,10 @@ class SkillsViewModel @Inject constructor(
     fun loadSkills() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
+            val api = connectionManager.getApi() ?: run {
+                _state.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.getMcpStatus() }
             when (result) {
                 is ApiResult.Success -> {

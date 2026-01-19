@@ -1,7 +1,6 @@
 package com.pocketcode.core.network
 
 import android.util.Log
-import com.pocketcode.core.datastore.SettingsDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -11,16 +10,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
-import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -29,8 +26,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PtyWebSocketClient @Inject constructor(
-    @Named("sse") private val okHttpClient: OkHttpClient,
-    private val settingsDataStore: SettingsDataStore
+    private val connectionManager: ConnectionManager
 ) {
     companion object {
         private const val TAG = "PtyWebSocketClient"
@@ -46,6 +42,16 @@ class PtyWebSocketClient @Inject constructor(
 
     private var currentWebSocket: WebSocket? = null
     private var currentPtyId: String? = null
+    
+    // Dedicated OkHttpClient for WebSocket (long-lived connections)
+    private val wsOkHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.SECONDS) // No timeout for WebSocket
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .pingInterval(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     sealed class ConnectionState {
         object Disconnected : ConnectionState()
@@ -65,12 +71,19 @@ class PtyWebSocketClient @Inject constructor(
             return
         }
 
+        val connection = connectionManager.connection.value
+        if (connection == null) {
+            Log.e(TAG, "Cannot connect: No active connection")
+            _connectionState.value = ConnectionState.Error("Not connected to server")
+            return
+        }
+
         _connectionState.value = ConnectionState.Connecting
         currentPtyId = ptyId
 
         scope.launch {
             try {
-                val baseUrl = settingsDataStore.serverUrl.first()
+                val baseUrl = connection.config.url
                 // Convert http(s):// to ws(s)://
                 val wsUrl = baseUrl
                     .replace("http://", "ws://")
@@ -83,7 +96,7 @@ class PtyWebSocketClient @Inject constructor(
                     .url(wsUrl)
                     .build()
 
-                currentWebSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
+                currentWebSocket = wsOkHttpClient.newWebSocket(request, object : WebSocketListener() {
                     override fun onOpen(webSocket: WebSocket, response: Response) {
                         Log.d(TAG, "WebSocket connected to $ptyId")
                         _connectionState.value = ConnectionState.Connected(ptyId)

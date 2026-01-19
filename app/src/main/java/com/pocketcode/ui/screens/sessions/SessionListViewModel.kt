@@ -3,7 +3,7 @@ package com.pocketcode.ui.screens.sessions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.network.ApiResult
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.CreateSessionRequest
 import com.pocketcode.data.remote.mapper.SessionMapper
@@ -19,7 +19,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SessionListViewModel @Inject constructor(
-    private val api: OpenCodeApi,
+    private val connectionManager: ConnectionManager,
     private val sessionMapper: SessionMapper
 ) : ViewModel() {
 
@@ -38,6 +38,7 @@ class SessionListViewModel @Inject constructor(
 
     private fun loadSessionStatuses() {
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
             val result = safeApiCall { api.getSessionStatuses() }
             when (result) {
                 is ApiResult.Success -> {
@@ -64,6 +65,10 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { api.listSessions() }
 
             when (result) {
@@ -89,6 +94,10 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             val result = safeApiCall { 
                 api.createSession(CreateSessionRequest(title = title)) 
             }
@@ -115,6 +124,7 @@ class SessionListViewModel @Inject constructor(
 
     fun deleteSession(sessionId: String) {
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
             val result = safeApiCall { api.deleteSession(sessionId) }
 
             when (result) {

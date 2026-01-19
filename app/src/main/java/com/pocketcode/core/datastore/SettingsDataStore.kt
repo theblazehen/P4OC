@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -131,6 +132,10 @@ class SettingsDataStore @Inject constructor(
     }
 
     suspend fun setServerConfig(url: String, name: String, isLocal: Boolean, username: String? = null, password: String? = null) {
+        cachedServerUrl = url
+        cachedUsername = username
+        cachedPassword = password
+        
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = url
             prefs[KEY_SERVER_NAME] = name
@@ -142,5 +147,40 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun clearAll() {
         context.dataStore.edit { it.clear() }
+    }
+
+    suspend fun saveLastConnection(config: com.pocketcode.core.network.ServerConfig) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_SERVER_URL] = config.url
+            prefs[KEY_SERVER_NAME] = config.name
+            prefs[KEY_IS_LOCAL_SERVER] = config.isLocal
+            if (config.username != null) {
+                prefs[KEY_USERNAME] = config.username
+            } else {
+                prefs.remove(KEY_USERNAME)
+            }
+            prefs[KEY_ONBOARDING_COMPLETED] = true
+        }
+    }
+
+    suspend fun getLastConnection(): com.pocketcode.core.network.ServerConfig? {
+        val prefs = context.dataStore.data.first()
+        val url = prefs[KEY_SERVER_URL] ?: return null
+        return com.pocketcode.core.network.ServerConfig(
+            url = url,
+            name = prefs[KEY_SERVER_NAME] ?: "",
+            isLocal = prefs[KEY_IS_LOCAL_SERVER] ?: false,
+            username = prefs[KEY_USERNAME]
+        )
+    }
+
+    suspend fun clearLastConnection() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(KEY_SERVER_URL)
+            prefs.remove(KEY_SERVER_NAME)
+            prefs.remove(KEY_IS_LOCAL_SERVER)
+            prefs.remove(KEY_USERNAME)
+            prefs.remove(KEY_PASSWORD)
+        }
     }
 }

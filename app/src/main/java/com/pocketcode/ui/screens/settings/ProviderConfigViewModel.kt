@@ -2,7 +2,7 @@ package com.pocketcode.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pocketcode.core.network.OpenCodeApi
+import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.data.remote.dto.ModelDto
 import com.pocketcode.data.remote.dto.ProviderDto
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +24,7 @@ data class ProviderConfigUiState(
 
 @HiltViewModel
 class ProviderConfigViewModel @Inject constructor(
-    private val api: OpenCodeApi
+    private val connectionManager: ConnectionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProviderConfigUiState())
@@ -37,6 +37,10 @@ class ProviderConfigViewModel @Inject constructor(
     fun loadProviders() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                return@launch
+            }
             try {
                 val providersResponse = api.getProviders()
                 val config = api.getConfig()
@@ -67,6 +71,10 @@ class ProviderConfigViewModel @Inject constructor(
 
     fun setModel(providerId: String, modelId: String) {
         viewModelScope.launch {
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(error = "Not connected") }
+                return@launch
+            }
             try {
                 val currentConfig = api.getConfig()
                 val newModel = "$providerId/$modelId"
