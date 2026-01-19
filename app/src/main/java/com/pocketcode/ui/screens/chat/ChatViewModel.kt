@@ -9,11 +9,14 @@ import com.pocketcode.core.network.ConnectionState
 import com.pocketcode.core.network.OpenCodeApi
 import com.pocketcode.core.network.OpenCodeEventSource
 import com.pocketcode.core.network.safeApiCall
+import com.pocketcode.data.remote.dto.ExecuteCommandRequest
 import com.pocketcode.data.remote.dto.PartInputDto
 import com.pocketcode.data.remote.dto.PermissionResponseRequest
 import com.pocketcode.data.remote.dto.QuestionReplyRequest
 import com.pocketcode.data.remote.dto.SendMessageRequest
+import com.pocketcode.data.remote.mapper.CommandMapper
 import com.pocketcode.data.remote.mapper.MessageMapper
+import com.pocketcode.data.remote.mapper.TodoMapper
 import com.pocketcode.data.remote.mapper.PartMapper
 import com.pocketcode.data.remote.mapper.SessionMapper
 import com.pocketcode.domain.model.*
@@ -30,7 +33,9 @@ class ChatViewModel @Inject constructor(
     private val eventSource: OpenCodeEventSource,
     private val sessionMapper: SessionMapper,
     private val messageMapper: MessageMapper,
-    private val partMapper: PartMapper
+    private val partMapper: PartMapper,
+    private val commandMapper: CommandMapper,
+    private val todoMapper: TodoMapper
 ) : ViewModel() {
 
     private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)!!
@@ -241,6 +246,59 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
+    fun loadCommands() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingCommands = true) }
+            val result = safeApiCall { api.listCommands() }
+            when (result) {
+                is ApiResult.Success -> {
+                    val commands = result.data.map { commandMapper.mapToDomain(it) }
+                    _uiState.update { it.copy(commands = commands, isLoadingCommands = false) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { it.copy(isLoadingCommands = false, error = "Failed to load commands") }
+                }
+            }
+        }
+    }
+
+    fun executeCommand(commandName: String, arguments: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSending = true) }
+            val request = ExecuteCommandRequest(
+                command = commandName,
+                arguments = arguments
+            )
+            val result = safeApiCall { api.executeCommand(sessionId, request) }
+            when (result) {
+                is ApiResult.Success -> {
+                    _uiState.update { it.copy(isSending = false, isBusy = true) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { 
+                        it.copy(isSending = false, error = "Failed to execute command: ${result.message}") 
+                    }
+                }
+            }
+        }
+    }
+
+    fun loadTodos() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingTodos = true) }
+            val result = safeApiCall { api.getSessionTodos(sessionId) }
+            when (result) {
+                is ApiResult.Success -> {
+                    val todos = result.data.map { todoMapper.mapToDomain(it) }
+                    _uiState.update { it.copy(todos = todos, isLoadingTodos = false) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { it.copy(isLoadingTodos = false) }
+                }
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         eventSource.disconnect()
@@ -255,5 +313,9 @@ data class ChatUiState(
     val isBusy: Boolean = false,
     val pendingPermission: Permission? = null,
     val pendingQuestion: QuestionRequest? = null,
-    val error: String? = null
+    val error: String? = null,
+    val commands: List<Command> = emptyList(),
+    val isLoadingCommands: Boolean = false,
+    val todos: List<Todo> = emptyList(),
+    val isLoadingTodos: Boolean = false
 )

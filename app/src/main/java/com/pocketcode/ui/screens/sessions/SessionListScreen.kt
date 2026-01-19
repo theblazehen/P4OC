@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pocketcode.domain.model.Session
+import com.pocketcode.domain.model.SessionStatus
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -88,6 +89,7 @@ fun SessionListScreen(
                         ) { session ->
                             SessionCard(
                                 session = session,
+                                status = uiState.sessionStatuses[session.id],
                                 onClick = { onSessionClick(session.id) },
                                 onDelete = { showDeleteDialog = session }
                             )
@@ -153,13 +155,24 @@ fun SessionListScreen(
 @Composable
 private fun SessionCard(
     session: Session,
+    status: SessionStatus?,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val isBusy = status is SessionStatus.Busy
+    val isRetrying = status is SessionStatus.Retry
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isBusy -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                isRetrying -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            }
+        )
     ) {
         Row(
             modifier = Modifier
@@ -172,12 +185,19 @@ private fun SessionCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = session.title ?: "Untitled",
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = session.title ?: "Untitled",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    SessionStatusIndicator(status = status)
+                }
                 Text(
                     text = formatDateTime(session.updatedAt),
                     style = MaterialTheme.typography.bodySmall,
@@ -218,6 +238,49 @@ private fun SessionCard(
                     tint = MaterialTheme.colorScheme.error
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SessionStatusIndicator(status: SessionStatus?) {
+    when (status) {
+        is SessionStatus.Busy -> {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Working",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        is SessionStatus.Retry -> {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "Retry #${status.attempt}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+        is SessionStatus.Idle, null -> {
         }
     }
 }

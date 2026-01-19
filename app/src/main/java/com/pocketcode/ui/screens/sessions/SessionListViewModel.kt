@@ -8,6 +8,7 @@ import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.CreateSessionRequest
 import com.pocketcode.data.remote.mapper.SessionMapper
 import com.pocketcode.domain.model.Session
+import com.pocketcode.domain.model.SessionStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,10 +28,36 @@ class SessionListViewModel @Inject constructor(
 
     init {
         loadSessions()
+        loadSessionStatuses()
     }
 
     fun refresh() {
         loadSessions()
+        loadSessionStatuses()
+    }
+
+    private fun loadSessionStatuses() {
+        viewModelScope.launch {
+            val result = safeApiCall { api.getSessionStatuses() }
+            when (result) {
+                is ApiResult.Success -> {
+                    val statuses = result.data.mapValues { (_, dto) ->
+                        when (dto.type) {
+                            "busy" -> SessionStatus.Busy
+                            "idle" -> SessionStatus.Idle
+                            "retry" -> SessionStatus.Retry(
+                                attempt = dto.attempt ?: 0,
+                                message = dto.message ?: "",
+                                next = dto.next ?: 0L
+                            )
+                            else -> SessionStatus.Idle
+                        }
+                    }
+                    _uiState.update { it.copy(sessionStatuses = statuses) }
+                }
+                is ApiResult.Error -> {}
+            }
+        }
     }
 
     private fun loadSessions() {
@@ -117,6 +144,7 @@ class SessionListViewModel @Inject constructor(
 data class SessionListUiState(
     val isLoading: Boolean = false,
     val sessions: List<Session> = emptyList(),
+    val sessionStatuses: Map<String, SessionStatus> = emptyMap(),
     val newSessionId: String? = null,
     val error: String? = null
 )

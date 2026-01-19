@@ -19,7 +19,10 @@ import com.pocketcode.domain.model.Permission
 import com.pocketcode.ui.components.chat.ChatInputBar
 import com.pocketcode.ui.components.chat.ChatMessage
 import com.pocketcode.ui.components.chat.PermissionDialog
+import com.pocketcode.ui.components.command.CommandPalette
 import com.pocketcode.ui.components.question.QuestionDialog
+import com.pocketcode.ui.components.todo.TodoTrackerFab
+import com.pocketcode.ui.components.todo.TodoTrackerSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +38,8 @@ fun ChatScreen(
     val connectionState by viewModel.connectionState.collectAsState()
 
     val listState = rememberLazyListState()
+    var showCommandPalette by remember { mutableStateOf(false) }
+    var showTodoTracker by remember { mutableStateOf(false) }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -51,6 +56,10 @@ fun ChatScreen(
                 onTerminal = onOpenTerminal,
                 onFiles = onOpenFiles,
                 onGit = onOpenGit,
+                onCommands = {
+                    viewModel.loadCommands()
+                    showCommandPalette = true
+                },
                 onAbort = viewModel::abortSession,
                 isBusy = uiState.isBusy
             )
@@ -62,6 +71,15 @@ fun ChatScreen(
                 onSend = viewModel::sendMessage,
                 isLoading = uiState.isSending,
                 enabled = connectionState is ConnectionState.Connected && !uiState.isSending
+            )
+        },
+        floatingActionButton = {
+            TodoTrackerFab(
+                todos = uiState.todos,
+                onClick = {
+                    viewModel.loadTodos()
+                    showTodoTracker = true
+                }
             )
         }
     ) { padding ->
@@ -140,6 +158,26 @@ fun ChatScreen(
             }
         }
     }
+
+    if (showCommandPalette) {
+        CommandPalette(
+            commands = uiState.commands,
+            isLoading = uiState.isLoadingCommands,
+            onCommandSelected = { command, args ->
+                viewModel.executeCommand(command.name, args)
+            },
+            onDismiss = { showCommandPalette = false }
+        )
+    }
+
+    if (showTodoTracker) {
+        TodoTrackerSheet(
+            todos = uiState.todos,
+            isLoading = uiState.isLoadingTodos,
+            onDismiss = { showTodoTracker = false },
+            onRefresh = { viewModel.loadTodos() }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -151,6 +189,7 @@ private fun ChatTopBar(
     onTerminal: () -> Unit,
     onFiles: () -> Unit,
     onGit: () -> Unit,
+    onCommands: () -> Unit,
     onAbort: () -> Unit,
     isBusy: Boolean
 ) {
@@ -178,6 +217,9 @@ private fun ChatTopBar(
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
+            }
+            IconButton(onClick = onCommands) {
+                Icon(Icons.Default.Code, contentDescription = "Commands")
             }
             IconButton(onClick = onTerminal) {
                 Icon(Icons.Default.Terminal, contentDescription = "Terminal")

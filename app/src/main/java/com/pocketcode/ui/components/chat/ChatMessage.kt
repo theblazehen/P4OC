@@ -128,40 +128,78 @@ private fun TextPart(part: Part.Text) {
 @Composable
 private fun ReasoningPart(part: Part.Reasoning) {
     var expanded by remember { mutableStateOf(false) }
+    
+    val thinkingDuration = part.time?.let { time ->
+        val durationMs = (time.end ?: System.currentTimeMillis()) - time.start
+        when {
+            durationMs < 1000 -> "${durationMs}ms"
+            durationMs < 60000 -> "${durationMs / 1000}s"
+            else -> "${durationMs / 60000}m ${(durationMs % 60000) / 1000}s"
+        }
+    }
+    
+    val isThinking = part.time?.end == null
 
     Surface(
         onClick = { expanded = !expanded },
         color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Default.Psychology,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.tertiary
-                )
+                if (isThinking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Psychology,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                
                 Text(
-                    text = "Reasoning",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary
+                    text = if (isThinking) "Thinking..." else "Reasoning",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.weight(1f)
                 )
+                
+                thinkingDuration?.let { duration ->
+                    Text(
+                        text = duration,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                
                 Icon(
                     if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             }
-            if (expanded) {
+            
+            if (expanded && part.text.isNotEmpty()) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f)
+                )
                 Text(
                     text = part.text,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.padding(top = 4.dp)
+                    fontFamily = FontFamily.Default,
+                    lineHeight = MaterialTheme.typography.bodySmall.lineHeight * 1.4f
                 )
             }
         }
