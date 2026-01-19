@@ -48,9 +48,9 @@ fun ErrorBoundary(
 @Composable
 fun ErrorFallback(
     errorState: ErrorState,
+    modifier: Modifier = Modifier,
     onRetry: (() -> Unit)? = null,
-    onDismiss: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onDismiss: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -105,10 +105,10 @@ fun ErrorFallback(
 @Composable
 fun ErrorCard(
     message: String,
+    modifier: Modifier = Modifier,
     errorType: ErrorType = ErrorType.UNKNOWN,
     onRetry: (() -> Unit)? = null,
-    onDismiss: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onDismiss: (() -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -169,10 +169,10 @@ fun ErrorCard(
 @Composable
 fun ErrorSnackbar(
     message: String,
-    errorType: ErrorType = ErrorType.UNKNOWN,
-    onRetry: (() -> Unit)? = null,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    errorType: ErrorType = ErrorType.UNKNOWN,
+    onRetry: (() -> Unit)? = null
 ) {
     Snackbar(
         modifier = modifier,
@@ -208,8 +208,8 @@ fun ErrorSnackbar(
 @Composable
 fun InlineError(
     message: String,
-    onRetry: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null
 ) {
     Row(
         modifier = modifier

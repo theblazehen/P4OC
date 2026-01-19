@@ -99,9 +99,9 @@ fun parseDiff(diffContent: String): Pair<String, List<DiffHunk>> {
 @Composable
 fun DiffViewerScreen(
     diffContent: String,
-    fileName: String? = null,
     onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fileName: String? = null
 ) {
     var viewMode by remember { mutableStateOf(DiffViewMode.UNIFIED) }
     val (parsedFileName, hunks) = remember(diffContent) { parseDiff(diffContent) }
