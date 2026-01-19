@@ -2,9 +2,16 @@ package com.pocketcode.ui.components
 
 import android.content.Context
 import android.graphics.Typeface
+import android.text.InputType
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.BaseInputConnection
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
+import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -14,6 +21,152 @@ import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
 import com.termux.view.TerminalViewClient
+
+class KeyInterceptingContainer(context: Context) : FrameLayout(context) {
+    
+    var onKeyInput: ((String) -> Unit)? = null
+    var terminalView: TerminalView? = null
+    
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && terminalView?.mEmulator != null) {
+            val handled = handleKeyDown(event)
+            if (handled) return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+    
+    private fun handleKeyDown(event: KeyEvent): Boolean {
+        val keyCode = event.keyCode
+        
+        val code = when (keyCode) {
+            KeyEvent.KEYCODE_ENTER -> "\r"
+            KeyEvent.KEYCODE_DEL -> "\u007f"
+            KeyEvent.KEYCODE_FORWARD_DEL -> "\u001b[3~"
+            KeyEvent.KEYCODE_TAB -> "\t"
+            KeyEvent.KEYCODE_ESCAPE -> "\u001b"
+            KeyEvent.KEYCODE_DPAD_UP -> "\u001b[A"
+            KeyEvent.KEYCODE_DPAD_DOWN -> "\u001b[B"
+            KeyEvent.KEYCODE_DPAD_RIGHT -> "\u001b[C"
+            KeyEvent.KEYCODE_DPAD_LEFT -> "\u001b[D"
+            KeyEvent.KEYCODE_MOVE_HOME -> "\u001b[H"
+            KeyEvent.KEYCODE_MOVE_END -> "\u001b[F"
+            KeyEvent.KEYCODE_PAGE_UP -> "\u001b[5~"
+            KeyEvent.KEYCODE_PAGE_DOWN -> "\u001b[6~"
+            KeyEvent.KEYCODE_INSERT -> "\u001b[2~"
+            else -> null
+        }
+        
+        if (code != null) {
+            onKeyInput?.invoke(code)
+            return true
+        }
+        
+        if (event.isCtrlPressed) {
+            val char = event.unicodeChar and 0x1f
+            if (char > 0) {
+                onKeyInput?.invoke(char.toChar().toString())
+                return true
+            }
+        }
+        
+        val unicodeChar = event.unicodeChar
+        if (unicodeChar != 0) {
+            onKeyInput?.invoke(unicodeChar.toChar().toString())
+            return true
+        }
+        
+        return false
+    }
+}
+
+class TerminalInputView(context: Context) : View(context) {
+    
+    var onKeyInput: ((String) -> Unit)? = null
+    
+    init {
+        isFocusable = true
+        isFocusableInTouchMode = true
+    }
+    
+    override fun onCheckIsTextEditor(): Boolean = true
+    
+    override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
+        outAttrs.inputType = InputType.TYPE_NULL
+        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN or EditorInfo.IME_ACTION_NONE
+        
+        val view = this
+        return object : BaseInputConnection(view, false) {
+            override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+                text?.toString()?.let { onKeyInput?.invoke(it) }
+                return true
+            }
+            
+            override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean {
+                return true
+            }
+            
+            override fun finishComposingText(): Boolean {
+                return true
+            }
+            
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+                if (beforeLength > 0) {
+                    repeat(beforeLength) { onKeyInput?.invoke("\u007f") }
+                }
+                return true
+            }
+            
+            override fun sendKeyEvent(event: KeyEvent): Boolean {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    when (event.keyCode) {
+                        KeyEvent.KEYCODE_DEL -> {
+                            onKeyInput?.invoke("\u007f")
+                            return true
+                        }
+                        KeyEvent.KEYCODE_ENTER -> {
+                            onKeyInput?.invoke("\r")
+                            return true
+                        }
+                    }
+                    val unicodeChar = event.unicodeChar
+                    if (unicodeChar != 0) {
+                        onKeyInput?.invoke(unicodeChar.toChar().toString())
+                        return true
+                    }
+                }
+                return super.sendKeyEvent(event)
+            }
+        }
+    }
+    
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val code = when (keyCode) {
+            KeyEvent.KEYCODE_ENTER -> "\r"
+            KeyEvent.KEYCODE_DEL -> "\u007f"
+            KeyEvent.KEYCODE_FORWARD_DEL -> "\u001b[3~"
+            KeyEvent.KEYCODE_TAB -> "\t"
+            KeyEvent.KEYCODE_ESCAPE -> "\u001b"
+            KeyEvent.KEYCODE_DPAD_UP -> "\u001b[A"
+            KeyEvent.KEYCODE_DPAD_DOWN -> "\u001b[B"
+            KeyEvent.KEYCODE_DPAD_RIGHT -> "\u001b[C"
+            KeyEvent.KEYCODE_DPAD_LEFT -> "\u001b[D"
+            else -> null
+        }
+        
+        if (code != null) {
+            onKeyInput?.invoke(code)
+            return true
+        }
+        
+        val unicodeChar = event.unicodeChar
+        if (unicodeChar != 0) {
+            onKeyInput?.invoke(unicodeChar.toChar().toString())
+            return true
+        }
+        
+        return super.onKeyDown(keyCode, event)
+    }
+}
 
 @Composable
 fun TermuxTerminalView(
@@ -29,20 +182,47 @@ fun TermuxTerminalView(
     
     AndroidView(
         factory = { ctx ->
-            TerminalView(ctx, null).apply {
+            val container = FrameLayout(ctx)
+            
+            val terminalView = TerminalView(ctx, null).apply {
                 setTextSize(14)
                 setTypeface(Typeface.MONOSPACE)
                 setTerminalViewClient(terminalViewClient)
                 keepScreenOn = true
-                isFocusable = true
-                isFocusableInTouchMode = true
-                requestFocus()
             }
+            
+            val inputView = TerminalInputView(ctx).apply {
+                this.onKeyInput = onKeyInput
+                layoutParams = FrameLayout.LayoutParams(1, 1)
+            }
+            
+            container.addView(terminalView, ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+            container.addView(inputView)
+            
+            terminalView.setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_UP) {
+                    inputView.requestFocus()
+                    val imm = ctx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(inputView, InputMethodManager.SHOW_IMPLICIT)
+                }
+                false
+            }
+            
+            container.tag = Pair(terminalView, inputView)
+            inputView.requestFocus()
+            container
         },
-        update = { view ->
+        update = { container ->
             emulator?.let { emu ->
-                view.mEmulator = emu
-                view.invalidate()
+                @Suppress("UNCHECKED_CAST")
+                val views = container.tag as? Pair<TerminalView, TerminalInputView>
+                views?.first?.let { view ->
+                    view.mEmulator = emu
+                    view.onScreenUpdated()
+                }
             }
         },
         modifier = modifier
@@ -56,10 +236,7 @@ private fun createTerminalViewClient(
     return object : TerminalViewClient {
         override fun onScale(scale: Float): Float = scale.coerceIn(10f, 40f)
 
-        override fun onSingleTapUp(e: MotionEvent?) {
-            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0)
-        }
+        override fun onSingleTapUp(e: MotionEvent?) {}
 
         override fun shouldBackButtonBeMappedToEscape(): Boolean = false
 
@@ -71,9 +248,7 @@ private fun createTerminalViewClient(
 
         override fun copyModeChanged(copyMode: Boolean) {}
 
-        override fun onKeyDown(keyCode: Int, e: KeyEvent?, session: TerminalSession?): Boolean {
-            return false
-        }
+        override fun onKeyDown(keyCode: Int, e: KeyEvent?, session: TerminalSession?): Boolean = false
 
         override fun onKeyUp(keyCode: Int, e: KeyEvent?): Boolean = false
 
@@ -88,7 +263,13 @@ private fun createTerminalViewClient(
         override fun readFnKey(): Boolean = false
 
         override fun onCodePoint(codePoint: Int, ctrlDown: Boolean, session: TerminalSession?): Boolean {
-            return false
+            val char = if (ctrlDown && codePoint in 'a'.code..'z'.code) {
+                (codePoint - 'a'.code + 1).toChar().toString()
+            } else {
+                codePoint.toChar().toString()
+            }
+            onKeyInput(char)
+            return true
         }
 
         override fun onEmulatorSet() {}

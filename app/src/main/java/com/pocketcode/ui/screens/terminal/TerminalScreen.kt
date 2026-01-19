@@ -54,6 +54,7 @@ fun TerminalScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
         ) {
             if (uiState.ptySessions.isNotEmpty()) {
                 SessionTabRow(
