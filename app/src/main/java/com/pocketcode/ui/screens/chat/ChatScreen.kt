@@ -34,7 +34,7 @@ fun ChatScreen(
     onOpenGit: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val messages by viewModel.messages.collectAsState()
+    val messages = viewModel.messages
     val connectionState by viewModel.connectionState.collectAsState()
 
     val listState = rememberLazyListState()
