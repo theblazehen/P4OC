@@ -369,7 +369,7 @@ class ProviderMapper @Inject constructor() {
 
     fun mapModelToDomain(dto: ModelDto): Model = Model(
         id = dto.id,
-        providerID = dto.providerID,
+        providerID = dto.providerId,
         name = dto.name,
         api = dto.api?.let { ModelApi(it.id, it.url, it.npm) },
         capabilities = dto.capabilities?.let { mapCapabilitiesToDomain(it) },
@@ -420,7 +420,7 @@ class AgentMapper @Inject constructor() {
     fun mapToDomain(dto: AgentDto): Agent = Agent(
         name = dto.name,
         description = dto.description,
-        mode = dto.mode,
+        mode = dto.mode ?: "subagent",
         builtIn = dto.builtIn,
         topP = dto.topP,
         temperature = dto.temperature,
@@ -428,7 +428,7 @@ class AgentMapper @Inject constructor() {
         permission = dto.permission?.let { mapPermissionToDomain(it) },
         model = dto.model?.let { ModelRef(it.providerID, it.modelID) },
         prompt = dto.prompt,
-        tools = dto.tools,
+        tools = dto.tools ?: emptyMap(),
         maxSteps = dto.maxSteps
     )
 

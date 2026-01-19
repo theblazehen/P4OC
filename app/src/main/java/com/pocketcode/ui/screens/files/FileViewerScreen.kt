@@ -1,18 +1,18 @@
 package com.pocketcode.ui.screens.files
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.FormatListNumberedRtl
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pocketcode.ui.components.code.Language
+import com.pocketcode.ui.components.code.SyntaxHighlightedCode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,20 +22,42 @@ fun FileViewerScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showLineNumbers by remember { mutableStateOf(true) }
 
     LaunchedEffect(path) {
         viewModel.loadFileContent(path)
     }
 
     val filename = path.substringAfterLast("/")
+    val language = remember(filename) { Language.fromFilename(filename) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(filename) },
+                title = { 
+                    Column {
+                        Text(filename)
+                        Text(
+                            text = if (language != Language.UNKNOWN) language.name.lowercase() else "plain text",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showLineNumbers = !showLineNumbers }) {
+                        Icon(
+                            imageVector = if (showLineNumbers) 
+                                Icons.Default.FormatListNumbered 
+                            else 
+                                Icons.Default.FormatListNumberedRtl,
+                            contentDescription = "Toggle line numbers"
+                        )
                     }
                 }
             )
@@ -51,29 +73,14 @@ fun FileViewerScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 uiState.fileContent != null -> {
-                    val verticalScroll = rememberScrollState()
-                    val horizontalScroll = rememberScrollState()
-
-                    Surface(
+                    SyntaxHighlightedCode(
+                        code = uiState.fileContent!!,
+                        filename = filename,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .verticalScroll(verticalScroll)
-                                .horizontalScroll(horizontalScroll)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = uiState.fileContent!!,
-                                fontFamily = FontFamily.Monospace,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
+                        showLineNumbers = showLineNumbers
+                    )
                 }
                 uiState.error != null -> {
                     Text(

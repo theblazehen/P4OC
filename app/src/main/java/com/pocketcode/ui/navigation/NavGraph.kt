@@ -18,6 +18,9 @@ import com.pocketcode.ui.screens.server.ServerScreen
 import com.pocketcode.ui.screens.sessions.SessionListScreen
 import com.pocketcode.ui.screens.settings.ProviderConfigScreen
 import com.pocketcode.ui.screens.settings.SettingsScreen
+import com.pocketcode.ui.screens.settings.VisualSettingsScreen
+import com.pocketcode.ui.screens.settings.ModelControlsScreen
+import com.pocketcode.ui.screens.settings.AgentsConfigScreen
 import com.pocketcode.ui.screens.setup.SetupScreen
 import com.pocketcode.ui.screens.terminal.TerminalScreen
 
@@ -145,12 +148,39 @@ fun NavGraph(
                 },
                 onProviderConfig = {
                     navController.navigate(Screen.ProviderConfig.route)
+                },
+                onVisualSettings = {
+                    navController.navigate(Screen.VisualSettings.route)
+                },
+                onModelControls = {
+                    navController.navigate(Screen.ModelControls.route)
+                },
+                onAgentsConfig = {
+                    navController.navigate(Screen.AgentsConfig.route)
                 }
             )
         }
 
         composable(Screen.ProviderConfig.route) {
             ProviderConfigScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(Screen.VisualSettings.route) {
+            VisualSettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(Screen.ModelControls.route) {
+            ModelControlsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(Screen.AgentsConfig.route) {
+            AgentsConfigScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

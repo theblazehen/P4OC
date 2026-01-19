@@ -20,7 +20,10 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onDisconnect: () -> Unit,
-    onProviderConfig: () -> Unit = {}
+    onProviderConfig: () -> Unit = {},
+    onVisualSettings: () -> Unit = {},
+    onModelControls: () -> Unit = {},
+    onAgentsConfig: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDisconnectDialog by remember { mutableStateOf(false) }
@@ -62,6 +65,36 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Default.SmartToy, contentDescription = null) },
                 trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
                 modifier = Modifier.clickable { onProviderConfig() }
+            )
+
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("Model Controls") },
+                supportingContent = { Text("Manage models and favorites") },
+                leadingContent = { Icon(Icons.Default.Tune, contentDescription = null) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                modifier = Modifier.clickable { onModelControls() }
+            )
+
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("Agents") },
+                supportingContent = { Text("Configure AI agents") },
+                leadingContent = { Icon(Icons.Default.Groups, contentDescription = null) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                modifier = Modifier.clickable { onAgentsConfig() }
+            )
+
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("Visual Settings") },
+                supportingContent = { Text("Font size, spacing, and display") },
+                leadingContent = { Icon(Icons.Default.TextFields, contentDescription = null) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                modifier = Modifier.clickable { onVisualSettings() }
             )
 
             HorizontalDivider()

@@ -33,4 +33,10 @@ sealed class Screen(val route: String) {
     data object Git : Screen("git")
     
     data object Settings : Screen("settings")
+    
+    data object VisualSettings : Screen("settings/visual")
+    
+    data object ModelControls : Screen("settings/models")
+    
+    data object AgentsConfig : Screen("settings/agents")
 }

@@ -516,7 +516,7 @@ data class ProviderDto(
 @Serializable
 data class ModelDto(
     val id: String,
-    @SerialName("providerID") val providerID: String,
+    @SerialName("providerID") val providerId: String,
     val api: ModelApiDto? = null,
     val name: String,
     val capabilities: ModelCapabilitiesDto? = null,
@@ -524,7 +524,12 @@ data class ModelDto(
     val limit: ModelLimitDto? = null,
     val status: String? = null, // "alpha" | "beta" | "deprecated" | "active"
     val options: JsonObject? = null,
-    val headers: Map<String, String>? = null
+    val headers: Map<String, String>? = null,
+    val contextLength: Int? = null,
+    val inputCostPer1k: Double? = null,
+    val outputCostPer1k: Double? = null,
+    val supportsTools: Boolean? = null,
+    val supportsReasoning: Boolean? = null
 )
 
 @Serializable
@@ -600,7 +605,7 @@ data class ProviderAuthAuthorizationDto(
 data class AgentDto(
     val name: String,
     val description: String? = null,
-    val mode: String, // "subagent" | "primary" | "all"
+    val mode: String? = null, // "subagent" | "primary" | "all"
     val builtIn: Boolean = false,
     val topP: Double? = null,
     val temperature: Double? = null,
@@ -608,9 +613,12 @@ data class AgentDto(
     val permission: AgentPermissionDto? = null,
     val model: ModelRefDto? = null,
     val prompt: String? = null,
-    val tools: Map<String, Boolean> = emptyMap(),
+    val tools: Map<String, Boolean>? = null,
     val options: JsonObject? = null,
-    val maxSteps: Int? = null
+    val maxSteps: Int? = null,
+    val systemPrompt: String? = null,
+    val isEnabled: Boolean? = null,
+    val isBuiltIn: Boolean? = null
 )
 
 @Serializable
