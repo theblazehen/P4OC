@@ -164,6 +164,11 @@ class TermuxBridge @Inject constructor(
     }
 
     fun openTermuxSetup(): Boolean {
+        if (!hasRunCommandPermission()) {
+            openTermux()
+            return true
+        }
+        
         val script = """
             echo "=== Pocket Code Setup ==="
             echo ""

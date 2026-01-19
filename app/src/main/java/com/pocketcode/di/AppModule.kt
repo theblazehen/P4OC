@@ -20,7 +20,8 @@ object AppModule {
     fun provideJson(): Json = Json {
         ignoreUnknownKeys = true
         isLenient = true
-        encodeDefaults = true
+        encodeDefaults = false  // Don't encode null/default values - server rejects explicit nulls
+        explicitNulls = false   // Omit null fields from JSON output
         coerceInputValues = true
     }
 

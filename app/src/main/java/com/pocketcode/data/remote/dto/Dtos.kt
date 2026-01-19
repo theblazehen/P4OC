@@ -534,9 +534,9 @@ data class ModelDto(
 
 @Serializable
 data class ModelApiDto(
-    val id: String,
-    val url: String,
-    val npm: String
+    val id: String? = null,
+    val url: String? = null,
+    val npm: String? = null
 )
 
 @Serializable

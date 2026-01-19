@@ -35,9 +35,9 @@ data class Model(
 
 @Serializable
 data class ModelApi(
-    val id: String,
-    val url: String,
-    val npm: String
+    val id: String? = null,
+    val url: String? = null,
+    val npm: String? = null
 )
 
 @Serializable
