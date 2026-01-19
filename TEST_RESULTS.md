@@ -1,8 +1,8 @@
 # Pocket Code Android - UI Test Results
 
-**Test Date:** 2026-01-19
+**Test Date:** 2026-01-19 (Updated: 2026-01-19 19:00)
 **App Version:** 0.1.0 (debug)
-**Device:** 192.168.24.63:5555
+**Device:** 192.168.24.65:5555
 **Server:** http://192.168.24.25:4096
 **Tester:** Automated (ADB/UIAutomator)
 
@@ -13,19 +13,19 @@
 | Category | Total | Passed | Failed | Blocked | Bugs Filed |
 |----------|-------|--------|--------|---------|------------|
 | Smoke Tests | 8 | 8 | 0 | 0 | 0 |
-| Server Connection | 12 | 11 | 1 | 0 | 1 |
-| Chat & Messaging | 25 | 20 | 0 | 5 | 0 |
-| Session Management | 10 | 8 | 1 | 1 | 1 |
+| Server Connection | 12 | 12 | 0 | 0 | 0 |
+| Chat & Messaging | 25 | 21 | 0 | 4 | 0 |
+| Session Management | 10 | 10 | 0 | 0 | 0 |
 | File Explorer & Viewer | 15 | 5 | 0 | 10 | 0 |
 | Git Integration | 8 | 3 | 0 | 5 | 0 |
-| Settings Screens | 30 | 18 | 2 | 10 | 1 |
+| Settings Screens | 30 | 20 | 1 | 9 | 0 |
 | Terminal | 12 | 5 | 0 | 7 | 0 |
-| Integration Tests | 8 | 5 | 0 | 3 | 0 |
+| Integration Tests | 8 | 6 | 0 | 2 | 0 |
 | Edge Cases | 10 | 3 | 0 | 7 | 0 |
-| **TOTAL** | **138** | **86** | **4** | **48** | **3** |
+| **TOTAL** | **138** | **93** | **1** | **44** | **0** |
 
-**Pass Rate:** 62% (86/138)
-**Critical Bugs:** 3 found during testing, 1 fixed (baseUrlInterceptor)
+**Pass Rate:** 67% (93/138) - Up from 62%
+**Critical Bugs:** 5 found in previous session, 3 now FIXED
 
 ---
 
@@ -35,9 +35,10 @@
 |--------|-------------|----------|--------|-------------|
 | BUG-001 | Remote server URL ignored - connects to localhost | Critical | FIXED | opencode_android-eef |
 | BUG-002 | Disconnect dialog doesn't work | Medium | FIXED (via BUG-001 fix) | opencode_android-de4 |
-| BUG-003 | New session creation fails with HTTP 400 | High | Open | opencode_android-jfa |
-| BUG-004 | Provider config fails: missing 'url' field in ModelApiDto | High | Open | opencode_android-8kg |
+| BUG-003 | New session creation fails with HTTP 400 | High | FIXED | opencode_android-jfa |
+| BUG-004 | Provider config fails: missing 'url' field in ModelApiDto | High | FIXED | opencode_android-8kg |
 | BUG-005 | Setup Termux button does not respond | Medium | Open | opencode_android-zmg |
+| BUG-006 | Agents screen shows "Failed to load agents" error | Medium | Open | - |
 
 ---
 
@@ -164,8 +165,8 @@
 - **Actual:** Shows session title and date
 
 ### SM-003: Create New Session
-- **Status:** FAIL (BUG-003)
-- **Actual:** "Failed to create session: HTTP 400 Bad Request"
+- **Status:** PASS (BUG-003 FIXED)
+- **Actual:** New session dialog appears, Create button works, navigates to empty chat
 
 ### SM-004: Open Existing Session
 - **Status:** PASS
@@ -232,12 +233,12 @@
 - **Actual:** Shows "http://192.168.24.25:4096"
 
 ### SS-004: Open Provider Config
-- **Status:** FAIL (BUG-004)
-- **Actual:** "Field 'url' is required for type... ModelApiDto... grok-4-fast-non-reasoning"
+- **Status:** PASS (BUG-004 FIXED)
+- **Actual:** Shows providers list with model counts, expandable to show individual models with pricing
 
 ### SS-012: Open Agents Screen
-- **Status:** FAIL
-- **Actual:** Shows only "Dismiss" button (parsing error)
+- **Status:** PARTIAL (BUG-006)
+- **Actual:** Shows "Failed to load agents" error initially, after Dismiss shows "No agents configured"
 
 ### SS-015: Open Skills Screen
 - **Status:** PASS
@@ -357,8 +358,17 @@ fun provideOkHttpClient(
 
 ## Test Session Log
 
-- **Start:** 2026-01-19 ~15:00
-- **End:** 2026-01-19 ~17:30
+### Session 2: 2026-01-19 ~18:50 - 19:05
+- **Device:** 192.168.24.65:5555
+- **Tests Re-run:** Full regression
+- **Bugs Fixed Since Last Session:** 
+  - BUG-003 (Session creation) - Now working
+  - BUG-004 (Provider config) - Now working
+- **New Issues Found:**
+  - BUG-006: Agents screen shows error before loading
+- **Pass Rate Improvement:** 62% → 67%
+
+### Session 1: 2026-01-19 ~15:00 - 17:30
 - **Duration:** ~2.5 hours
 - **Device IP Changed:** 192.168.24.61 → 192.168.24.63
 - **Critical Bug Fixed:** 1 (baseUrlInterceptor)
