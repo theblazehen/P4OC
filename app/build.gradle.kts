@@ -112,8 +112,8 @@ dependencies {
     implementation("com.termux.termux-app:terminal-view:0.118.0")
     implementation("com.termux.termux-app:terminal-emulator:0.118.0")
     
-    // Prevent guava conflict
-    implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+    // Concurrent futures (required by Termux terminal libs)
+    implementation("androidx.concurrent:concurrent-futures:1.2.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
