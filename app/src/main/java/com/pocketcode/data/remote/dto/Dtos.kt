@@ -461,7 +461,7 @@ data class FileStatusDto(
 @Serializable
 data class SearchResultDto(
     val path: String,
-    val lines: String? = null,
+    val lines: JsonElement? = null,
     @SerialName("line_number") val lineNumber: Int? = null,
     @SerialName("absolute_offset") val absoluteOffset: Int? = null,
     val submatches: List<SubmatchDto>? = null
@@ -608,6 +608,8 @@ data class AgentDto(
     val description: String? = null,
     val mode: String? = null, // "subagent" | "primary" | "all"
     val builtIn: Boolean = false,
+    @SerialName("native") val isNative: Boolean = false,
+    val hidden: Boolean = false,
     val topP: Double? = null,
     val temperature: Double? = null,
     val color: String? = null,
@@ -622,10 +624,20 @@ data class AgentDto(
     val isBuiltIn: Boolean? = null
 )
 
+/**
+ * SDK Agent.permission structure:
+ * {
+ *   edit: "ask" | "allow" | "deny",
+ *   bash: { [pattern: string]: "ask" | "allow" | "deny" },
+ *   webfetch?: "ask" | "allow" | "deny",
+ *   doom_loop?: "ask" | "allow" | "deny",
+ *   external_directory?: "ask" | "allow" | "deny"
+ * }
+ */
 @Serializable
 data class AgentPermissionDto(
     val edit: String? = null, // "ask" | "allow" | "deny"
-    val bash: JsonElement? = null, // string | { [key: string]: string }
+    val bash: JsonElement? = null, // string | { [pattern: string]: "ask" | "allow" | "deny" }
     val webfetch: String? = null,
     @SerialName("doom_loop") val doomLoop: String? = null,
     @SerialName("external_directory") val externalDirectory: String? = null

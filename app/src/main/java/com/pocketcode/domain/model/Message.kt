@@ -60,7 +60,10 @@ data class MessageError(
     val name: String,
     val message: String? = null,
     val statusCode: Int? = null,
-    val isRetryable: Boolean = false
+    val isRetryable: Boolean = false,
+    val providerID: String? = null,
+    val responseHeaders: Map<String, String>? = null,
+    val responseBody: String? = null
 )
 
 @Serializable

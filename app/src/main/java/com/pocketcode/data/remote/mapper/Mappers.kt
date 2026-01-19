@@ -94,7 +94,9 @@ class SessionMapper @Inject constructor() {
 // ============================================================================
 
 @Singleton
-class MessageMapper @Inject constructor() {
+class MessageMapper @Inject constructor(
+    private val json: Json
+) {
     fun mapToDomain(dto: MessageInfoDto): Message = when (dto.role) {
         "user" -> Message.User(
             id = dto.id,
@@ -148,7 +150,10 @@ class MessageMapper @Inject constructor() {
             name = dto.name,
             message = data?.get("message")?.toString()?.removeSurrounding("\""),
             statusCode = data?.get("statusCode")?.toString()?.toIntOrNull(),
-            isRetryable = data?.get("isRetryable")?.toString()?.toBooleanStrictOrNull() ?: false
+            isRetryable = data?.get("isRetryable")?.toString()?.toBooleanStrictOrNull() ?: false,
+            providerID = data?.get("providerID")?.toString()?.removeSurrounding("\""),
+            responseHeaders = null,
+            responseBody = data?.get("responseBody")?.toString()?.removeSurrounding("\"")
         )
     }
 
@@ -167,10 +172,19 @@ class MessageMapper @Inject constructor() {
         if (summary == null) return null
         return try {
             val obj = summary as? JsonObject ?: return null
+            val summaryDto = json.decodeFromJsonElement<MessageSummaryDto>(obj)
             MessageSummary(
-                title = obj["title"]?.toString()?.removeSurrounding("\""),
-                body = obj["body"]?.toString()?.removeSurrounding("\""),
-                diffs = emptyList()
+                title = summaryDto.title,
+                body = summaryDto.body,
+                diffs = summaryDto.diffs.map { dto ->
+                    FileDiff(
+                        file = dto.file,
+                        before = dto.before,
+                        after = dto.after,
+                        additions = dto.additions,
+                        deletions = dto.deletions
+                    )
+                }
             )
         } catch (e: Exception) {
             null
@@ -221,7 +235,7 @@ class PartMapper @Inject constructor() {
             mime = dto.mime ?: "",
             filename = dto.filename,
             url = dto.url ?: "",
-            source = null
+            source = dto.source?.let { mapFileSourceToDomain(it) }
         )
         "patch" -> Part.Patch(
             id = dto.id,
@@ -349,6 +363,44 @@ class PartMapper @Inject constructor() {
             responseBody = data["responseBody"]?.toString()?.removeSurrounding("\"")
         )
     }
+
+    private fun mapFileSourceToDomain(source: JsonObject): FilePartSource? {
+        val typeValue = source["type"]?.toString()?.removeSurrounding("\"") ?: return null
+        val textObj = source["text"] as? JsonObject ?: return null
+        val text = FilePartSourceText(
+            value = textObj["value"]?.toString()?.removeSurrounding("\"") ?: "",
+            start = textObj["start"]?.toString()?.toIntOrNull() ?: 0,
+            end = textObj["end"]?.toString()?.toIntOrNull() ?: 0
+        )
+        val path = source["path"]?.toString()?.removeSurrounding("\"") ?: ""
+
+        return when (typeValue) {
+            "file" -> FilePartSource.FileSource(text = text, path = path)
+            "symbol" -> {
+                val rangeObj = source["range"] as? JsonObject
+                val startObj = rangeObj?.get("start") as? JsonObject
+                val endObj = rangeObj?.get("end") as? JsonObject
+                val range = if (startObj != null && endObj != null) {
+                    SymbolRange(
+                        startLine = startObj["line"]?.toString()?.toIntOrNull() ?: 0,
+                        startCharacter = startObj["character"]?.toString()?.toIntOrNull() ?: 0,
+                        endLine = endObj["line"]?.toString()?.toIntOrNull() ?: 0,
+                        endCharacter = endObj["character"]?.toString()?.toIntOrNull() ?: 0
+                    )
+                } else {
+                    SymbolRange(0, 0, 0, 0)
+                }
+                FilePartSource.SymbolSource(
+                    text = text,
+                    path = path,
+                    range = range,
+                    name = source["name"]?.toString()?.removeSurrounding("\"") ?: "",
+                    kind = source["kind"]?.toString()?.toIntOrNull() ?: 0
+                )
+            }
+            else -> null
+        }
+    }
 }
 
 // ============================================================================
@@ -435,11 +487,22 @@ class AgentMapper @Inject constructor() {
     private fun mapPermissionToDomain(dto: AgentPermissionDto): AgentPermission =
         AgentPermission(
             edit = dto.edit,
-            bash = dto.bash,
+            bash = mapBashPermission(dto.bash),
             webfetch = dto.webfetch,
             doomLoop = dto.doomLoop,
             externalDirectory = dto.externalDirectory
         )
+
+    private fun mapBashPermission(bash: JsonElement?): Map<String, String> {
+        if (bash == null) return emptyMap()
+        return when {
+            bash is kotlinx.serialization.json.JsonPrimitive -> mapOf("*" to bash.content)
+            bash is kotlinx.serialization.json.JsonObject -> bash.mapValues { (_, v) ->
+                (v as? kotlinx.serialization.json.JsonPrimitive)?.content ?: "ask"
+            }
+            else -> emptyMap()
+        }
+    }
 }
 
 // ============================================================================

@@ -1,26 +1,31 @@
 package com.pocketcode.core.termux
 
+import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import android.util.Log
-import androidx.core.app.JobIntentService
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE_ERRMSG
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE_EXIT_CODE
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE_STDERR
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE_STDOUT
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-class TermuxResultService : JobIntentService() {
+class TermuxResultService : Service() {
 
     companion object {
         private const val TAG = "TermuxResultService"
-        private const val JOB_ID = 1001
         const val EXTRA_EXECUTION_ID = "execution_id"
 
         private val executionId = AtomicInteger(1000)
         private val callbacks = ConcurrentHashMap<Int, (TermuxCommandResult) -> Unit>()
+        private val executor = Executors.newSingleThreadExecutor()
+        private val mainHandler = Handler(Looper.getMainLooper())
 
         fun getNextExecutionId(): Int = executionId.incrementAndGet()
 
@@ -28,12 +33,25 @@ class TermuxResultService : JobIntentService() {
             callbacks[id] = callback
         }
 
-        fun enqueueWork(context: Context, intent: Intent) {
-            enqueueWork(context, TermuxResultService::class.java, JOB_ID, intent)
+        fun startService(context: Context, intent: Intent) {
+            intent.setClass(context, TermuxResultService::class.java)
+            context.startService(intent)
         }
     }
 
-    override fun onHandleWork(intent: Intent) {
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent != null) {
+            executor.execute {
+                handleWork(intent)
+                stopSelfResult(startId)
+            }
+        }
+        return START_NOT_STICKY
+    }
+
+    private fun handleWork(intent: Intent) {
         val resultBundle = intent.getBundleExtra(EXTRA_PLUGIN_RESULT_BUNDLE)
         val execId = intent.getIntExtra(EXTRA_EXECUTION_ID, 0)
 
@@ -50,6 +68,14 @@ class TermuxResultService : JobIntentService() {
             TermuxCommandResult("", "", null, "No result bundle")
         }
 
-        callbacks.remove(execId)?.invoke(result)
+        val callback = callbacks.remove(execId)
+        if (callback != null) {
+            mainHandler.post { callback.invoke(result) }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "Service destroyed")
     }
 }

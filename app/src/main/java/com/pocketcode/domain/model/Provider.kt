@@ -1,7 +1,6 @@
 package com.pocketcode.domain.model
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 // ============================================================================
@@ -96,7 +95,7 @@ data class Agent(
 @Serializable
 data class AgentPermission(
     val edit: String? = null,
-    val bash: JsonElement? = null,
+    val bash: Map<String, String> = emptyMap(),
     val webfetch: String? = null,
     val doomLoop: String? = null,
     val externalDirectory: String? = null

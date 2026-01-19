@@ -1,6 +1,8 @@
 package com.pocketcode.ui.screens.chat
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,6 +26,7 @@ import com.pocketcode.ui.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,8 +46,11 @@ class ChatViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    private val _messages = MutableStateFlow<List<MessageWithParts>>(emptyList())
-    val messages: StateFlow<List<MessageWithParts>> = _messages.asStateFlow()
+    private val _messages: SnapshotStateList<MessageWithParts> = mutableStateListOf()
+    val messages: SnapshotStateList<MessageWithParts> = _messages
+
+    private val pendingPermissions = ConcurrentLinkedQueue<Permission>()
+    private val pendingQuestions = ConcurrentLinkedQueue<QuestionRequest>()
 
     val connectionState: StateFlow<ConnectionState> = eventSource.connectionState
 
@@ -85,7 +91,8 @@ class ChatViewModel @Inject constructor(
                         messageMapper.mapWrapperToDomain(dto, partMapper)
                     }
                     Log.d("ChatViewModel", "Mapped to ${messageList.size} MessageWithParts")
-                    _messages.value = messageList
+                    _messages.clear()
+                    _messages.addAll(messageList)
                     _uiState.update { it.copy(isLoading = false) }
                 }
                 is ApiResult.Error -> {
@@ -120,12 +127,14 @@ class ChatViewModel @Inject constructor(
             }
             is OpenCodeEvent.PermissionRequested -> {
                 if (event.permission.sessionID == sessionId) {
-                    _uiState.update { it.copy(pendingPermission = event.permission) }
+                    pendingPermissions.offer(event.permission)
+                    showNextPermission()
                 }
             }
             is OpenCodeEvent.QuestionAsked -> {
                 if (event.request.sessionID == sessionId) {
-                    _uiState.update { it.copy(pendingQuestion = event.request) }
+                    pendingQuestions.offer(event.request)
+                    showNextQuestion()
                 }
             }
             is OpenCodeEvent.SessionStatusChanged -> {
@@ -143,42 +152,51 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun updateMessage(message: Message) {
-        _messages.update { currentMessages ->
-            val index = currentMessages.indexOfFirst { it.message.id == message.id }
-            if (index >= 0) {
-                currentMessages.toMutableList().apply {
-                    this[index] = this[index].copy(message = message)
-                }
-            } else {
-                currentMessages + MessageWithParts(message, emptyList())
+    private fun showNextPermission() {
+        if (_uiState.value.pendingPermission == null) {
+            pendingPermissions.poll()?.let { permission ->
+                _uiState.update { it.copy(pendingPermission = permission) }
             }
         }
     }
 
-    private fun updatePart(part: Part, delta: String?) {
-        _messages.update { currentMessages ->
-            currentMessages.map { mwp ->
-                if (mwp.message.id == part.messageID) {
-                    val partIndex = mwp.parts.indexOfFirst { it.id == part.id }
-                    val updatedParts = if (partIndex >= 0) {
-                        mwp.parts.toMutableList().apply {
-                            this[partIndex] = if (delta != null && part is Part.Text) {
-                                val existingText = (this[partIndex] as? Part.Text)?.text ?: ""
-                                part.copy(text = existingText + delta, isStreaming = true)
-                            } else {
-                                part
-                            }
-                        }
-                    } else {
-                        mwp.parts + part
-                    }
-                    mwp.copy(parts = updatedParts)
-                } else {
-                    mwp
-                }
+    private fun showNextQuestion() {
+        if (_uiState.value.pendingQuestion == null) {
+            pendingQuestions.poll()?.let { question ->
+                _uiState.update { it.copy(pendingQuestion = question) }
             }
         }
+    }
+
+    private fun updateMessage(message: Message) {
+        val index = _messages.indexOfFirst { it.message.id == message.id }
+        if (index >= 0) {
+            _messages[index] = _messages[index].copy(message = message)
+        } else {
+            _messages.add(MessageWithParts(message, emptyList()))
+        }
+    }
+
+    private fun updatePart(part: Part, delta: String?) {
+        val msgIndex = _messages.indexOfFirst { it.message.id == part.messageID }
+        if (msgIndex < 0) return
+
+        val mwp = _messages[msgIndex]
+        val partIndex = mwp.parts.indexOfFirst { it.id == part.id }
+        
+        val updatedParts = if (partIndex >= 0) {
+            mwp.parts.toMutableList().apply {
+                this[partIndex] = if (delta != null && part is Part.Text) {
+                    val existingText = (this[partIndex] as? Part.Text)?.text ?: ""
+                    part.copy(text = existingText + delta, isStreaming = true)
+                } else {
+                    part
+                }
+            }
+        } else {
+            mwp.parts + part
+        }
+        _messages[msgIndex] = mwp.copy(parts = updatedParts)
     }
 
     fun updateInput(text: String) {
@@ -220,6 +238,7 @@ class ChatViewModel @Inject constructor(
             val request = PermissionResponseRequest(response = response)
             safeApiCall { api.respondToPermission(sessionId, permissionId, request) }
             _uiState.update { it.copy(pendingPermission = null) }
+            showNextPermission()
         }
     }
 
@@ -228,11 +247,13 @@ class ChatViewModel @Inject constructor(
             val request = QuestionReplyRequest(answers = answers)
             safeApiCall { api.respondToQuestion(sessionId, questionId, request) }
             _uiState.update { it.copy(pendingQuestion = null) }
+            showNextQuestion()
         }
     }
 
     fun dismissQuestion() {
         _uiState.update { it.copy(pendingQuestion = null) }
+        showNextQuestion()
     }
 
     fun abortSession() {
