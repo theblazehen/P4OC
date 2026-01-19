@@ -948,11 +948,11 @@ data class PtyDto(
 
 @Serializable
 data class CreatePtyRequest(
-    val command: String? = null,
-    val args: List<String>? = null,
-    val cwd: String? = null,
-    val title: String? = null,
-    val env: Map<String, String>? = null
+    val command: String = "/bin/bash",
+    val args: List<String> = emptyList(),
+    val cwd: String = ".",
+    val title: String = "Terminal",
+    val env: Map<String, String> = emptyMap()
 )
 
 @Serializable
@@ -968,8 +968,46 @@ data class PtySizeDto(
 )
 
 @Serializable
+data class PtyInputRequest(
+    val data: String
+)
+
+@Serializable
+data class PtyOutputDto(
+    val lines: List<String> = emptyList(),
+    val totalLines: Int = 0,
+    val hasMore: Boolean = false
+)
+
+@Serializable
 data class MessageSummaryDto(
     val title: String? = null,
     val body: String? = null,
     val diffs: List<FileDiffDto> = emptyList()
+)
+
+// ============================================================================
+// Experimental Tools Types
+// ============================================================================
+
+@Serializable
+data class ToolListDto(
+    val tools: List<ToolDto> = emptyList()
+)
+
+@Serializable
+data class ToolDto(
+    val name: String,
+    val description: String? = null,
+    val inputSchema: JsonObject? = null
+)
+
+// ============================================================================
+// Config Providers Types
+// ============================================================================
+
+@Serializable
+data class ConfigProvidersDto(
+    val providers: List<ProviderDto> = emptyList(),
+    val default: Map<String, String> = emptyMap()
 )

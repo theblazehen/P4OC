@@ -250,6 +250,23 @@ interface OpenCodeApi {
         @Body request: UpdatePtyRequest
     ): PtyDto
 
-    @POST("pty/{id}/connect")
-    suspend fun connectPtySession(@Path("id") id: String): Boolean
+    // ============================================================================
+    // Experimental Tools Endpoints
+    // ============================================================================
+
+    @GET("experimental/tool/ids")
+    suspend fun getToolIds(): List<String>
+
+    @GET("experimental/tool")
+    suspend fun getTools(
+        @Query("provider") provider: String,
+        @Query("model") model: String
+    ): ToolListDto
+
+    // ============================================================================
+    // Config Providers Endpoint
+    // ============================================================================
+
+    @GET("config/providers")
+    suspend fun getConfigProviders(): ConfigProvidersDto
 }
