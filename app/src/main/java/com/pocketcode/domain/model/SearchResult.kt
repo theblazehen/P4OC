@@ -6,9 +6,14 @@ import kotlinx.serialization.Serializable
 data class SearchResult(
     val path: String,
     val lineNumber: Int?,
-    val lines: String?,
+    val lines: List<SearchLine>,
     val absoluteOffset: Int?,
     val submatches: List<Submatch>?
+)
+
+@Serializable
+data class SearchLine(
+    val text: String
 )
 
 @Serializable

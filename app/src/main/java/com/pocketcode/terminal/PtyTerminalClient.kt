@@ -55,12 +55,19 @@ class PtyTerminalClient(
     }
 
     override fun onPasteTextFromClipboard(session: TerminalSession?) {
-        val clip = clipboardManager.primaryClip
-        if (clip != null && clip.itemCount > 0) {
-            val pasteText = clip.getItemAt(0).coerceToText(context).toString()
-            if (pasteText.isNotEmpty()) {
-                onPasteRequest?.invoke(pasteText) ?: session?.write(pasteText)
+        try {
+            val clip = clipboardManager.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val pasteText = clip.getItemAt(0).coerceToText(context).toString()
+                if (pasteText.isNotEmpty()) {
+                    onPasteRequest?.invoke(pasteText) ?: session?.write(pasteText)
+                }
             }
+        } catch (e: SecurityException) {
+            // Android 10+ restricts clipboard access when app is not in focus
+            Log.w("PtyTerminalClient", "Clipboard access denied - app may not be in focus", e)
+        } catch (e: Exception) {
+            Log.e("PtyTerminalClient", "Failed to paste from clipboard", e)
         }
     }
 

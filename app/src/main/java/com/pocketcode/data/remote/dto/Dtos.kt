@@ -461,10 +461,15 @@ data class FileStatusDto(
 @Serializable
 data class SearchResultDto(
     val path: String,
-    val lines: JsonElement? = null,
+    val lines: List<SearchLineDto>? = null,
     @SerialName("line_number") val lineNumber: Int? = null,
     @SerialName("absolute_offset") val absoluteOffset: Int? = null,
     val submatches: List<SubmatchDto>? = null
+)
+
+@Serializable
+data class SearchLineDto(
+    val text: String
 )
 
 @Serializable

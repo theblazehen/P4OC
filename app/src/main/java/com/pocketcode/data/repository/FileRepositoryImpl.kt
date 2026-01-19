@@ -6,6 +6,7 @@ import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.domain.model.FileContent
 import com.pocketcode.domain.model.FileNode
 import com.pocketcode.domain.model.FileStatus
+import com.pocketcode.domain.model.SearchLine
 import com.pocketcode.domain.model.SearchResult
 import com.pocketcode.domain.model.Submatch
 import com.pocketcode.domain.repository.FileRepository
@@ -57,7 +58,7 @@ class FileRepositoryImpl @Inject constructor(
                 SearchResult(
                     path = dto.path,
                     lineNumber = dto.lineNumber,
-                    lines = dto.lines,
+                    lines = dto.lines?.map { SearchLine(it.text) } ?: emptyList(),
                     absoluteOffset = dto.absoluteOffset,
                     submatches = dto.submatches?.map { Submatch(it.match, it.start, it.end) }
                 )
