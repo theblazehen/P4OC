@@ -1023,9 +1023,9 @@ data class ToolListDto(
 
 @Serializable
 data class ToolDto(
-    val name: String,
+    val id: String,
     val description: String? = null,
-    val inputSchema: JsonObject? = null
+    val parameters: JsonObject? = null
 )
 
 // ============================================================================

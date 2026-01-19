@@ -8,8 +8,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -39,7 +37,7 @@ object NetworkModule {
         settingsDataStore: SettingsDataStore
     ): Interceptor = Interceptor { chain ->
         val originalRequest = chain.request()
-        val baseUrl = runBlocking { settingsDataStore.serverUrl.first() }
+        val baseUrl = settingsDataStore.getCachedServerUrl()
         
         val newUrl = originalRequest.url.newBuilder()
             .scheme(if (baseUrl.startsWith("https")) "https" else "http")
@@ -61,8 +59,8 @@ object NetworkModule {
         settingsDataStore: SettingsDataStore
     ): Interceptor = Interceptor { chain ->
         val originalRequest = chain.request()
-        val username = runBlocking { settingsDataStore.username.first() }
-        val password = runBlocking { settingsDataStore.password.first() }
+        val username = settingsDataStore.getCachedUsername()
+        val password = settingsDataStore.getCachedPassword()
 
         val request = if (username != null && password != null) {
             val credentials = okhttp3.Credentials.basic(username, password)
@@ -114,7 +112,7 @@ object NetworkModule {
         json: Json,
         settingsDataStore: SettingsDataStore
     ): Retrofit {
-        val baseUrl = runBlocking { settingsDataStore.serverUrl.first() }
+        val baseUrl = settingsDataStore.getCachedServerUrl()
         val contentType = "application/json".toMediaType()
         
         return Retrofit.Builder()

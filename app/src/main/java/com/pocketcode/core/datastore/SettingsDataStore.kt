@@ -32,8 +32,19 @@ class SettingsDataStore @Inject constructor(
         const val THEME_DARK = "dark"
     }
 
+    @Volatile
+    private var cachedServerUrl: String = DEFAULT_LOCAL_URL
+    @Volatile
+    private var cachedUsername: String? = null
+    @Volatile
+    private var cachedPassword: String? = null
+
+    fun getCachedServerUrl(): String = cachedServerUrl
+    fun getCachedUsername(): String? = cachedUsername
+    fun getCachedPassword(): String? = cachedPassword
+
     val serverUrl: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_SERVER_URL] ?: DEFAULT_LOCAL_URL
+        (prefs[KEY_SERVER_URL] ?: DEFAULT_LOCAL_URL).also { cachedServerUrl = it }
     }
 
     val serverName: Flow<String> = context.dataStore.data.map { prefs ->
@@ -45,11 +56,11 @@ class SettingsDataStore @Inject constructor(
     }
 
     val username: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[KEY_USERNAME]
+        prefs[KEY_USERNAME].also { cachedUsername = it }
     }
 
     val password: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[KEY_PASSWORD]
+        prefs[KEY_PASSWORD].also { cachedPassword = it }
     }
 
     val themeMode: Flow<String> = context.dataStore.data.map { prefs ->
