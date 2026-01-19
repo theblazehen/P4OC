@@ -1,5 +1,6 @@
 package com.pocketcode.ui.screens.server
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.datastore.SettingsDataStore
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val TAG = "ServerViewModel"
 
 @HiltViewModel
 class ServerViewModel @Inject constructor(
@@ -103,7 +106,10 @@ class ServerViewModel @Inject constructor(
 
     fun connectToRemote() {
         val state = _uiState.value
+        Log.d(TAG, "connectToRemote called, url='${state.remoteUrl}'")
+        
         if (state.remoteUrl.isBlank()) {
+            Log.w(TAG, "URL is blank, showing error")
             _uiState.update { it.copy(error = "Please enter a server URL") }
             return
         }
@@ -112,6 +118,8 @@ class ServerViewModel @Inject constructor(
             _uiState.update { it.copy(isConnecting = true, error = null) }
 
             val url = normalizeServerUrl(state.remoteUrl)
+            Log.d(TAG, "Connecting to normalized URL: $url")
+            
             val config = ServerConfig(
                 url = url,
                 name = "Remote Server",
@@ -124,10 +132,12 @@ class ServerViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = {
+                    Log.d(TAG, "Connection successful!")
                     settingsDataStore.saveLastConnection(config)
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
                 onFailure = { error ->
+                    Log.e(TAG, "Connection failed: ${error.message}", error)
                     _uiState.update { 
                         it.copy(
                             isConnecting = false, 

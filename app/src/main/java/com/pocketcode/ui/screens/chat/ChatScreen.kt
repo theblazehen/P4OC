@@ -1,5 +1,6 @@
 package com.pocketcode.ui.screens.chat
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pocketcode.core.network.ConnectionState
@@ -40,6 +43,15 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     var showCommandPalette by remember { mutableStateOf(false) }
     var showTodoTracker by remember { mutableStateOf(false) }
+    
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    
+    BackHandler {
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        onNavigateBack()
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
