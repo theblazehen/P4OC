@@ -117,7 +117,8 @@ data class SessionStatusDto(
 @Serializable
 data class CreateSessionRequest(
     @SerialName("parentID") val parentID: String? = null,
-    val title: String? = null
+    val title: String? = null,
+    val directory: String? = null
 )
 
 @Serializable

@@ -17,9 +17,13 @@ import com.pocketcode.domain.model.Part
 import com.pocketcode.domain.model.TokenUsage
 import com.pocketcode.domain.model.ToolState
 import com.pocketcode.domain.repository.MessageRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
@@ -90,7 +94,12 @@ class MessageRepositoryImpl @Inject constructor(
         }
     }
 
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun updateMessagePart(part: Part, delta: String?) {
+        repositoryScope.launch {
+            messageDao.updatePart(part.toEntity())
+        }
     }
 
     private fun MessageEntity.toDomain(): Message {

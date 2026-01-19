@@ -1,8 +1,9 @@
 package com.pocketcode.core.termux
 
-import android.app.IntentService
+import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.app.JobIntentService
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE_ERRMSG
 import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE_EXIT_CODE
@@ -11,11 +12,11 @@ import com.pocketcode.core.termux.TermuxConstants.EXTRA_PLUGIN_RESULT_BUNDLE_STD
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-@Suppress("DEPRECATION")
-class TermuxResultService : IntentService("TermuxResultService") {
+class TermuxResultService : JobIntentService() {
 
     companion object {
         private const val TAG = "TermuxResultService"
+        private const val JOB_ID = 1001
         const val EXTRA_EXECUTION_ID = "execution_id"
 
         private val executionId = AtomicInteger(1000)
@@ -26,14 +27,13 @@ class TermuxResultService : IntentService("TermuxResultService") {
         fun registerCallback(id: Int, callback: (TermuxCommandResult) -> Unit) {
             callbacks[id] = callback
         }
+
+        fun enqueueWork(context: Context, intent: Intent) {
+            enqueueWork(context, TermuxResultService::class.java, JOB_ID, intent)
+        }
     }
 
-    override fun onHandleIntent(intent: Intent?) {
-        if (intent == null) {
-            Log.w(TAG, "Received null intent")
-            return
-        }
-
+    override fun onHandleWork(intent: Intent) {
         val resultBundle = intent.getBundleExtra(EXTRA_PLUGIN_RESULT_BUNDLE)
         val execId = intent.getIntExtra(EXTRA_EXECUTION_ID, 0)
 

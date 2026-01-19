@@ -164,9 +164,12 @@ class TermuxBridge @Inject constructor(
     }
 
     fun openTermuxSetup(): Boolean {
+        if (!isTermuxInstalled()) {
+            return false
+        }
+        
         if (!hasRunCommandPermission()) {
-            openTermux()
-            return true
+            return openTermux()
         }
         
         val script = """
@@ -207,15 +210,20 @@ class TermuxBridge @Inject constructor(
         }.also { _status.value = it }
     }
 
-    fun openTermux() {
-        try {
+    fun openTermux(): Boolean {
+        return try {
             val intent = context.packageManager.getLaunchIntentForPackage(TERMUX_PACKAGE)
-            intent?.let {
-                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(it)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                true
+            } else {
+                Log.w(TAG, "Could not get launch intent for Termux")
+                false
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open Termux", e)
+            false
         }
     }
 }

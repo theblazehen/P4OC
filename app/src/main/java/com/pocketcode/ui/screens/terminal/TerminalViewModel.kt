@@ -1,5 +1,6 @@
 package com.pocketcode.ui.screens.terminal
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,6 +16,7 @@ import com.pocketcode.terminal.PtyTerminalClient
 import com.pocketcode.terminal.WebSocketTerminalOutput
 import com.termux.terminal.TerminalEmulator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +26,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TerminalViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val api: OpenCodeApi,
     private val eventSource: OpenCodeEventSource,
     private val ptyWebSocket: PtyWebSocketClient
@@ -69,6 +72,7 @@ class TerminalViewModel @Inject constructor(
         )
 
         terminalClient = PtyTerminalClient(
+            context = context,
             onTextChanged = {
                 _uiState.update { it.copy(terminalRevision = it.terminalRevision + 1) }
             },
@@ -80,6 +84,9 @@ class TerminalViewModel @Inject constructor(
             },
             onBellCallback = {
                 Log.d(TAG, "Terminal bell")
+            },
+            onPasteRequest = { text ->
+                sendInput(text)
             }
         )
 

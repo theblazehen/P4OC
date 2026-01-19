@@ -236,7 +236,12 @@ private fun createTerminalViewClient(
     return object : TerminalViewClient {
         override fun onScale(scale: Float): Float = scale.coerceIn(10f, 40f)
 
-        override fun onSingleTapUp(e: MotionEvent?) {}
+        override fun onSingleTapUp(e: MotionEvent?) {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            (context as? android.app.Activity)?.currentFocus?.let { view ->
+                imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
 
         override fun shouldBackButtonBeMappedToEscape(): Boolean = false
 
@@ -246,7 +251,9 @@ private fun createTerminalViewClient(
 
         override fun isTerminalViewSelected(): Boolean = true
 
-        override fun copyModeChanged(copyMode: Boolean) {}
+        override fun copyModeChanged(copyMode: Boolean) {
+            android.util.Log.d("TerminalView", "Copy mode changed: $copyMode")
+        }
 
         override fun onKeyDown(keyCode: Int, e: KeyEvent?, session: TerminalSession?): Boolean = false
 
@@ -272,7 +279,9 @@ private fun createTerminalViewClient(
             return true
         }
 
-        override fun onEmulatorSet() {}
+        override fun onEmulatorSet() {
+            android.util.Log.d("TerminalView", "Emulator set")
+        }
 
         override fun logError(tag: String?, message: String?) {
             android.util.Log.e(tag ?: "TerminalView", message ?: "")
