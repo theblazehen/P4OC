@@ -80,8 +80,10 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
-        @Named("auth") authInterceptor: Interceptor
+        @Named("auth") authInterceptor: Interceptor,
+        @Named("baseUrl") baseUrlInterceptor: Interceptor
     ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(baseUrlInterceptor)
         .addInterceptor(authInterceptor)
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
