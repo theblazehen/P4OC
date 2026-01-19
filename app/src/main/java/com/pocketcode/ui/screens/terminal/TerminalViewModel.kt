@@ -11,6 +11,9 @@ import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.data.remote.dto.CreatePtyRequest
 import com.pocketcode.domain.model.OpenCodeEvent
 import com.pocketcode.domain.model.Pty
+import com.pocketcode.terminal.PtyTerminalClient
+import com.pocketcode.terminal.WebSocketTerminalOutput
+import com.termux.terminal.TerminalEmulator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,10 +31,17 @@ class TerminalViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "TerminalViewModel"
+        private const val DEFAULT_ROWS = 24
+        private const val DEFAULT_COLS = 80
+        private const val TRANSCRIPT_ROWS = 2000
     }
 
     private val _uiState = MutableStateFlow(TerminalUiState())
     val uiState: StateFlow<TerminalUiState> = _uiState.asStateFlow()
+
+    private var terminalEmulator: TerminalEmulator? = null
+    private var terminalOutput: WebSocketTerminalOutput? = null
+    private var terminalClient: PtyTerminalClient? = null
 
     init {
         loadPtySessions()
@@ -40,13 +50,54 @@ class TerminalViewModel @Inject constructor(
         observeWebSocketState()
     }
 
+    fun getTerminalEmulator(): TerminalEmulator? {
+        if (terminalEmulator == null) {
+            initializeEmulator()
+        }
+        return terminalEmulator
+    }
+
+    private fun initializeEmulator() {
+        terminalOutput = WebSocketTerminalOutput(
+            webSocket = ptyWebSocket,
+            onTitleChanged = { _, newTitle ->
+                Log.d(TAG, "Terminal title changed: $newTitle")
+            },
+            onBell = {
+                Log.d(TAG, "Terminal bell")
+            }
+        )
+
+        terminalClient = PtyTerminalClient(
+            onTextChanged = {
+                _uiState.update { it.copy(terminalRevision = it.terminalRevision + 1) }
+            },
+            onTitleChanged = { title ->
+                Log.d(TAG, "Session title changed: $title")
+            },
+            onSessionFinished = {
+                Log.d(TAG, "Terminal session finished")
+            },
+            onBellCallback = {
+                Log.d(TAG, "Terminal bell")
+            }
+        )
+
+        terminalEmulator = TerminalEmulator(
+            terminalOutput,
+            DEFAULT_COLS,
+            DEFAULT_ROWS,
+            TRANSCRIPT_ROWS,
+            terminalClient
+        )
+    }
+
     private fun observeWebSocketOutput() {
         viewModelScope.launch {
             ptyWebSocket.output.collect { data ->
-                _uiState.update { state ->
-                    val newOutput = state.outputBuffer + data
-                    state.copy(outputBuffer = newOutput)
-                }
+                val bytes = data.toByteArray()
+                terminalEmulator?.append(bytes, bytes.size)
+                _uiState.update { it.copy(terminalRevision = it.terminalRevision + 1) }
             }
         }
     }
@@ -57,13 +108,15 @@ class TerminalViewModel @Inject constructor(
                 when (connectionState) {
                     is PtyWebSocketClient.ConnectionState.Connected -> {
                         Log.d(TAG, "WebSocket connected to ${connectionState.ptyId}")
+                        _uiState.update { it.copy(isConnected = true) }
                     }
                     is PtyWebSocketClient.ConnectionState.Error -> {
                         Log.e(TAG, "WebSocket error: ${connectionState.message}")
-                        _uiState.update { it.copy(error = "Connection error: ${connectionState.message}") }
+                        _uiState.update { it.copy(error = "Connection error: ${connectionState.message}", isConnected = false) }
                     }
                     is PtyWebSocketClient.ConnectionState.Disconnected -> {
                         Log.d(TAG, "WebSocket disconnected")
+                        _uiState.update { it.copy(isConnected = false) }
                     }
                     is PtyWebSocketClient.ConnectionState.Connecting -> {
                         Log.d(TAG, "WebSocket connecting...")
@@ -95,12 +148,15 @@ class TerminalViewModel @Inject constructor(
                         }
                     }
                     is OpenCodeEvent.PtyExited -> {
+                        val exitMessage = "\r\n[Process exited with code ${event.exitCode}]\r\n"
+                        val bytes = exitMessage.toByteArray()
+                        terminalEmulator?.append(bytes, bytes.size)
                         _uiState.update { state ->
                             state.copy(
                                 ptySessions = state.ptySessions.map {
                                     if (it.id == event.id) it.copy(status = "exited") else it
                                 },
-                                outputBuffer = state.outputBuffer + "\r\n[Process exited with code ${event.exitCode}]\r\n"
+                                terminalRevision = state.terminalRevision + 1
                             )
                         }
                     }
@@ -181,12 +237,12 @@ class TerminalViewModel @Inject constructor(
                         status = result.data.status,
                         pid = result.data.pid
                     )
+                    clearTerminal()
                     _uiState.update {
                         it.copy(
                             isCreating = false,
                             ptySessions = it.ptySessions + pty,
-                            selectedPtyId = pty.id,
-                            outputBuffer = ""
+                            selectedPtyId = pty.id
                         )
                     }
                     connectToSession(pty.id)
@@ -202,7 +258,8 @@ class TerminalViewModel @Inject constructor(
     }
 
     fun selectSession(ptyId: String) {
-        _uiState.update { it.copy(selectedPtyId = ptyId, outputBuffer = "") }
+        clearTerminal()
+        _uiState.update { it.copy(selectedPtyId = ptyId) }
         connectToSession(ptyId)
     }
 
@@ -235,40 +292,18 @@ class TerminalViewModel @Inject constructor(
         }
     }
 
-    fun updateInput(input: String) {
-        _uiState.update { it.copy(input = input) }
-    }
-
-    fun sendInput() {
-        val input = _uiState.value.input
+    fun sendInput(input: String) {
         if (input.isEmpty()) return
         if (!ptyWebSocket.isConnected()) {
             _uiState.update { it.copy(error = "Not connected to terminal") }
             return
         }
-
-        _uiState.update { it.copy(input = "") }
-        ptyWebSocket.send(input + "\n")
+        ptyWebSocket.send(input)
     }
 
-    fun sendSpecialKey(key: SpecialKey) {
-        if (!ptyWebSocket.isConnected()) return
-
-        val data = when (key) {
-            SpecialKey.CTRL_C -> "\u0003"
-            SpecialKey.CTRL_D -> "\u0004"
-            SpecialKey.CTRL_Z -> "\u001a"
-            SpecialKey.TAB -> "\t"
-            SpecialKey.ARROW_UP -> "\u001b[A"
-            SpecialKey.ARROW_DOWN -> "\u001b[B"
-            SpecialKey.ARROW_LEFT -> "\u001b[D"
-            SpecialKey.ARROW_RIGHT -> "\u001b[C"
-        }
-        ptyWebSocket.send(data)
-    }
-
-    fun clearOutput() {
-        _uiState.update { it.copy(outputBuffer = "") }
+    fun clearTerminal() {
+        terminalEmulator?.reset()
+        _uiState.update { it.copy(terminalRevision = it.terminalRevision + 1) }
     }
 
     fun clearError() {
@@ -285,18 +320,14 @@ class TerminalViewModel @Inject constructor(
     }
 }
 
-enum class SpecialKey {
-    CTRL_C, CTRL_D, CTRL_Z, TAB, ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT
-}
-
 data class TerminalUiState(
     val isLoading: Boolean = false,
     val isCreating: Boolean = false,
+    val isConnected: Boolean = false,
     val ptySessions: List<Pty> = emptyList(),
     val selectedPtyId: String? = null,
-    val input: String = "",
-    val outputBuffer: String = "OpenCode Terminal\r\nCreate or select a terminal session to begin.\r\n",
-    val error: String? = null
+    val error: String? = null,
+    val terminalRevision: Int = 0
 ) {
     val selectedPty: Pty? get() = ptySessions.find { it.id == selectedPtyId }
 }
