@@ -266,7 +266,7 @@ private fun LineSpacingSlider(
         ) {
             Text("Line Spacing", style = MaterialTheme.typography.bodyMedium)
             Text(
-                String.format("%.1fx", value),
+                String.format(java.util.Locale.US, "%.1fx", value),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary
             )

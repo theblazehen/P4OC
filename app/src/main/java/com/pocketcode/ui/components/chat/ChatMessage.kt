@@ -279,7 +279,7 @@ private fun TokenUsageInfo(tokens: TokenUsage, cost: Double) {
         )
         if (cost > 0) {
             Text(
-                text = "$${String.format("%.4f", cost)}",
+                text = "$${String.format(java.util.Locale.US, "%.4f", cost)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )

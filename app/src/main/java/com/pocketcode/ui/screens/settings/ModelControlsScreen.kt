@@ -421,7 +421,7 @@ private fun ModelCard(
                 }
                 if (model.inputCostPer1k > 0 || model.outputCostPer1k > 0) {
                     Text(
-                        text = "$${String.format("%.4f", model.inputCostPer1k)} / $${String.format("%.4f", model.outputCostPer1k)}",
+                        text = "$${String.format(java.util.Locale.US, "%.4f", model.inputCostPer1k)} / $${String.format(java.util.Locale.US, "%.4f", model.outputCostPer1k)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

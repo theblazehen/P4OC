@@ -331,12 +331,12 @@ private fun ModelItem(
             if (cost.input > 0 || cost.output > 0) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "$${String.format("%.2f", cost.input)}/M in",
+                        text = "$${String.format(java.util.Locale.US, "%.2f", cost.input)}/M in",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "$${String.format("%.2f", cost.output)}/M out",
+                        text = "$${String.format(java.util.Locale.US, "%.2f", cost.output)}/M out",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

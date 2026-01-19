@@ -244,7 +244,7 @@ fun StepFinishDisplay(
                 cost?.let { c ->
                     StepStat(
                         label = "Cost",
-                        value = "$${String.format("%.4f", c)}",
+                        value = "$${String.format(java.util.Locale.US, "%.4f", c)}",
                         icon = Icons.Default.AttachMoney
                     )
                 }

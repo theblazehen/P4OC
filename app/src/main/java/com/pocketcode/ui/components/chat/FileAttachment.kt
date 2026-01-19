@@ -362,8 +362,8 @@ private fun getMimeTypeLabel(mimeType: String): String = when {
 }
 
 private fun formatFileSize(size: Long): String = when {
-    size >= 1_000_000_000 -> String.format("%.1f GB", size / 1_000_000_000.0)
-    size >= 1_000_000 -> String.format("%.1f MB", size / 1_000_000.0)
-    size >= 1_000 -> String.format("%.1f KB", size / 1_000.0)
+    size >= 1_000_000_000 -> String.format(java.util.Locale.US, "%.1f GB", size / 1_000_000_000.0)
+    size >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f MB", size / 1_000_000.0)
+    size >= 1_000 -> String.format(java.util.Locale.US, "%.1f KB", size / 1_000.0)
     else -> "$size B"
 }

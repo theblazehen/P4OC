@@ -205,7 +205,7 @@ private fun ExpandedContextIndicator(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "$${String.format("%.4f", cost)}",
+                        text = "$${String.format(java.util.Locale.US, "%.4f", cost)}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium
                     )
