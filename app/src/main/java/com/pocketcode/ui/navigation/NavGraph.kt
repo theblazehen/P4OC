@@ -21,6 +21,7 @@ import com.pocketcode.ui.screens.settings.SettingsScreen
 import com.pocketcode.ui.screens.settings.VisualSettingsScreen
 import com.pocketcode.ui.screens.settings.ModelControlsScreen
 import com.pocketcode.ui.screens.settings.AgentsConfigScreen
+import com.pocketcode.ui.screens.settings.SkillsScreen
 import com.pocketcode.ui.screens.setup.SetupScreen
 import com.pocketcode.ui.screens.terminal.TerminalScreen
 
@@ -157,6 +158,9 @@ fun NavGraph(
                 },
                 onAgentsConfig = {
                     navController.navigate(Screen.AgentsConfig.route)
+                },
+                onSkills = {
+                    navController.navigate(Screen.Skills.route)
                 }
             )
         }
@@ -181,6 +185,12 @@ fun NavGraph(
         
         composable(Screen.AgentsConfig.route) {
             AgentsConfigScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(Screen.Skills.route) {
+            SkillsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

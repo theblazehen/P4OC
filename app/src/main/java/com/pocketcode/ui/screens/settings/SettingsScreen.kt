@@ -23,7 +23,8 @@ fun SettingsScreen(
     onProviderConfig: () -> Unit = {},
     onVisualSettings: () -> Unit = {},
     onModelControls: () -> Unit = {},
-    onAgentsConfig: () -> Unit = {}
+    onAgentsConfig: () -> Unit = {},
+    onSkills: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDisconnectDialog by remember { mutableStateOf(false) }
@@ -85,6 +86,16 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Default.Groups, contentDescription = null) },
                 trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
                 modifier = Modifier.clickable { onAgentsConfig() }
+            )
+
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("Skills") },
+                supportingContent = { Text("Manage MCP servers and skills") },
+                leadingContent = { Icon(Icons.Default.Extension, contentDescription = null) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                modifier = Modifier.clickable { onSkills() }
             )
 
             HorizontalDivider()
