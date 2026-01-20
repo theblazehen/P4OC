@@ -13,7 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pocketcode.domain.model.Session
@@ -22,10 +22,13 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-private data class SessionGroup(
-    val parent: Session,
-    val children: List<Session>
-)
+private data class SessionNode(
+    val session: Session,
+    val children: List<SessionNode>
+) {
+    val totalDescendants: Int
+        get() = children.size + children.sumOf { it.totalDescendants }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,20 +93,10 @@ fun SessionListScreen(
                     )
                 }
                 else -> {
-                    val expandedParents = remember { mutableStateMapOf<String, Boolean>() }
+                    val expandedSessions = remember { mutableStateMapOf<String, Boolean>() }
                     
-                    val sessionGroups = remember(uiState.sessions) {
-                        val parentSessions = uiState.sessions.filter { it.parentID == null }
-                        val childrenByParent = uiState.sessions
-                            .filter { it.parentID != null }
-                            .groupBy { it.parentID!! }
-                        
-                        parentSessions.map { parent ->
-                            SessionGroup(
-                                parent = parent,
-                                children = childrenByParent[parent.id] ?: emptyList()
-                            )
-                        }
+                    val sessionTree = remember(uiState.sessions) {
+                        buildSessionTree(uiState.sessions)
                     }
                     
                     LazyColumn(
@@ -112,18 +105,19 @@ fun SessionListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(
-                            items = sessionGroups,
-                            key = { it.parent.id }
-                        ) { group ->
-                            SessionGroupCard(
-                                group = group,
-                                isExpanded = expandedParents[group.parent.id] ?: false,
-                                onExpandToggle = { 
-                                    expandedParents[group.parent.id] = !(expandedParents[group.parent.id] ?: false)
-                                },
+                            items = sessionTree,
+                            key = { it.session.id }
+                        ) { node ->
+                            SessionTreeNode(
+                                node = node,
+                                depth = 0,
+                                expandedSessions = expandedSessions,
                                 sessionStatuses = uiState.sessionStatuses,
                                 onSessionClick = onSessionClick,
-                                onDeleteSession = { showDeleteDialog = it }
+                                onDeleteSession = { showDeleteDialog = it },
+                                onToggleExpand = { id ->
+                                    expandedSessions[id] = !(expandedSessions[id] ?: false)
+                                }
                             )
                         }
                     }
@@ -184,42 +178,66 @@ fun SessionListScreen(
     }
 }
 
+private fun buildSessionTree(sessions: List<Session>): List<SessionNode> {
+    val sessionMap = sessions.associateBy { it.id }
+    val childrenByParent = sessions
+        .filter { it.parentID != null }
+        .groupBy { it.parentID!! }
+    
+    fun buildNode(session: Session): SessionNode {
+        val children = childrenByParent[session.id]?.map { buildNode(it) } ?: emptyList()
+        return SessionNode(session, children)
+    }
+    
+    return sessions
+        .filter { it.parentID == null }
+        .map { buildNode(it) }
+}
+
 @Composable
-private fun SessionGroupCard(
-    group: SessionGroup,
-    isExpanded: Boolean,
-    onExpandToggle: () -> Unit,
+private fun SessionTreeNode(
+    node: SessionNode,
+    depth: Int,
+    expandedSessions: MutableMap<String, Boolean>,
     sessionStatuses: Map<String, SessionStatus>,
     onSessionClick: (String) -> Unit,
-    onDeleteSession: (Session) -> Unit
+    onDeleteSession: (Session) -> Unit,
+    onToggleExpand: (String) -> Unit
 ) {
-    Column {
+    val isExpanded = expandedSessions[node.session.id] ?: false
+    val hasChildren = node.children.isNotEmpty()
+    val indentPadding: Dp = (depth * 24).dp
+    
+    Column(modifier = Modifier.padding(start = indentPadding)) {
         SessionCard(
-            session = group.parent,
-            status = sessionStatuses[group.parent.id],
-            onClick = { onSessionClick(group.parent.id) },
-            onDelete = { onDeleteSession(group.parent) },
-            childCount = group.children.size,
+            session = node.session,
+            status = sessionStatuses[node.session.id],
+            onClick = { onSessionClick(node.session.id) },
+            onDelete = { onDeleteSession(node.session) },
+            childCount = node.totalDescendants,
             isExpanded = isExpanded,
-            onExpandToggle = if (group.children.isNotEmpty()) onExpandToggle else null
+            onExpandToggle = if (hasChildren) { { onToggleExpand(node.session.id) } } else null,
+            isSubAgent = depth > 0
         )
         
         AnimatedVisibility(
-            visible = isExpanded && group.children.isNotEmpty(),
+            visible = isExpanded && hasChildren,
             enter = expandVertically(),
             exit = shrinkVertically()
         ) {
             Column(
-                modifier = Modifier.padding(start = 24.dp, top = 8.dp),
+                modifier = Modifier.padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                group.children.forEach { child ->
-                    SessionCard(
-                        session = child,
-                        status = sessionStatuses[child.id],
-                        onClick = { onSessionClick(child.id) },
-                        onDelete = { onDeleteSession(child) },
-                        isSubAgent = true
+                node.children.forEach { child ->
+                    SessionTreeNode(
+                        node = child,
+                        depth = depth + 1,
+                        expandedSessions = expandedSessions,
+                        sessionStatuses = sessionStatuses,
+                        onSessionClick = onSessionClick,
+                        onDeleteSession = onDeleteSession,
+                        onToggleExpand = onToggleExpand
                     )
                 }
             }
@@ -256,10 +274,9 @@ private fun SessionCard(
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(12.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
             if (onExpandToggle != null) {
                 IconButton(
@@ -277,8 +294,8 @@ private fun SessionCard(
                     Icons.Default.SubdirectoryArrowRight,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(20.dp)
-                        .padding(end = 4.dp),
+                        .size(24.dp)
+                        .padding(end = 4.dp, top = 4.dp),
                     tint = MaterialTheme.colorScheme.outline
                 )
             }
@@ -287,17 +304,14 @@ private fun SessionCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                Text(
+                    text = session.title ?: "Untitled",
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = session.title ?: "Untitled",
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
                     if (childCount > 0) {
                         Surface(
                             color = MaterialTheme.colorScheme.secondaryContainer,
@@ -346,122 +360,10 @@ private fun SessionCard(
                     }
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SessionCard(
-    session: Session,
-    status: SessionStatus?,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val isBusy = status is SessionStatus.Busy
-    val isRetrying = status is SessionStatus.Retry
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isBusy -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                isRetrying -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                else -> MaterialTheme.colorScheme.surfaceVariant
-            }
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(32.dp)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = session.title ?: "Untitled",
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (session.parentID != null) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.AccountTree,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Text(
-                                    text = "Sub-agent",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                        }
-                    }
-                    SessionStatusIndicator(status = status)
-                }
-                Text(
-                    text = formatDateTime(session.updatedAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                session.summary?.let { summary ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (summary.additions > 0) {
-                            Text(
-                                text = "+${summary.additions}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        if (summary.deletions > 0) {
-                            Text(
-                                text = "-${summary.deletions}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        if (summary.files > 0) {
-                            Text(
-                                text = "${summary.files} files",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-            IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
@@ -511,8 +413,7 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
                 )
             }
         }
-        is SessionStatus.Idle, null -> {
-        }
+        is SessionStatus.Idle, null -> {}
     }
 }
 
