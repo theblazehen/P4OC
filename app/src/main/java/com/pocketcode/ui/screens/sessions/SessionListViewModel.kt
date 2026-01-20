@@ -29,11 +29,33 @@ class SessionListViewModel @Inject constructor(
     init {
         loadSessions()
         loadSessionStatuses()
+        loadProjects()
     }
 
     fun refresh() {
         loadSessions()
         loadSessionStatuses()
+        loadProjects()
+    }
+
+    private fun loadProjects() {
+        viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
+            val result = safeApiCall { api.listProjects() }
+            when (result) {
+                is ApiResult.Success -> {
+                    val projects = result.data.map { dto ->
+                        ProjectInfo(
+                            id = dto.id,
+                            worktree = dto.worktree,
+                            name = dto.worktree.substringAfterLast("/")
+                        )
+                    }.sortedByDescending { it.worktree }
+                    _uiState.update { it.copy(projects = projects) }
+                }
+                is ApiResult.Error -> {}
+            }
+        }
     }
 
     private fun loadSessionStatuses() {
@@ -90,7 +112,7 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    fun createSession(title: String?) {
+    fun createSession(title: String?, directory: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -99,7 +121,7 @@ class SessionListViewModel @Inject constructor(
                 return@launch
             }
             val result = safeApiCall { 
-                api.createSession(CreateSessionRequest(title = title)) 
+                api.createSession(CreateSessionRequest(title = title, directory = directory)) 
             }
 
             when (result) {
@@ -155,6 +177,13 @@ data class SessionListUiState(
     val isLoading: Boolean = false,
     val sessions: List<Session> = emptyList(),
     val sessionStatuses: Map<String, SessionStatus> = emptyMap(),
+    val projects: List<ProjectInfo> = emptyList(),
     val newSessionId: String? = null,
     val error: String? = null
+)
+
+data class ProjectInfo(
+    val id: String,
+    val worktree: String,
+    val name: String
 )

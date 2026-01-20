@@ -143,9 +143,10 @@ fun SessionListScreen(
 
     if (showNewSessionDialog) {
         NewSessionDialog(
+            projects = uiState.projects,
             onDismiss = { showNewSessionDialog = false },
-            onCreate = { title ->
-                viewModel.createSession(title)
+            onCreate = { title, directory ->
+                viewModel.createSession(title, directory)
                 showNewSessionDialog = false
             }
         )
@@ -467,27 +468,75 @@ private fun EmptySessionsView(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NewSessionDialog(
+    projects: List<ProjectInfo>,
     onDismiss: () -> Unit,
-    onCreate: (String?) -> Unit
+    onCreate: (String?, String?) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
+    var selectedProject by remember { mutableStateOf<ProjectInfo?>(null) }
+    var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New Session") },
         text = {
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("Title (optional)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedProject?.name ?: "Select project...",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Project") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        projects.forEach { project ->
+                            DropdownMenuItem(
+                                text = { 
+                                    Column {
+                                        Text(project.name, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            project.worktree,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedProject = project
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         },
         confirmButton = {
-            Button(onClick = { onCreate(title.takeIf { it.isNotBlank() }) }) {
+            Button(
+                onClick = { onCreate(title.takeIf { it.isNotBlank() }, selectedProject?.worktree) },
+                enabled = selectedProject != null
+            ) {
                 Text("Create")
             }
         },
