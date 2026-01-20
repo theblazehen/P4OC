@@ -459,7 +459,7 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(isPickerLoading = false) }
                 return@launch
             }
-            val effectivePath = path ?: _uiState.value.session?.directory ?: "."
+            val effectivePath = path ?: "."
             val result = safeApiCall { api.listFiles(effectivePath) }
             when (result) {
                 is ApiResult.Success -> {
