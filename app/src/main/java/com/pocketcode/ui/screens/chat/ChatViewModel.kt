@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.pocketcode.core.network.ApiResult
 import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.ConnectionState
+import com.pocketcode.core.network.OpenCodeApi
 import com.pocketcode.core.network.safeApiCall
 import com.pocketcode.core.datastore.SettingsDataStore
 import com.pocketcode.data.remote.dto.AgentDto
@@ -100,26 +101,53 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = "Not connected") }
                 return@launch
             }
-            val result = safeApiCall { api.getMessages(sessionId) }
+            
+            // Phase 1: Load last 20 messages quickly for fast initial display
+            val initialResult = safeApiCall { api.getMessages(sessionId, limit = 20) }
 
-            when (result) {
+            when (initialResult) {
                 is ApiResult.Success -> {
-                    Log.d("ChatViewModel", "API returned ${result.data.size} message wrappers")
-                    val messageList = result.data.map { dto ->
-                        Log.d("ChatViewModel", "Mapping message: ${dto.info.id}, role=${dto.info.role}, parts=${dto.parts.size}")
+                    Log.d("ChatViewModel", "Initial load: ${initialResult.data.size} messages")
+                    val initialMessages = initialResult.data.map { dto ->
                         messageMapper.mapWrapperToDomain(dto, partMapper)
                     }
-                    Log.d("ChatViewModel", "Mapped to ${messageList.size} MessageWithParts")
                     _messages.clear()
-                    _messages.addAll(messageList)
+                    _messages.addAll(initialMessages)
                     _uiState.update { it.copy(isLoading = false) }
+                    
+                    // Phase 2: Load all messages in background if there might be more
+                    if (initialResult.data.size >= 20) {
+                        loadRemainingMessages(api)
+                    }
                 }
                 is ApiResult.Error -> {
-                    Log.e("ChatViewModel", "Failed to load messages: ${result.message}", result.throwable)
+                    Log.e("ChatViewModel", "Failed to load messages: ${initialResult.message}", initialResult.throwable)
                     _uiState.update { 
                         it.copy(isLoading = false, error = "Failed to load messages") 
                     }
                 }
+            }
+        }
+    }
+    
+    private suspend fun loadRemainingMessages(api: OpenCodeApi) {
+        Log.d("ChatViewModel", "Loading remaining messages in background")
+        val fullResult = safeApiCall { api.getMessages(sessionId, limit = null) }
+        
+        when (fullResult) {
+            is ApiResult.Success -> {
+                Log.d("ChatViewModel", "Full load: ${fullResult.data.size} messages")
+                val allMessages = fullResult.data.map { dto ->
+                    messageMapper.mapWrapperToDomain(dto, partMapper)
+                }
+                // Only update if we got more messages
+                if (allMessages.size > _messages.size) {
+                    _messages.clear()
+                    _messages.addAll(allMessages)
+                }
+            }
+            is ApiResult.Error -> {
+                Log.w("ChatViewModel", "Background message load failed: ${fullResult.message}")
             }
         }
     }
