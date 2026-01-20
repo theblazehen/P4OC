@@ -82,7 +82,11 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .imePadding()
+            ) {
                 ModelAgentSelectorBar(
                     availableAgents = uiState.availableAgents,
                     selectedAgent = uiState.selectedAgent,

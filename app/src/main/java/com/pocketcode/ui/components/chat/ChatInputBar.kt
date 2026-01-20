@@ -39,11 +39,7 @@ fun ChatInputBar(
         modifier = modifier.fillMaxWidth(),
         tonalElevation = 3.dp
     ) {
-        Column(
-            modifier = Modifier
-                .navigationBarsPadding()
-                .imePadding()
-        ) {
+        Column {
             if (attachedFiles.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -78,28 +74,32 @@ fun ChatInputBar(
 
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
                     .fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 IconButton(
                     onClick = onAttachClick,
-                    enabled = enabled
+                    enabled = enabled,
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         Icons.Default.AttachFile,
-                        contentDescription = "Attach file"
+                        contentDescription = "Attach file",
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
                 OutlinedTextField(
                     value = value,
                     onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 44.dp),
                     placeholder = { Text("Type a message...") },
                     enabled = enabled,
-                    maxLines = 5,
+                    maxLines = 4,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(
                         onSend = { if (value.isNotBlank() && enabled) onSend() }
@@ -110,17 +110,18 @@ fun ChatInputBar(
                 FilledIconButton(
                     onClick = onSend,
                     enabled = (value.isNotBlank() || attachedFiles.isNotEmpty()) && enabled && !isLoading,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )
                     } else {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send"
+                            contentDescription = "Send",
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }

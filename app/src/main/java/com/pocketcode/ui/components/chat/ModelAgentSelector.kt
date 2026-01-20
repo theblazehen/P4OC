@@ -58,13 +58,13 @@ fun ModelAgentSelectorBar(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        tonalElevation = 1.dp
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Row(
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             availableAgents.forEach { agent ->
