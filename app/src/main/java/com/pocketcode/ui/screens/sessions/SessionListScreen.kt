@@ -308,6 +308,14 @@ private fun SessionCard(
                     text = session.title ?: "Untitled",
                     style = MaterialTheme.typography.titleMedium
                 )
+                Text(
+                    text = session.directory.let { dir ->
+                        if (dir.length > 40) "…${dir.takeLast(38)}" else dir
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
