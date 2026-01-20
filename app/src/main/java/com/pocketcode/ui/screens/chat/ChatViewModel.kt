@@ -452,14 +452,15 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun loadPickerFiles(path: String = ".") {
+    fun loadPickerFiles(path: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPickerLoading = true) }
             val api = connectionManager.getApi() ?: run {
                 _uiState.update { it.copy(isPickerLoading = false) }
                 return@launch
             }
-            val result = safeApiCall { api.listFiles(path) }
+            val effectivePath = path ?: _uiState.value.session?.directory ?: "."
+            val result = safeApiCall { api.listFiles(effectivePath) }
             when (result) {
                 is ApiResult.Success -> {
                     val files = result.data.map { dto ->
@@ -475,7 +476,7 @@ class ChatViewModel @Inject constructor(
                         it.copy(
                             isPickerLoading = false,
                             pickerFiles = files,
-                            pickerCurrentPath = if (path == ".") "" else path
+                            pickerCurrentPath = if (effectivePath == ".") "" else effectivePath
                         )
                     }
                 }
