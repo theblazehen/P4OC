@@ -421,7 +421,15 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
                 )
             }
         }
-        is SessionStatus.Idle, null -> {}
+        is SessionStatus.Idle -> {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = "Ready",
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.outline
+            )
+        }
+        null -> {}
     }
 }
 
