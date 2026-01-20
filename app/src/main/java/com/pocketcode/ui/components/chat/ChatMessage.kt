@@ -43,6 +43,7 @@ fun ChatMessage(
 private fun UserMessage(messageWithParts: MessageWithParts) {
     val textParts = messageWithParts.parts.filterIsInstance<Part.Text>()
     val text = textParts.joinToString("\n") { it.text }
+    val syntaxHighlightBg = MaterialTheme.colorScheme.surfaceContainerHighest
 
     Column(
         modifier = Modifier
@@ -68,10 +69,13 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
             )
         }
         
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+        MarkdownText(
+            markdown = text,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface
+            ),
+            syntaxHighlightColor = syntaxHighlightBg,
+            linkColor = MaterialTheme.colorScheme.primary
         )
     }
     
@@ -92,6 +96,9 @@ private fun AssistantMessage(
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
+        val assistantMsg = messageWithParts.message as? Message.Assistant
+        val displayName = assistantMsg?.modelID ?: "Assistant"
+        
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -104,13 +111,13 @@ private fun AssistantMessage(
                 tint = MaterialTheme.colorScheme.secondary
             )
             Text(
-                text = "Assistant",
+                text = displayName,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.secondary
             )
             
-            val assistantMsg = messageWithParts.message as? Message.Assistant
+            assistantMsg
             assistantMsg?.let { msg ->
                 if (msg.tokens.input > 0 || msg.tokens.output > 0) {
                     Spacer(modifier = Modifier.weight(1f))
@@ -129,7 +136,7 @@ private fun AssistantMessage(
                     is Part.Reasoning -> ReasoningPart(part)
                     is Part.Tool -> EnhancedToolPart(part, onToolApprove, onToolDeny)
                     is Part.File -> FilePart(part)
-                    is Part.Patch -> PatchPart(part)
+                    is Part.Patch -> EnhancedPatchPart(part)
                     is Part.StepStart -> {}
                     is Part.StepFinish -> {}
                     is Part.Snapshot -> {}
@@ -284,6 +291,87 @@ private fun FilePart(part: Part.File) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnhancedPatchPart(part: Part.Patch) {
+    var expanded by remember { mutableStateOf(false) }
+    
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Surface(
+                onClick = { expanded = !expanded },
+                color = androidx.compose.ui.graphics.Color.Transparent
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.Description, 
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Patch: ${part.files.size} file(s)",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            if (expanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                part.files.forEach { file ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 28.dp, top = 4.dp, bottom = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.InsertDriveFile,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = file,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                part.files.take(3).forEach { file ->
+                    Text(
+                        text = file,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 28.dp)
+                    )
+                }
+                if (part.files.size > 3) {
+                    Text(
+                        text = "... and ${part.files.size - 3} more",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(start = 28.dp)
+                    )
+                }
             }
         }
     }

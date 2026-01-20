@@ -21,7 +21,8 @@ import com.pocketcode.domain.model.MessageWithParts
 import com.pocketcode.domain.model.Permission
 import com.pocketcode.ui.components.chat.ChatInputBar
 import com.pocketcode.ui.components.chat.ChatMessage
-import com.pocketcode.ui.components.chat.ModelOption
+import com.pocketcode.ui.components.chat.FilePickerDialog
+import com.pocketcode.ui.components.chat.ModelAgentSelectorBar
 import com.pocketcode.ui.components.chat.PermissionDialog
 import com.pocketcode.ui.components.command.CommandPalette
 import com.pocketcode.ui.components.question.QuestionDialog
@@ -40,26 +41,16 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val messages = viewModel.messages
     val connectionState by viewModel.connectionState.collectAsState()
+    val favoriteModels by viewModel.favoriteModels.collectAsState()
+    val recentModels by viewModel.recentModels.collectAsState()
 
     val listState = rememberLazyListState()
     var showCommandPalette by remember { mutableStateOf(false) }
     var showTodoTracker by remember { mutableStateOf(false) }
+    var showFilePicker by remember { mutableStateOf(false) }
     
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    
-    val agentNames = remember(uiState.availableAgents) {
-        uiState.availableAgents.map { it.name }
-    }
-    
-    val modelOptions = remember(uiState.availableModels) {
-        uiState.availableModels.map { (providerId, model) ->
-            ModelOption(
-                key = "$providerId/${model.id}",
-                displayName = model.name
-            )
-        }
-    }
     
     BackHandler {
         focusManager.clearFocus()
@@ -91,19 +82,32 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            ChatInputBar(
-                value = uiState.inputText,
-                onValueChange = viewModel::updateInput,
-                onSend = viewModel::sendMessage,
-                isLoading = uiState.isSending,
-                enabled = connectionState is ConnectionState.Connected && !uiState.isSending,
-                availableAgents = agentNames,
-                selectedAgent = uiState.selectedAgent,
-                onAgentSelected = viewModel::selectAgent,
-                availableModels = modelOptions,
-                selectedModel = uiState.selectedModel,
-                onModelSelected = viewModel::selectModel
-            )
+            Column {
+                ModelAgentSelectorBar(
+                    availableAgents = uiState.availableAgents,
+                    selectedAgent = uiState.selectedAgent,
+                    onAgentSelected = viewModel::selectAgent,
+                    availableModels = uiState.availableModels,
+                    selectedModel = uiState.selectedModel,
+                    onModelSelected = viewModel::selectModel,
+                    favoriteModels = favoriteModels,
+                    recentModels = recentModels,
+                    onToggleFavorite = viewModel::toggleFavoriteModel
+                )
+                ChatInputBar(
+                    value = uiState.inputText,
+                    onValueChange = viewModel::updateInput,
+                    onSend = viewModel::sendMessage,
+                    isLoading = uiState.isSending,
+                    enabled = connectionState is ConnectionState.Connected && !uiState.isSending,
+                    attachedFiles = uiState.attachedFiles,
+                    onAttachClick = {
+                        viewModel.loadPickerFiles()
+                        showFilePicker = true
+                    },
+                    onRemoveAttachment = viewModel::detachFile
+                )
+            }
         },
         floatingActionButton = {
             TodoTrackerFab(
@@ -208,6 +212,24 @@ fun ChatScreen(
             isLoading = uiState.isLoadingTodos,
             onDismiss = { showTodoTracker = false },
             onRefresh = { viewModel.loadTodos() }
+        )
+    }
+
+    if (showFilePicker) {
+        FilePickerDialog(
+            files = uiState.pickerFiles,
+            currentPath = uiState.pickerCurrentPath,
+            isLoading = uiState.isPickerLoading,
+            selectedFiles = uiState.attachedFiles,
+            onNavigateTo = { path -> viewModel.loadPickerFiles(path.ifBlank { "." }) },
+            onNavigateUp = {
+                val parent = uiState.pickerCurrentPath.substringBeforeLast("/", "")
+                viewModel.loadPickerFiles(parent.ifBlank { "." })
+            },
+            onFileSelected = { viewModel.attachFile(it) },
+            onFileDeselected = { viewModel.detachFile(it) },
+            onConfirm = { showFilePicker = false },
+            onDismiss = { showFilePicker = false }
         )
     }
 }

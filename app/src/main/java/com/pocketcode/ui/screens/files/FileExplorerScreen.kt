@@ -4,7 +4,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pocketcode.domain.model.FileNode
@@ -224,41 +230,122 @@ private fun BreadcrumbNavigation(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EnhancedFileItem(
     file: FileNode,
     onClick: () -> Unit
 ) {
     val (icon, iconColor) = getFileIcon(file)
+    val gitStatusColor = getGitStatusColor(file.gitStatus)
+    val clipboardManager = LocalClipboardManager.current
+    val haptic = LocalHapticFeedback.current
+    var showContextMenu by remember { mutableStateOf(false) }
     
-    ListItem(
-        headlineContent = { 
-            Text(
-                text = file.name,
-                fontWeight = if (file.isDirectory) FontWeight.Medium else FontWeight.Normal
-            ) 
-        },
-        leadingContent = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconColor,
-                modifier = Modifier.size(24.dp)
-            )
-        },
-        trailingContent = {
-            if (file.isDirectory) {
+    Box {
+        ListItem(
+            headlineContent = { 
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = file.name,
+                        fontWeight = if (file.isDirectory) FontWeight.Medium else FontWeight.Normal,
+                        color = gitStatusColor ?: LocalContentColor.current
+                    )
+                    file.gitStatus?.let { status ->
+                        GitStatusBadge(status)
+                    }
+                }
+            },
+            leadingContent = {
                 Icon(
-                    Icons.Default.ChevronRight, 
+                    imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = gitStatusColor ?: iconColor,
+                    modifier = Modifier.size(24.dp)
                 )
-            }
-        },
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-    )
+            },
+            trailingContent = {
+                if (file.isDirectory) {
+                    Icon(
+                        Icons.Default.ChevronRight, 
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showContextMenu = true
+                    }
+                )
+        )
+        
+        DropdownMenu(
+            expanded = showContextMenu,
+            onDismissRequest = { showContextMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Copy Path") },
+                onClick = {
+                    clipboardManager.setText(AnnotatedString(file.path))
+                    showContextMenu = false
+                },
+                leadingIcon = {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Copy Name") },
+                onClick = {
+                    clipboardManager.setText(AnnotatedString(file.name))
+                    showContextMenu = false
+                },
+                leadingIcon = {
+                    Icon(Icons.Default.TextFields, contentDescription = null)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun GitStatusBadge(status: String) {
+    val (text, color) = when (status) {
+        "added" -> "A" to Color(0xFF4CAF50)
+        "modified" -> "M" to Color(0xFFFF9800)
+        "deleted" -> "D" to Color(0xFFF44336)
+        else -> status.take(1).uppercase() to MaterialTheme.colorScheme.outline
+    }
+    
+    Surface(
+        color = color.copy(alpha = 0.2f),
+        shape = RoundedCornerShape(4.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun getGitStatusColor(status: String?): Color? {
+    return when (status) {
+        "added" -> Color(0xFF4CAF50)
+        "modified" -> Color(0xFFFF9800)
+        "deleted" -> Color(0xFFF44336)
+        else -> null
+    }
 }
 
 @Composable

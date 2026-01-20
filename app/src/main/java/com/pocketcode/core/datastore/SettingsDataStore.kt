@@ -40,6 +40,11 @@ class SettingsDataStore @Inject constructor(
         private val KEY_HIGH_CONTRAST_MODE = booleanPreferencesKey("high_contrast_mode")
         private val KEY_REASONING_EXPANDED = booleanPreferencesKey("reasoning_expanded_by_default")
         private val KEY_TOOL_CALLS_EXPANDED = booleanPreferencesKey("tool_calls_expanded_by_default")
+        
+        // Model favorites and recents
+        private val KEY_FAVORITE_MODELS = stringSetPreferencesKey("favorite_models")
+        private val KEY_RECENT_MODELS = stringPreferencesKey("recent_models")
+        private const val MAX_RECENT_MODELS = 10
 
         const val DEFAULT_LOCAL_URL = "http://localhost:4096"
         const val THEME_SYSTEM = "system"
@@ -273,6 +278,34 @@ class SettingsDataStore @Inject constructor(
             prefs[KEY_HIGH_CONTRAST_MODE] = settings.highContrastMode
             prefs[KEY_REASONING_EXPANDED] = settings.reasoningExpandedByDefault
             prefs[KEY_TOOL_CALLS_EXPANDED] = settings.toolCallsExpandedByDefault
+        }
+    }
+
+    val favoriteModels: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_FAVORITE_MODELS] ?: emptySet()
+    }
+
+    val recentModels: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_RECENT_MODELS]?.split("|||")?.filter { it.isNotBlank() } ?: emptyList()
+    }
+
+    suspend fun toggleFavoriteModel(modelKey: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEY_FAVORITE_MODELS] ?: emptySet()
+            prefs[KEY_FAVORITE_MODELS] = if (modelKey in current) {
+                current - modelKey
+            } else {
+                current + modelKey
+            }
+        }
+    }
+
+    suspend fun addRecentModel(modelKey: String) {
+        context.dataStore.edit { prefs ->
+            val existing = prefs[KEY_RECENT_MODELS]?.split("|||")?.filter { it.isNotBlank() }?.toMutableList() ?: mutableListOf()
+            existing.remove(modelKey)
+            existing.add(0, modelKey)
+            prefs[KEY_RECENT_MODELS] = existing.take(MAX_RECENT_MODELS).joinToString("|||")
         }
     }
 }

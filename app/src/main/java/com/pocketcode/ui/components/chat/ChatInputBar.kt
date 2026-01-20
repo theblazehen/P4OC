@@ -7,6 +7,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,15 +31,10 @@ fun ChatInputBar(
     isLoading: Boolean,
     enabled: Boolean,
     modifier: Modifier = Modifier,
-    availableAgents: List<String> = emptyList(),
-    selectedAgent: String? = null,
-    onAgentSelected: (String) -> Unit = {},
-    availableModels: List<ModelOption> = emptyList(),
-    selectedModel: String? = null,
-    onModelSelected: (String) -> Unit = {}
+    attachedFiles: List<SelectedFile> = emptyList(),
+    onAttachClick: () -> Unit = {},
+    onRemoveAttachment: (String) -> Unit = {}
 ) {
-    var showModelMenu by remember { mutableStateOf(false) }
-
     Surface(
         modifier = modifier.fillMaxWidth(),
         tonalElevation = 3.dp
@@ -47,77 +44,34 @@ fun ChatInputBar(
                 .navigationBarsPadding()
                 .imePadding()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                availableAgents.forEach { agent ->
-                    FilterChip(
-                        selected = agent == selectedAgent,
-                        onClick = { onAgentSelected(agent) },
-                        label = { Text(agent) }
-                    )
-                }
-
-                if (availableAgents.isNotEmpty() && availableModels.isNotEmpty()) {
-                    VerticalDivider(
-                        modifier = Modifier.height(24.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-                }
-
-                if (availableModels.isNotEmpty()) {
-                    Box {
-                        AssistChip(
-                            onClick = { showModelMenu = true },
-                            label = {
+            if (attachedFiles.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    attachedFiles.forEach { file ->
+                        InputChip(
+                            selected = true,
+                            onClick = { onRemoveAttachment(file.path) },
+                            label = { 
                                 Text(
-                                    text = selectedModel?.substringAfterLast("/") ?: "Model",
+                                    file.name,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 120.dp)
+                                ) 
                             },
                             trailingIcon = {
                                 Icon(
-                                    Icons.Default.ExpandMore,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove",
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         )
-                        DropdownMenu(
-                            expanded = showModelMenu,
-                            onDismissRequest = { showModelMenu = false }
-                        ) {
-                            availableModels.forEach { model ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text(
-                                                text = model.displayName,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                text = model.key,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        onModelSelected(model.key)
-                                        showModelMenu = false
-                                    },
-                                    leadingIcon = if (model.key == selectedModel) {
-                                        { Text("✓") }
-                                    } else null
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -129,6 +83,16 @@ fun ChatInputBar(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                IconButton(
+                    onClick = onAttachClick,
+                    enabled = enabled
+                ) {
+                    Icon(
+                        Icons.Default.AttachFile,
+                        contentDescription = "Attach file"
+                    )
+                }
+
                 OutlinedTextField(
                     value = value,
                     onValueChange = onValueChange,
@@ -145,7 +109,7 @@ fun ChatInputBar(
 
                 FilledIconButton(
                     onClick = onSend,
-                    enabled = value.isNotBlank() && enabled && !isLoading,
+                    enabled = (value.isNotBlank() || attachedFiles.isNotEmpty()) && enabled && !isLoading,
                     modifier = Modifier.size(48.dp)
                 ) {
                     if (isLoading) {

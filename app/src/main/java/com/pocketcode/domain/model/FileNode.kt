@@ -8,7 +8,8 @@ data class FileNode(
     val path: String,
     val absolute: String = "",
     val type: String = "file",
-    val ignored: Boolean = false
+    val ignored: Boolean = false,
+    val gitStatus: String? = null
 ) {
     val isDirectory: Boolean get() = type == "directory"
 }

@@ -50,17 +50,25 @@ class FilesViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = "Not connected") }
                 return@launch
             }
-            val result = safeApiCall { api.listFiles(path) }
+            
+            val filesResult = safeApiCall { api.listFiles(path) }
+            val statusResult = safeApiCall { api.getFileStatus() }
+            
+            val statusMap = when (statusResult) {
+                is ApiResult.Success -> statusResult.data.associateBy { it.path }
+                is ApiResult.Error -> emptyMap()
+            }
 
-            when (result) {
+            when (filesResult) {
                 is ApiResult.Success -> {
-                    val files = result.data.map { dto ->
+                    val files = filesResult.data.map { dto ->
                         FileNode(
                             name = dto.name,
                             path = dto.path,
                             absolute = dto.absolute,
                             type = dto.type,
-                            ignored = dto.ignored
+                            ignored = dto.ignored,
+                            gitStatus = statusMap[dto.path]?.status
                         )
                     }.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
 
@@ -74,7 +82,7 @@ class FilesViewModel @Inject constructor(
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
-                        it.copy(isLoading = false, error = result.message)
+                        it.copy(isLoading = false, error = filesResult.message)
                     }
                 }
             }

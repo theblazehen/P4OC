@@ -10,6 +10,7 @@ import com.pocketcode.core.network.ApiResult
 import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.ConnectionState
 import com.pocketcode.core.network.safeApiCall
+import com.pocketcode.core.datastore.SettingsDataStore
 import com.pocketcode.data.remote.dto.AgentDto
 import com.pocketcode.data.remote.dto.ExecuteCommandRequest
 import com.pocketcode.data.remote.dto.ModelDto
@@ -23,6 +24,7 @@ import com.pocketcode.data.remote.mapper.TodoMapper
 import com.pocketcode.data.remote.mapper.PartMapper
 import com.pocketcode.data.remote.mapper.SessionMapper
 import com.pocketcode.domain.model.*
+import com.pocketcode.ui.components.chat.SelectedFile
 import com.pocketcode.ui.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -38,7 +40,8 @@ class ChatViewModel @Inject constructor(
     private val messageMapper: MessageMapper,
     private val partMapper: PartMapper,
     private val commandMapper: CommandMapper,
-    private val todoMapper: TodoMapper
+    private val todoMapper: TodoMapper,
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
     private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)!!
@@ -53,6 +56,12 @@ class ChatViewModel @Inject constructor(
     private val pendingQuestions = ConcurrentLinkedQueue<QuestionRequest>()
 
     val connectionState: StateFlow<ConnectionState> = connectionManager.connectionState
+
+    val favoriteModels: StateFlow<Set<String>> = settingsDataStore.favoriteModels
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+    
+    val recentModels: StateFlow<List<String>> = settingsDataStore.recentModels
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         loadSession()
@@ -214,19 +223,33 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage() {
         val text = _uiState.value.inputText.trim()
-        if (text.isEmpty()) return
+        val attachedFiles = _uiState.value.attachedFiles
+        if (text.isEmpty() && attachedFiles.isEmpty()) return
 
         val selectedAgent = _uiState.value.selectedAgent
         val selectedModel = _uiState.value.selectedModel
-        _uiState.update { it.copy(inputText = "", isSending = true) }
+        _uiState.update { it.copy(inputText = "", attachedFiles = emptyList(), isSending = true) }
 
         viewModelScope.launch {
             val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isSending = false, inputText = text, error = "Not connected") }
+                _uiState.update { it.copy(isSending = false, inputText = text, attachedFiles = attachedFiles, error = "Not connected") }
                 return@launch
             }
+            
+            val parts = mutableListOf<PartInputDto>()
+            if (text.isNotEmpty()) {
+                parts.add(PartInputDto(type = "text", text = text))
+            }
+            attachedFiles.forEach { file ->
+                parts.add(PartInputDto(
+                    type = "file",
+                    filename = file.name,
+                    url = "file://${file.path}"
+                ))
+            }
+            
             val request = SendMessageRequest(
-                parts = listOf(PartInputDto(type = "text", text = text)),
+                parts = parts,
                 agent = selectedAgent,
                 model = selectedModel
             )
@@ -242,6 +265,7 @@ class ChatViewModel @Inject constructor(
                         it.copy(
                             isSending = false, 
                             inputText = text,
+                            attachedFiles = attachedFiles,
                             error = "Failed to send: ${result.message}"
                         ) 
                     }
@@ -408,6 +432,68 @@ class ChatViewModel @Inject constructor(
 
     fun selectModel(modelKey: String) {
         _uiState.update { it.copy(selectedModel = modelKey) }
+        viewModelScope.launch {
+            settingsDataStore.addRecentModel(modelKey)
+        }
+    }
+
+    fun toggleFavoriteModel(modelKey: String) {
+        viewModelScope.launch {
+            settingsDataStore.toggleFavoriteModel(modelKey)
+        }
+    }
+
+    fun loadPickerFiles(path: String = ".") {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPickerLoading = true) }
+            val api = connectionManager.getApi() ?: run {
+                _uiState.update { it.copy(isPickerLoading = false) }
+                return@launch
+            }
+            val result = safeApiCall { api.listFiles(path) }
+            when (result) {
+                is ApiResult.Success -> {
+                    val files = result.data.map { dto ->
+                        FileNode(
+                            name = dto.name,
+                            path = dto.path,
+                            absolute = dto.absolute,
+                            type = dto.type,
+                            ignored = dto.ignored
+                        )
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isPickerLoading = false,
+                            pickerFiles = files,
+                            pickerCurrentPath = if (path == ".") "" else path
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { it.copy(isPickerLoading = false) }
+                }
+            }
+        }
+    }
+
+    fun attachFile(file: FileNode) {
+        val selected = SelectedFile(path = file.path, name = file.name)
+        _uiState.update { state ->
+            if (state.attachedFiles.none { it.path == file.path }) {
+                state.copy(attachedFiles = state.attachedFiles + selected)
+            } else state
+        }
+    }
+
+    fun detachFile(path: String) {
+        _uiState.update { state ->
+            state.copy(attachedFiles = state.attachedFiles.filter { it.path != path })
+        }
+    }
+
+    fun clearAttachedFiles() {
+        _uiState.update { it.copy(attachedFiles = emptyList()) }
     }
 
     override fun onCleared() {
@@ -431,5 +517,9 @@ data class ChatUiState(
     val availableAgents: List<AgentDto> = emptyList(),
     val selectedAgent: String? = null,
     val availableModels: List<Pair<String, ModelDto>> = emptyList(),
-    val selectedModel: String? = null
+    val selectedModel: String? = null,
+    val attachedFiles: List<SelectedFile> = emptyList(),
+    val pickerFiles: List<FileNode> = emptyList(),
+    val pickerCurrentPath: String = "",
+    val isPickerLoading: Boolean = false
 )
