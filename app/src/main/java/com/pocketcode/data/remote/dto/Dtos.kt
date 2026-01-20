@@ -309,9 +309,15 @@ data class ToolStateDto(
 )
 
 @Serializable
+data class ModelInput(
+    val providerID: String,
+    val modelID: String
+)
+
+@Serializable
 data class SendMessageRequest(
     @SerialName("messageID") val messageID: String? = null,
-    val model: String? = null, // format: "provider/model"
+    val model: ModelInput? = null,
     val agent: String? = null,
     val noReply: Boolean? = null,
     val system: String? = null,

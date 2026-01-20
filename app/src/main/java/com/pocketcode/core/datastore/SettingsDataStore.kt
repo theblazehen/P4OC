@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.pocketcode.data.remote.dto.ModelInput
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -281,33 +282,44 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    val favoriteModels: Flow<Set<String>> = context.dataStore.data.map { prefs ->
-        prefs[KEY_FAVORITE_MODELS] ?: emptySet()
+    val favoriteModels: Flow<Set<ModelInput>> = context.dataStore.data.map { prefs ->
+        (prefs[KEY_FAVORITE_MODELS] ?: emptySet()).mapNotNull { it.toModelInput() }.toSet()
     }
 
-    val recentModels: Flow<List<String>> = context.dataStore.data.map { prefs ->
-        prefs[KEY_RECENT_MODELS]?.split("|||")?.filter { it.isNotBlank() } ?: emptyList()
+    val recentModels: Flow<List<ModelInput>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_RECENT_MODELS]?.split("|||")?.filter { it.isNotBlank() }?.mapNotNull { it.toModelInput() } ?: emptyList()
     }
 
-    suspend fun toggleFavoriteModel(modelKey: String) {
+    suspend fun toggleFavoriteModel(model: ModelInput) {
+        val key = model.toStorageKey()
         context.dataStore.edit { prefs ->
             val current = prefs[KEY_FAVORITE_MODELS] ?: emptySet()
-            prefs[KEY_FAVORITE_MODELS] = if (modelKey in current) {
-                current - modelKey
+            prefs[KEY_FAVORITE_MODELS] = if (key in current) {
+                current - key
             } else {
-                current + modelKey
+                current + key
             }
         }
     }
 
-    suspend fun addRecentModel(modelKey: String) {
+    suspend fun addRecentModel(model: ModelInput) {
+        val key = model.toStorageKey()
         context.dataStore.edit { prefs ->
             val existing = prefs[KEY_RECENT_MODELS]?.split("|||")?.filter { it.isNotBlank() }?.toMutableList() ?: mutableListOf()
-            existing.remove(modelKey)
-            existing.add(0, modelKey)
+            existing.remove(key)
+            existing.add(0, key)
             prefs[KEY_RECENT_MODELS] = existing.take(MAX_RECENT_MODELS).joinToString("|||")
         }
     }
+}
+
+private fun ModelInput.toStorageKey(): String = "$providerID/$modelID"
+
+private fun String.toModelInput(): ModelInput? {
+    val parts = split("/", limit = 2)
+    return if (parts.size >= 2) {
+        ModelInput(providerID = parts[0], modelID = parts.drop(1).joinToString("/"))
+    } else null
 }
 
 data class RecentServer(

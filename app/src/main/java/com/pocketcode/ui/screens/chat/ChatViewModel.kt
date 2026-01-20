@@ -14,6 +14,7 @@ import com.pocketcode.core.datastore.SettingsDataStore
 import com.pocketcode.data.remote.dto.AgentDto
 import com.pocketcode.data.remote.dto.ExecuteCommandRequest
 import com.pocketcode.data.remote.dto.ModelDto
+import com.pocketcode.data.remote.dto.ModelInput
 import com.pocketcode.data.remote.dto.PartInputDto
 import com.pocketcode.data.remote.dto.PermissionResponseRequest
 import com.pocketcode.data.remote.dto.QuestionReplyRequest
@@ -57,10 +58,10 @@ class ChatViewModel @Inject constructor(
 
     val connectionState: StateFlow<ConnectionState> = connectionManager.connectionState
 
-    val favoriteModels: StateFlow<Set<String>> = settingsDataStore.favoriteModels
+    val favoriteModels: StateFlow<Set<ModelInput>> = settingsDataStore.favoriteModels
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
     
-    val recentModels: StateFlow<List<String>> = settingsDataStore.recentModels
+    val recentModels: StateFlow<List<ModelInput>> = settingsDataStore.recentModels
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
@@ -416,7 +417,7 @@ class ChatViewModel @Inject constructor(
                         }
                     }
                     val defaultModel = result.data.default.entries.firstOrNull()?.let { (provider, modelId) ->
-                        "$provider/$modelId"
+                        ModelInput(providerID = provider, modelID = modelId)
                     }
                     _uiState.update { state ->
                         state.copy(
@@ -430,16 +431,16 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun selectModel(modelKey: String) {
-        _uiState.update { it.copy(selectedModel = modelKey) }
+    fun selectModel(model: ModelInput) {
+        _uiState.update { it.copy(selectedModel = model) }
         viewModelScope.launch {
-            settingsDataStore.addRecentModel(modelKey)
+            settingsDataStore.addRecentModel(model)
         }
     }
 
-    fun toggleFavoriteModel(modelKey: String) {
+    fun toggleFavoriteModel(model: ModelInput) {
         viewModelScope.launch {
-            settingsDataStore.toggleFavoriteModel(modelKey)
+            settingsDataStore.toggleFavoriteModel(model)
         }
     }
 
@@ -517,7 +518,7 @@ data class ChatUiState(
     val availableAgents: List<AgentDto> = emptyList(),
     val selectedAgent: String? = null,
     val availableModels: List<Pair<String, ModelDto>> = emptyList(),
-    val selectedModel: String? = null,
+    val selectedModel: ModelInput? = null,
     val attachedFiles: List<SelectedFile> = emptyList(),
     val pickerFiles: List<FileNode> = emptyList(),
     val pickerCurrentPath: String = "",

@@ -17,11 +17,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pocketcode.data.remote.dto.AgentDto
 import com.pocketcode.data.remote.dto.ModelDto
+import com.pocketcode.data.remote.dto.ModelInput
 
 data class EnhancedModelInfo(
-    val key: String,
+    val model: ModelInput,
     val name: String,
-    val providerId: String,
     val providerName: String,
     val contextWindow: Int?,
     val hasReasoning: Boolean,
@@ -36,24 +36,19 @@ fun ModelAgentSelectorBar(
     selectedAgent: String?,
     onAgentSelected: (String) -> Unit,
     availableModels: List<Pair<String, ModelDto>>,
-    selectedModel: String?,
-    onModelSelected: (String) -> Unit,
-    favoriteModels: Set<String> = emptySet(),
-    recentModels: List<String> = emptyList(),
-    onToggleFavorite: (String) -> Unit = {},
+    selectedModel: ModelInput?,
+    onModelSelected: (ModelInput) -> Unit,
+    favoriteModels: Set<ModelInput> = emptySet(),
+    recentModels: List<ModelInput> = emptyList(),
+    onToggleFavorite: (ModelInput) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showModelPicker by remember { mutableStateOf(false) }
     
     val selectedModelName = remember(selectedModel, availableModels) {
         if (selectedModel == null) return@remember "Select Model"
-        val parts = selectedModel.split("/")
-        if (parts.size >= 2) {
-            val modelId = parts.drop(1).joinToString("/")
-            availableModels.find { it.second.id == modelId }?.second?.name ?: modelId
-        } else {
-            selectedModel
-        }
+        availableModels.find { it.first == selectedModel.providerID && it.second.id == selectedModel.modelID }
+            ?.second?.name ?: selectedModel.modelID
     }
 
     Surface(
@@ -133,11 +128,11 @@ fun ModelAgentSelectorBar(
 @Composable
 fun ModelPickerDialog(
     availableModels: List<Pair<String, ModelDto>>,
-    selectedModel: String?,
-    favoriteModels: Set<String>,
-    recentModels: List<String>,
-    onModelSelected: (String) -> Unit,
-    onToggleFavorite: (String) -> Unit,
+    selectedModel: ModelInput?,
+    favoriteModels: Set<ModelInput>,
+    recentModels: List<ModelInput>,
+    onModelSelected: (ModelInput) -> Unit,
+    onToggleFavorite: (ModelInput) -> Unit,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -145,31 +140,30 @@ fun ModelPickerDialog(
 
     val enhancedModels = remember(availableModels, favoriteModels, recentModels) {
         availableModels.map { (providerId, model) ->
-            val key = "$providerId/${model.id}"
+            val modelInput = ModelInput(providerID = providerId, modelID = model.id)
             EnhancedModelInfo(
-                key = key,
+                model = modelInput,
                 name = model.name,
-                providerId = providerId,
                 providerName = providerId.replaceFirstChar { it.uppercase() },
                 contextWindow = model.limit?.context,
                 hasReasoning = model.capabilities?.reasoning == true,
                 hasTools = model.capabilities?.toolcall == true,
-                isFavorite = key in favoriteModels,
-                isRecent = key in recentModels
+                isFavorite = modelInput in favoriteModels,
+                isRecent = modelInput in recentModels
             )
         }
     }
 
     val providers = remember(enhancedModels) {
-        enhancedModels.map { it.providerId }.distinct().sorted()
+        enhancedModels.map { it.model.providerID }.distinct().sorted()
     }
 
     val filteredModels = remember(enhancedModels, searchQuery, selectedCategory) {
         enhancedModels.filter { model ->
             val matchesSearch = searchQuery.isBlank() || 
                 model.name.contains(searchQuery, ignoreCase = true) ||
-                model.providerId.contains(searchQuery, ignoreCase = true)
-            val matchesCategory = selectedCategory == null || model.providerId == selectedCategory
+                model.model.providerID.contains(searchQuery, ignoreCase = true)
+            val matchesCategory = selectedCategory == null || model.model.providerID == selectedCategory
             matchesSearch && matchesCategory
         }.sortedWith(
             compareByDescending<EnhancedModelInfo> { it.isFavorite }
@@ -253,12 +247,12 @@ fun ModelPickerDialog(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
-                        items(favorites, key = { it.key }) { model ->
+                        items(favorites, key = { "${it.model.providerID}/${it.model.modelID}" }) { model ->
                             ModelListItem(
                                 model = model,
-                                isSelected = model.key == selectedModel,
-                                onSelect = { onModelSelected(model.key) },
-                                onToggleFavorite = { onToggleFavorite(model.key) }
+                                isSelected = model.model == selectedModel,
+                                onSelect = { onModelSelected(model.model) },
+                                onToggleFavorite = { onToggleFavorite(model.model) }
                             )
                         }
                     }
@@ -272,12 +266,12 @@ fun ModelPickerDialog(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
-                        items(recents, key = { it.key }) { model ->
+                        items(recents, key = { "${it.model.providerID}/${it.model.modelID}" }) { model ->
                             ModelListItem(
                                 model = model,
-                                isSelected = model.key == selectedModel,
-                                onSelect = { onModelSelected(model.key) },
-                                onToggleFavorite = { onToggleFavorite(model.key) }
+                                isSelected = model.model == selectedModel,
+                                onSelect = { onModelSelected(model.model) },
+                                onToggleFavorite = { onToggleFavorite(model.model) }
                             )
                         }
                     }
@@ -291,12 +285,12 @@ fun ModelPickerDialog(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
-                        items(others, key = { it.key }) { model ->
+                        items(others, key = { "${it.model.providerID}/${it.model.modelID}" }) { model ->
                             ModelListItem(
                                 model = model,
-                                isSelected = model.key == selectedModel,
-                                onSelect = { onModelSelected(model.key) },
-                                onToggleFavorite = { onToggleFavorite(model.key) }
+                                isSelected = model.model == selectedModel,
+                                onSelect = { onModelSelected(model.model) },
+                                onToggleFavorite = { onToggleFavorite(model.model) }
                             )
                         }
                     }
