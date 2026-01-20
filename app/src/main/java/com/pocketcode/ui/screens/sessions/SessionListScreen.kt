@@ -101,8 +101,8 @@ fun SessionListScreen(
                     
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        contentPadding = PaddingValues(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(
                             items = sessionTree,
@@ -274,7 +274,7 @@ private fun SessionCard(
     ) {
         Row(
             modifier = Modifier
-                .padding(10.dp)
+                .padding(8.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.Top
         ) {

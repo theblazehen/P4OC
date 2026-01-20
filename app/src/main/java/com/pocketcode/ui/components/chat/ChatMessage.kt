@@ -48,12 +48,12 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 4.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(bottom = 4.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(bottom = 2.dp)
         ) {
             Icon(
                 Icons.Default.Person,
@@ -80,7 +80,7 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
     }
     
     HorizontalDivider(
-        modifier = Modifier.padding(top = 8.dp),
+        modifier = Modifier.padding(top = 4.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     )
 }
@@ -94,15 +94,15 @@ private fun AssistantMessage(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 4.dp)
     ) {
         val assistantMsg = messageWithParts.message as? Message.Assistant
         val displayName = assistantMsg?.modelID ?: "Assistant"
         
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(bottom = 8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(bottom = 4.dp)
         ) {
             Icon(
                 Icons.Default.SmartToy,
@@ -127,7 +127,7 @@ private fun AssistantMessage(
         }
         
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             messageWithParts.parts.forEach { part ->
@@ -150,7 +150,7 @@ private fun AssistantMessage(
     }
     
     HorizontalDivider(
-        modifier = Modifier.padding(top = 8.dp),
+        modifier = Modifier.padding(top = 4.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     )
 }
@@ -161,7 +161,7 @@ private fun TextPart(part: Part.Text) {
     
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.Top
     ) {
         MarkdownText(
