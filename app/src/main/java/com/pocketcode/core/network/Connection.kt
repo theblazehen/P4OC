@@ -24,6 +24,6 @@ data class Connection(
     val eventSource: OpenCodeEventSource
 ) {
     fun disconnect() {
-        eventSource.disconnect()
+        eventSource.shutdown()
     }
 }

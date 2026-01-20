@@ -25,7 +25,8 @@ fun SessionListScreen(
     viewModel: SessionListViewModel = hiltViewModel(),
     onSessionClick: (String) -> Unit,
     onNewSession: (String) -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onProjects: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showNewSessionDialog by remember { mutableStateOf(false) }
@@ -43,6 +44,9 @@ fun SessionListScreen(
             TopAppBar(
                 title = { Text("Sessions") },
                 actions = {
+                    IconButton(onClick = onProjects) {
+                        Icon(Icons.Default.Folder, contentDescription = "Projects")
+                    }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
@@ -196,6 +200,30 @@ private fun SessionCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+                    if (session.parentID != null) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.AccountTree,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    text = "Sub-agent",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
                     SessionStatusIndicator(status = status)
                 }
                 Text(
@@ -235,7 +263,8 @@ private fun SessionCard(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

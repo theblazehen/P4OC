@@ -10,7 +10,9 @@ import com.pocketcode.core.network.ApiResult
 import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.ConnectionState
 import com.pocketcode.core.network.safeApiCall
+import com.pocketcode.data.remote.dto.AgentDto
 import com.pocketcode.data.remote.dto.ExecuteCommandRequest
+import com.pocketcode.data.remote.dto.ModelDto
 import com.pocketcode.data.remote.dto.PartInputDto
 import com.pocketcode.data.remote.dto.PermissionResponseRequest
 import com.pocketcode.data.remote.dto.QuestionReplyRequest
@@ -55,6 +57,8 @@ class ChatViewModel @Inject constructor(
     init {
         loadSession()
         loadMessages()
+        loadAgents()
+        loadModels()
         observeEvents()
     }
 
@@ -212,6 +216,8 @@ class ChatViewModel @Inject constructor(
         val text = _uiState.value.inputText.trim()
         if (text.isEmpty()) return
 
+        val selectedAgent = _uiState.value.selectedAgent
+        val selectedModel = _uiState.value.selectedModel
         _uiState.update { it.copy(inputText = "", isSending = true) }
 
         viewModelScope.launch {
@@ -220,7 +226,9 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
             val request = SendMessageRequest(
-                parts = listOf(PartInputDto(type = "text", text = text))
+                parts = listOf(PartInputDto(type = "text", text = text)),
+                agent = selectedAgent,
+                model = selectedModel
             )
 
             val result = safeApiCall { api.sendMessageAsync(sessionId, request) }
@@ -344,6 +352,64 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    private fun loadAgents() {
+        viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
+            val result = safeApiCall { api.getAgents() }
+            when (result) {
+                is ApiResult.Success -> {
+                    val primaryAgents = result.data.filter { 
+                        it.mode == "primary" && it.hidden != true 
+                    }
+                    _uiState.update { state ->
+                        state.copy(
+                            availableAgents = primaryAgents,
+                            selectedAgent = primaryAgents.find { it.name == "build" }?.name
+                                ?: primaryAgents.firstOrNull()?.name
+                        )
+                    }
+                }
+                is ApiResult.Error -> {}
+            }
+        }
+    }
+
+    fun selectAgent(agentName: String) {
+        _uiState.update { it.copy(selectedAgent = agentName) }
+    }
+
+    private fun loadModels() {
+        viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
+            val result = safeApiCall { api.getProviders() }
+            when (result) {
+                is ApiResult.Success -> {
+                    val models = mutableListOf<Pair<String, ModelDto>>()
+                    result.data.connected.forEach { providerId ->
+                        val provider = result.data.all.find { it.id == providerId }
+                        provider?.models?.values?.forEach { model ->
+                            models.add(providerId to model)
+                        }
+                    }
+                    val defaultModel = result.data.default.entries.firstOrNull()?.let { (provider, modelId) ->
+                        "$provider/$modelId"
+                    }
+                    _uiState.update { state ->
+                        state.copy(
+                            availableModels = models,
+                            selectedModel = defaultModel
+                        )
+                    }
+                }
+                is ApiResult.Error -> {}
+            }
+        }
+    }
+
+    fun selectModel(modelKey: String) {
+        _uiState.update { it.copy(selectedModel = modelKey) }
+    }
+
     override fun onCleared() {
         super.onCleared()
     }
@@ -361,5 +427,9 @@ data class ChatUiState(
     val commands: List<Command> = emptyList(),
     val isLoadingCommands: Boolean = false,
     val todos: List<Todo> = emptyList(),
-    val isLoadingTodos: Boolean = false
+    val isLoadingTodos: Boolean = false,
+    val availableAgents: List<AgentDto> = emptyList(),
+    val selectedAgent: String? = null,
+    val availableModels: List<Pair<String, ModelDto>> = emptyList(),
+    val selectedModel: String? = null
 )

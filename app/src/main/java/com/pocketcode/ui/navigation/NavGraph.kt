@@ -24,6 +24,7 @@ import com.pocketcode.ui.screens.settings.AgentsConfigScreen
 import com.pocketcode.ui.screens.settings.SkillsScreen
 import com.pocketcode.ui.screens.setup.SetupScreen
 import com.pocketcode.ui.screens.terminal.TerminalScreen
+import com.pocketcode.ui.screens.projects.ProjectsScreen
 
 private const val ANIMATION_DURATION = 300
 
@@ -93,6 +94,18 @@ fun NavGraph(
                 },
                 onSettings = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onProjects = {
+                    navController.navigate(Screen.Projects.route)
+                }
+            )
+        }
+
+        composable(Screen.Projects.route) {
+            ProjectsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onProjectClick = { projectId ->
+                    // TODO: Filter sessions by project or navigate to project detail
                 }
             )
         }

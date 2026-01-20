@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pocketcode.domain.model.*
 import dev.jeziellago.compose.markdowntext.MarkdownText
@@ -24,8 +25,7 @@ fun ChatMessage(
     val isUser = message is Message.User
 
     Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+        modifier = modifier.fillMaxWidth()
     ) {
         if (isUser) {
             UserMessage(messageWithParts)
@@ -44,17 +44,41 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
     val textParts = messageWithParts.parts.filterIsInstance<Part.Text>()
     val text = textParts.joinToString("\n") { it.text }
 
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
-        modifier = Modifier.widthIn(max = 320.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
     ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 4.dp)
+        ) {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "You",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        
         Text(
             text = text,
-            modifier = Modifier.padding(12.dp),
-            color = MaterialTheme.colorScheme.onPrimaryContainer
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
+    
+    HorizontalDivider(
+        modifier = Modifier.padding(top = 8.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    )
 }
 
 @Composable
@@ -64,63 +88,89 @@ private fun AssistantMessage(
     onToolDeny: (String) -> Unit
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.widthIn(max = 360.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
     ) {
-        messageWithParts.parts.forEach { part ->
-            when (part) {
-                is Part.Text -> TextPart(part)
-                is Part.Reasoning -> ReasoningPart(part)
-                is Part.Tool -> EnhancedToolPart(part, onToolApprove, onToolDeny)
-                is Part.File -> FilePart(part)
-                is Part.Patch -> PatchPart(part)
-                // New part types - render as minimal UI or skip
-                is Part.StepStart -> {} // No UI for step markers
-                is Part.StepFinish -> {} // No UI for step markers
-                is Part.Snapshot -> {} // No UI for snapshots
-                is Part.Agent -> {} // Could show agent switch indicator
-                is Part.Retry -> {} // Could show retry indicator
-                is Part.Compaction -> {} // No UI for compaction
-                is Part.Subtask -> {} // Could show subtask info
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 8.dp)
+        ) {
+            Icon(
+                Icons.Default.SmartToy,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.secondary
+            )
+            Text(
+                text = "Assistant",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            
+            val assistantMsg = messageWithParts.message as? Message.Assistant
+            assistantMsg?.let { msg ->
+                if (msg.tokens.input > 0 || msg.tokens.output > 0) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    TokenUsageInfo(msg.tokens, msg.cost)
+                }
             }
         }
-
-        val assistantMsg = messageWithParts.message as? Message.Assistant
-        assistantMsg?.let { msg ->
-            if (msg.tokens.input > 0 || msg.tokens.output > 0) {
-                TokenUsageInfo(msg.tokens, msg.cost)
+        
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            messageWithParts.parts.forEach { part ->
+                when (part) {
+                    is Part.Text -> TextPart(part)
+                    is Part.Reasoning -> ReasoningPart(part)
+                    is Part.Tool -> EnhancedToolPart(part, onToolApprove, onToolDeny)
+                    is Part.File -> FilePart(part)
+                    is Part.Patch -> PatchPart(part)
+                    is Part.StepStart -> {}
+                    is Part.StepFinish -> {}
+                    is Part.Snapshot -> {}
+                    is Part.Agent -> {}
+                    is Part.Retry -> {}
+                    is Part.Compaction -> {}
+                    is Part.Subtask -> {}
+                }
             }
         }
     }
+    
+    HorizontalDivider(
+        modifier = Modifier.padding(top = 8.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    )
 }
 
 @Composable
 private fun TextPart(part: Part.Text) {
     val syntaxHighlightBg = MaterialTheme.colorScheme.surfaceContainerHighest
     
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            MarkdownText(
-                markdown = part.text,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                syntaxHighlightColor = syntaxHighlightBg,
-                linkColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f, fill = false)
+        MarkdownText(
+            markdown = part.text,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface
+            ),
+            syntaxHighlightColor = syntaxHighlightBg,
+            linkColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (part.isStreaming) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(12.dp),
+                strokeWidth = 1.dp
             )
-            if (part.isStreaming) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(12.dp),
-                    strokeWidth = 1.dp
-                )
-            }
         }
     }
 }
@@ -142,8 +192,8 @@ private fun ReasoningPart(part: Part.Reasoning) {
 
     Surface(
         onClick = { expanded = !expanded },
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp)
+        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -210,13 +260,20 @@ private fun ReasoningPart(part: Part.Reasoning) {
 
 @Composable
 private fun FilePart(part: Part.File) {
-    Card {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(8.dp)
+    ) {
         Row(
             modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.AttachFile, contentDescription = null)
+            Icon(
+                Icons.Default.AttachFile, 
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Column {
                 Text(
                     text = part.filename ?: "File",
@@ -234,13 +291,20 @@ private fun FilePart(part: Part.File) {
 
 @Composable
 private fun PatchPart(part: Part.Patch) {
-    Card {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(8.dp)
+    ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Description, contentDescription = null)
+                Icon(
+                    Icons.Default.Description, 
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text(
                     text = "Patch: ${part.files.size} file(s)",
                     style = MaterialTheme.typography.titleSmall
@@ -269,8 +333,7 @@ private fun PatchPart(part: Part.Patch) {
 @Composable
 private fun TokenUsageInfo(tokens: TokenUsage, cost: Double) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(top = 4.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = "${tokens.input}/${tokens.output} tokens",

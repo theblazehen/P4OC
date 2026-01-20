@@ -21,6 +21,7 @@ import com.pocketcode.domain.model.MessageWithParts
 import com.pocketcode.domain.model.Permission
 import com.pocketcode.ui.components.chat.ChatInputBar
 import com.pocketcode.ui.components.chat.ChatMessage
+import com.pocketcode.ui.components.chat.ModelOption
 import com.pocketcode.ui.components.chat.PermissionDialog
 import com.pocketcode.ui.components.command.CommandPalette
 import com.pocketcode.ui.components.question.QuestionDialog
@@ -46,6 +47,19 @@ fun ChatScreen(
     
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    
+    val agentNames = remember(uiState.availableAgents) {
+        uiState.availableAgents.map { it.name }
+    }
+    
+    val modelOptions = remember(uiState.availableModels) {
+        uiState.availableModels.map { (providerId, model) ->
+            ModelOption(
+                key = "$providerId/${model.id}",
+                displayName = model.name
+            )
+        }
+    }
     
     BackHandler {
         focusManager.clearFocus()
@@ -82,7 +96,13 @@ fun ChatScreen(
                 onValueChange = viewModel::updateInput,
                 onSend = viewModel::sendMessage,
                 isLoading = uiState.isSending,
-                enabled = connectionState is ConnectionState.Connected && !uiState.isSending
+                enabled = connectionState is ConnectionState.Connected && !uiState.isSending,
+                availableAgents = agentNames,
+                selectedAgent = uiState.selectedAgent,
+                onAgentSelected = viewModel::selectAgent,
+                availableModels = modelOptions,
+                selectedModel = uiState.selectedModel,
+                onModelSelected = viewModel::selectModel
             )
         },
         floatingActionButton = {

@@ -23,63 +23,78 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-data class VisualSettings(
-    val fontSize: Int = 14,
-    val lineSpacing: Float = 1.5f,
-    val fontFamily: String = "System",
-    val codeBlockFontSize: Int = 12,
-    val showLineNumbers: Boolean = true,
-    val wordWrap: Boolean = false,
-    val compactMode: Boolean = false,
-    val messageSpacing: Int = 8,
-    val highContrastMode: Boolean = false
-)
+import com.pocketcode.core.datastore.SettingsDataStore
+import com.pocketcode.core.datastore.VisualSettings
 
 @HiltViewModel
-class VisualSettingsViewModel @Inject constructor() : ViewModel() {
+class VisualSettingsViewModel @Inject constructor(
+    private val settingsDataStore: SettingsDataStore
+) : ViewModel() {
     
     private val _settings = MutableStateFlow(VisualSettings())
     val settings: StateFlow<VisualSettings> = _settings.asStateFlow()
     
+    init {
+        viewModelScope.launch {
+            settingsDataStore.visualSettings.collect { saved ->
+                _settings.value = saved
+            }
+        }
+    }
+    
+    private fun persistSettings(newSettings: VisualSettings) {
+        _settings.value = newSettings
+        viewModelScope.launch {
+            settingsDataStore.updateVisualSettings(newSettings)
+        }
+    }
+    
     fun updateFontSize(size: Int) {
-        _settings.update { it.copy(fontSize = size.coerceIn(10, 24)) }
+        persistSettings(_settings.value.copy(fontSize = size.coerceIn(10, 24)))
     }
     
     fun updateLineSpacing(spacing: Float) {
-        _settings.update { it.copy(lineSpacing = spacing.coerceIn(1f, 2.5f)) }
+        persistSettings(_settings.value.copy(lineSpacing = spacing.coerceIn(1f, 2.5f)))
     }
     
     fun updateFontFamily(family: String) {
-        _settings.update { it.copy(fontFamily = family) }
+        persistSettings(_settings.value.copy(fontFamily = family))
     }
     
     fun updateCodeBlockFontSize(size: Int) {
-        _settings.update { it.copy(codeBlockFontSize = size.coerceIn(8, 20)) }
+        persistSettings(_settings.value.copy(codeBlockFontSize = size.coerceIn(8, 20)))
     }
     
     fun toggleLineNumbers() {
-        _settings.update { it.copy(showLineNumbers = !it.showLineNumbers) }
+        persistSettings(_settings.value.copy(showLineNumbers = !_settings.value.showLineNumbers))
     }
     
     fun toggleWordWrap() {
-        _settings.update { it.copy(wordWrap = !it.wordWrap) }
+        persistSettings(_settings.value.copy(wordWrap = !_settings.value.wordWrap))
     }
     
     fun toggleCompactMode() {
-        _settings.update { it.copy(compactMode = !it.compactMode) }
+        persistSettings(_settings.value.copy(compactMode = !_settings.value.compactMode))
     }
     
     fun updateMessageSpacing(spacing: Int) {
-        _settings.update { it.copy(messageSpacing = spacing.coerceIn(0, 24)) }
+        persistSettings(_settings.value.copy(messageSpacing = spacing.coerceIn(0, 24)))
     }
     
     fun toggleHighContrast() {
-        _settings.update { it.copy(highContrastMode = !it.highContrastMode) }
+        persistSettings(_settings.value.copy(highContrastMode = !_settings.value.highContrastMode))
+    }
+    
+    fun toggleReasoningExpanded() {
+        persistSettings(_settings.value.copy(reasoningExpandedByDefault = !_settings.value.reasoningExpandedByDefault))
+    }
+    
+    fun toggleToolCallsExpanded() {
+        persistSettings(_settings.value.copy(toolCallsExpandedByDefault = !_settings.value.toolCallsExpandedByDefault))
     }
     
     fun resetToDefaults() {
-        _settings.value = VisualSettings()
+        persistSettings(VisualSettings())
     }
 }
 
@@ -182,6 +197,24 @@ fun VisualSettingsScreen(
                     checked = settings.highContrastMode,
                     onCheckedChange = { viewModel.toggleHighContrast() },
                     icon = Icons.Default.Contrast
+                )
+            }
+            
+            SettingsSection(title = "Message Display") {
+                SettingsSwitch(
+                    title = "Expand Reasoning by Default",
+                    subtitle = "Show reasoning/thinking content expanded",
+                    checked = settings.reasoningExpandedByDefault,
+                    onCheckedChange = { viewModel.toggleReasoningExpanded() },
+                    icon = Icons.Default.Psychology
+                )
+                
+                SettingsSwitch(
+                    title = "Expand Tool Calls by Default",
+                    subtitle = "Show tool call details expanded",
+                    checked = settings.toolCallsExpandedByDefault,
+                    onCheckedChange = { viewModel.toggleToolCallsExpanded() },
+                    icon = Icons.Default.Build
                 )
             }
             

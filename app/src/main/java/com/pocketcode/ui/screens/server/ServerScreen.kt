@@ -1,5 +1,6 @@
 package com.pocketcode.ui.screens.server
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,8 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pocketcode.core.datastore.RecentServer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +58,15 @@ fun ServerScreen(
                 selectedMode = uiState.connectionMode,
                 onModeSelected = viewModel::setConnectionMode
             )
+
+            if (uiState.recentServers.isNotEmpty()) {
+                RecentServersSection(
+                    servers = uiState.recentServers,
+                    isConnecting = uiState.isConnecting,
+                    onServerClick = viewModel::connectToRecentServer,
+                    onRemoveServer = viewModel::removeRecentServer
+                )
+            }
 
             when (uiState.connectionMode) {
                 ConnectionMode.LOCAL -> LocalServerSection(
@@ -390,4 +402,68 @@ enum class TermuxStatusUi {
     OpenCodeNotInstalled,
     Ready,
     ServerRunning
+}
+
+@Composable
+private fun RecentServersSection(
+    servers: List<RecentServer>,
+    isConnecting: Boolean,
+    onServerClick: (RecentServer) -> Unit,
+    onRemoveServer: (RecentServer) -> Unit
+) {
+    Card {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Recent Servers",
+                style = MaterialTheme.typography.titleMedium
+            )
+            
+            servers.forEach { server ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isConnecting) { onServerClick(server) }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = server.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = server.url,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(
+                        onClick = { onRemoveServer(server) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

@@ -26,11 +26,26 @@ class SettingsDataStore @Inject constructor(
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val KEY_LAST_SESSION_ID = stringPreferencesKey("last_session_id")
+        private val KEY_RECENT_SERVERS = stringPreferencesKey("recent_servers")
+        
+        // Visual settings keys
+        private val KEY_FONT_SIZE = intPreferencesKey("font_size")
+        private val KEY_LINE_SPACING = floatPreferencesKey("line_spacing")
+        private val KEY_FONT_FAMILY = stringPreferencesKey("font_family")
+        private val KEY_CODE_BLOCK_FONT_SIZE = intPreferencesKey("code_block_font_size")
+        private val KEY_SHOW_LINE_NUMBERS = booleanPreferencesKey("show_line_numbers")
+        private val KEY_WORD_WRAP = booleanPreferencesKey("word_wrap")
+        private val KEY_COMPACT_MODE = booleanPreferencesKey("compact_mode")
+        private val KEY_MESSAGE_SPACING = intPreferencesKey("message_spacing")
+        private val KEY_HIGH_CONTRAST_MODE = booleanPreferencesKey("high_contrast_mode")
+        private val KEY_REASONING_EXPANDED = booleanPreferencesKey("reasoning_expanded_by_default")
+        private val KEY_TOOL_CALLS_EXPANDED = booleanPreferencesKey("tool_calls_expanded_by_default")
 
         const val DEFAULT_LOCAL_URL = "http://localhost:4096"
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
         const val THEME_DARK = "dark"
+        const val MAX_RECENT_SERVERS = 5
     }
 
     @Volatile
@@ -183,4 +198,100 @@ class SettingsDataStore @Inject constructor(
             prefs.remove(KEY_PASSWORD)
         }
     }
+
+    val recentServers: Flow<List<RecentServer>> = context.dataStore.data.map { prefs ->
+        val json = prefs[KEY_RECENT_SERVERS] ?: return@map emptyList()
+        try {
+            json.split("|||").mapNotNull { entry ->
+                val parts = entry.split(":::")
+                if (parts.size >= 2) {
+                    RecentServer(url = parts[0], name = parts[1])
+                } else null
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun addRecentServer(url: String, name: String) {
+        context.dataStore.edit { prefs ->
+            val existingJson = prefs[KEY_RECENT_SERVERS] ?: ""
+            val existingServers = if (existingJson.isBlank()) {
+                mutableListOf()
+            } else {
+                existingJson.split("|||").mapNotNull { entry ->
+                    val parts = entry.split(":::")
+                    if (parts.size >= 2) RecentServer(parts[0], parts[1]) else null
+                }.toMutableList()
+            }
+            
+            existingServers.removeAll { it.url == url }
+            existingServers.add(0, RecentServer(url, name))
+            val trimmed = existingServers.take(MAX_RECENT_SERVERS)
+            
+            prefs[KEY_RECENT_SERVERS] = trimmed.joinToString("|||") { "${it.url}:::${it.name}" }
+        }
+    }
+
+    suspend fun removeRecentServer(url: String) {
+        context.dataStore.edit { prefs ->
+            val existingJson = prefs[KEY_RECENT_SERVERS] ?: return@edit
+            val servers = existingJson.split("|||").mapNotNull { entry ->
+                val parts = entry.split(":::")
+                if (parts.size >= 2 && parts[0] != url) RecentServer(parts[0], parts[1]) else null
+            }
+            prefs[KEY_RECENT_SERVERS] = servers.joinToString("|||") { "${it.url}:::${it.name}" }
+        }
+    }
+
+    val visualSettings: Flow<VisualSettings> = context.dataStore.data.map { prefs ->
+        VisualSettings(
+            fontSize = prefs[KEY_FONT_SIZE] ?: 14,
+            lineSpacing = prefs[KEY_LINE_SPACING] ?: 1.5f,
+            fontFamily = prefs[KEY_FONT_FAMILY] ?: "System",
+            codeBlockFontSize = prefs[KEY_CODE_BLOCK_FONT_SIZE] ?: 12,
+            showLineNumbers = prefs[KEY_SHOW_LINE_NUMBERS] ?: true,
+            wordWrap = prefs[KEY_WORD_WRAP] ?: false,
+            compactMode = prefs[KEY_COMPACT_MODE] ?: false,
+            messageSpacing = prefs[KEY_MESSAGE_SPACING] ?: 8,
+            highContrastMode = prefs[KEY_HIGH_CONTRAST_MODE] ?: false,
+            reasoningExpandedByDefault = prefs[KEY_REASONING_EXPANDED] ?: false,
+            toolCallsExpandedByDefault = prefs[KEY_TOOL_CALLS_EXPANDED] ?: false
+        )
+    }
+
+    suspend fun updateVisualSettings(settings: VisualSettings) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FONT_SIZE] = settings.fontSize
+            prefs[KEY_LINE_SPACING] = settings.lineSpacing
+            prefs[KEY_FONT_FAMILY] = settings.fontFamily
+            prefs[KEY_CODE_BLOCK_FONT_SIZE] = settings.codeBlockFontSize
+            prefs[KEY_SHOW_LINE_NUMBERS] = settings.showLineNumbers
+            prefs[KEY_WORD_WRAP] = settings.wordWrap
+            prefs[KEY_COMPACT_MODE] = settings.compactMode
+            prefs[KEY_MESSAGE_SPACING] = settings.messageSpacing
+            prefs[KEY_HIGH_CONTRAST_MODE] = settings.highContrastMode
+            prefs[KEY_REASONING_EXPANDED] = settings.reasoningExpandedByDefault
+            prefs[KEY_TOOL_CALLS_EXPANDED] = settings.toolCallsExpandedByDefault
+        }
+    }
 }
+
+data class RecentServer(
+    val url: String,
+    val name: String
+)
+
+data class VisualSettings(
+    val fontSize: Int = 14,
+    val lineSpacing: Float = 1.5f,
+    val fontFamily: String = "System",
+    val codeBlockFontSize: Int = 12,
+    val showLineNumbers: Boolean = true,
+    val wordWrap: Boolean = false,
+    val compactMode: Boolean = false,
+    val messageSpacing: Int = 8,
+    val highContrastMode: Boolean = false,
+    val reasoningExpandedByDefault: Boolean = false,
+    val toolCallsExpandedByDefault: Boolean = false
+)

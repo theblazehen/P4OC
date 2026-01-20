@@ -3,6 +3,7 @@ package com.pocketcode.ui.screens.server
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pocketcode.core.datastore.RecentServer
 import com.pocketcode.core.datastore.SettingsDataStore
 import com.pocketcode.core.network.ConnectionManager
 import com.pocketcode.core.network.ServerConfig
@@ -29,6 +30,44 @@ class ServerViewModel @Inject constructor(
 
     init {
         checkTermuxStatus()
+        loadRecentServers()
+        tryAutoReconnect()
+    }
+
+    private fun loadRecentServers() {
+        viewModelScope.launch {
+            settingsDataStore.recentServers.collect { servers ->
+                _uiState.update { it.copy(recentServers = servers) }
+            }
+        }
+    }
+
+    private fun tryAutoReconnect() {
+        viewModelScope.launch {
+            val lastConnection = settingsDataStore.getLastConnection() ?: return@launch
+            
+            Log.d(TAG, "Found last connection: ${lastConnection.url}")
+            _uiState.update { 
+                it.copy(
+                    isConnecting = true,
+                    connectionMode = if (lastConnection.isLocal) ConnectionMode.LOCAL else ConnectionMode.REMOTE,
+                    remoteUrl = if (!lastConnection.isLocal) lastConnection.url else ""
+                )
+            }
+            
+            val result = connectionManager.connect(lastConnection)
+            
+            result.fold(
+                onSuccess = {
+                    Log.d(TAG, "Auto-reconnect successful")
+                    _uiState.update { it.copy(isConnecting = false, isConnected = true) }
+                },
+                onFailure = { error ->
+                    Log.w(TAG, "Auto-reconnect failed: ${error.message}")
+                    _uiState.update { it.copy(isConnecting = false) }
+                }
+            )
+        }
     }
 
     private fun checkTermuxStatus() {
@@ -134,6 +173,7 @@ class ServerViewModel @Inject constructor(
                 onSuccess = {
                     Log.d(TAG, "Connection successful!")
                     settingsDataStore.saveLastConnection(config)
+                    settingsDataStore.addRecentServer(url, "Remote Server")
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
                 onFailure = { error ->
@@ -169,6 +209,22 @@ class ServerViewModel @Inject constructor(
         
         return url
     }
+
+    fun connectToRecentServer(server: RecentServer) {
+        _uiState.update { 
+            it.copy(
+                connectionMode = ConnectionMode.REMOTE,
+                remoteUrl = server.url
+            )
+        }
+        connectToRemote()
+    }
+
+    fun removeRecentServer(server: RecentServer) {
+        viewModelScope.launch {
+            settingsDataStore.removeRecentServer(server.url)
+        }
+    }
 }
 
 data class ServerUiState(
@@ -179,5 +235,6 @@ data class ServerUiState(
     val password: String = "",
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val recentServers: List<RecentServer> = emptyList()
 )

@@ -25,11 +25,11 @@ class FilesViewModel @Inject constructor(
     private val pathStack = mutableListOf<String>()
 
     init {
-        loadFiles(null)
+        loadFiles(".")
     }
 
     fun refresh() {
-        loadFiles(_uiState.value.currentPath.takeIf { it.isNotBlank() })
+        loadFiles(_uiState.value.currentPath.ifBlank { "." })
     }
 
     fun navigateTo(path: String) {
@@ -38,11 +38,11 @@ class FilesViewModel @Inject constructor(
     }
 
     fun navigateUp() {
-        val previousPath = pathStack.removeLastOrNull() ?: ""
-        loadFiles(previousPath.takeIf { it.isNotBlank() })
+        val previousPath = pathStack.removeLastOrNull() ?: "."
+        loadFiles(previousPath.ifBlank { "." })
     }
 
-    private fun loadFiles(path: String?) {
+    private fun loadFiles(path: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -68,7 +68,7 @@ class FilesViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             files = files,
-                            currentPath = path ?: ""
+                            currentPath = path
                         )
                     }
                 }

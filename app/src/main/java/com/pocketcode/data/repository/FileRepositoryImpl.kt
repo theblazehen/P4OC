@@ -18,7 +18,7 @@ class FileRepositoryImpl @Inject constructor(
     private val connectionManager: ConnectionManager
 ) : FileRepository {
 
-    override suspend fun listFiles(path: String?): ApiResult<List<FileNode>> {
+    override suspend fun listFiles(path: String): ApiResult<List<FileNode>> {
         val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             val dtos = api.listFiles(path)

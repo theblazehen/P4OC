@@ -71,21 +71,25 @@ class ModelControlsViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = false, error = "Not connected") }
                 return@launch
             }
-            val result = safeApiCall { api.listModels() }
+            // Use getProviders() which returns all providers with their models
+            // The /model endpoint returns HTML (server-side routing issue)
+            val result = safeApiCall { api.getProviders() }
             when (result) {
                 is ApiResult.Success -> {
-                    val models = result.data.map { dto ->
-                        ModelInfo(
-                            id = dto.id,
-                            name = dto.name,
-                            providerId = dto.providerId,
-                            contextLength = dto.contextLength ?: 0,
-                            inputCostPer1k = dto.inputCostPer1k ?: 0.0,
-                            outputCostPer1k = dto.outputCostPer1k ?: 0.0,
-                            supportsTools = dto.supportsTools ?: true,
-                            supportsReasoning = dto.supportsReasoning ?: false,
-                            isFavorite = _state.value.favorites.contains(dto.id)
-                        )
+                    val models = result.data.all.flatMap { provider ->
+                        provider.models.values.map { dto ->
+                            ModelInfo(
+                                id = dto.id,
+                                name = dto.name,
+                                providerId = dto.providerId,
+                                contextLength = dto.limit?.context ?: dto.contextLength ?: 0,
+                                inputCostPer1k = dto.cost?.input ?: dto.inputCostPer1k ?: 0.0,
+                                outputCostPer1k = dto.cost?.output ?: dto.outputCostPer1k ?: 0.0,
+                                supportsTools = dto.capabilities?.toolcall ?: dto.supportsTools ?: true,
+                                supportsReasoning = dto.capabilities?.reasoning ?: dto.supportsReasoning ?: false,
+                                isFavorite = _state.value.favorites.contains(dto.id)
+                            )
+                        }
                     }
                     _state.update { it.copy(models = models, isLoading = false) }
                 }

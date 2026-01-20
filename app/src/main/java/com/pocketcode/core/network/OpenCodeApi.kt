@@ -143,7 +143,7 @@ interface OpenCodeApi {
     suspend fun listCommands(): List<CommandDto>
 
     @GET("file")
-    suspend fun listFiles(@Query("path") path: String?): List<FileNodeDto>
+    suspend fun listFiles(@Query("path") path: String = "."): List<FileNodeDto>
 
     @GET("file/content")
     suspend fun readFile(@Query("path") path: String): FileContentDto
@@ -181,9 +181,6 @@ interface OpenCodeApi {
     
     @GET("agent")
     suspend fun listAgents(): List<AgentDto>
-    
-    @GET("model")
-    suspend fun listModels(): List<ModelDto>
     
     @POST("model/active")
     suspend fun setActiveModel(@Body modelId: String): Boolean

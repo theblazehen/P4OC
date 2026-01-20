@@ -113,6 +113,11 @@ class OpenCodeEventSource(
         _connectionState.value = ConnectionState.Disconnected
     }
 
+    fun shutdown() {
+        disconnect()
+        scope.cancel()
+    }
+
     private fun parseAndEmitEvent(data: String) {
         try {
             val eventData = json.decodeFromString<EventDataDto>(data)
