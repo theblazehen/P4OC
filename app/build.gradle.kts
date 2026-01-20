@@ -72,6 +72,7 @@ dependencies {
     // ViewModel + Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-process:2.8.4")
 
     // Networking - OkHttp + Retrofit
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
