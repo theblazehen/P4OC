@@ -167,9 +167,6 @@ fun NavGraph(
                 onVisualSettings = {
                     navController.navigate(Screen.VisualSettings.route)
                 },
-                onModelControls = {
-                    navController.navigate(Screen.ModelControls.route)
-                },
                 onAgentsConfig = {
                     navController.navigate(Screen.AgentsConfig.route)
                 },

@@ -22,7 +22,6 @@ fun SettingsScreen(
     onDisconnect: () -> Unit,
     onProviderConfig: () -> Unit = {},
     onVisualSettings: () -> Unit = {},
-    onModelControls: () -> Unit = {},
     onAgentsConfig: () -> Unit = {},
     onSkills: () -> Unit = {}
 ) {
@@ -66,16 +65,6 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Default.SmartToy, contentDescription = null) },
                 trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
                 modifier = Modifier.clickable { onProviderConfig() }
-            )
-
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text("Model Controls") },
-                supportingContent = { Text("Manage models and favorites") },
-                leadingContent = { Icon(Icons.Default.Tune, contentDescription = null) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
-                modifier = Modifier.clickable { onModelControls() }
             )
 
             HorizontalDivider()
