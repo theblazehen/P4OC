@@ -3,6 +3,7 @@ package com.pocketcode.ui.screens.chat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -131,21 +132,23 @@ fun ChatScreen(
             if (messages.isEmpty() && !uiState.isLoading) {
                 EmptyChatView(modifier = Modifier.align(Alignment.Center))
             } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 6.dp, horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(
-                        items = messages,
-                        key = { it.message.id }
-                    ) { messageWithParts ->
-                        ChatMessage(
-                            messageWithParts = messageWithParts,
-                            onToolApprove = { viewModel.respondToPermission(it, "allow") },
-                            onToolDeny = { viewModel.respondToPermission(it, "deny") }
-                        )
+                SelectionContainer {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 6.dp, horizontal = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(
+                            items = messages,
+                            key = { it.message.id }
+                        ) { messageWithParts ->
+                            ChatMessage(
+                                messageWithParts = messageWithParts,
+                                onToolApprove = { viewModel.respondToPermission(it, "allow") },
+                                onToolDeny = { viewModel.respondToPermission(it, "deny") }
+                            )
+                        }
                     }
                 }
             }
