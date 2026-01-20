@@ -99,11 +99,7 @@ fun ChatInputBar(
                         .defaultMinSize(minHeight = 44.dp),
                     placeholder = { Text("Type a message...") },
                     enabled = enabled,
-                    maxLines = 4,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(
-                        onSend = { if (value.isNotBlank() && enabled) onSend() }
-                    ),
+                    maxLines = 6,
                     shape = MaterialTheme.shapes.extraLarge
                 )
 
