@@ -1,5 +1,8 @@
 package com.pocketcode.ui.screens.sessions
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +21,11 @@ import com.pocketcode.domain.model.SessionStatus
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+
+private data class SessionGroup(
+    val parent: Session,
+    val children: List<Session>
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,20 +90,40 @@ fun SessionListScreen(
                     )
                 }
                 else -> {
+                    val expandedParents = remember { mutableStateMapOf<String, Boolean>() }
+                    
+                    val sessionGroups = remember(uiState.sessions) {
+                        val parentSessions = uiState.sessions.filter { it.parentID == null }
+                        val childrenByParent = uiState.sessions
+                            .filter { it.parentID != null }
+                            .groupBy { it.parentID!! }
+                        
+                        parentSessions.map { parent ->
+                            SessionGroup(
+                                parent = parent,
+                                children = childrenByParent[parent.id] ?: emptyList()
+                            )
+                        }
+                    }
+                    
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(
-                            items = uiState.sessions,
-                            key = { it.id }
-                        ) { session ->
-                            SessionCard(
-                                session = session,
-                                status = uiState.sessionStatuses[session.id],
-                                onClick = { onSessionClick(session.id) },
-                                onDelete = { showDeleteDialog = session }
+                            items = sessionGroups,
+                            key = { it.parent.id }
+                        ) { group ->
+                            SessionGroupCard(
+                                group = group,
+                                isExpanded = expandedParents[group.parent.id] ?: false,
+                                onExpandToggle = { 
+                                    expandedParents[group.parent.id] = !(expandedParents[group.parent.id] ?: false)
+                                },
+                                sessionStatuses = uiState.sessionStatuses,
+                                onSessionClick = onSessionClick,
+                                onDeleteSession = { showDeleteDialog = it }
                             )
                         }
                     }
@@ -153,6 +181,180 @@ fun SessionListScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun SessionGroupCard(
+    group: SessionGroup,
+    isExpanded: Boolean,
+    onExpandToggle: () -> Unit,
+    sessionStatuses: Map<String, SessionStatus>,
+    onSessionClick: (String) -> Unit,
+    onDeleteSession: (Session) -> Unit
+) {
+    Column {
+        SessionCard(
+            session = group.parent,
+            status = sessionStatuses[group.parent.id],
+            onClick = { onSessionClick(group.parent.id) },
+            onDelete = { onDeleteSession(group.parent) },
+            childCount = group.children.size,
+            isExpanded = isExpanded,
+            onExpandToggle = if (group.children.isNotEmpty()) onExpandToggle else null
+        )
+        
+        AnimatedVisibility(
+            visible = isExpanded && group.children.isNotEmpty(),
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            Column(
+                modifier = Modifier.padding(start = 24.dp, top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                group.children.forEach { child ->
+                    SessionCard(
+                        session = child,
+                        status = sessionStatuses[child.id],
+                        onClick = { onSessionClick(child.id) },
+                        onDelete = { onDeleteSession(child) },
+                        isSubAgent = true
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionCard(
+    session: Session,
+    status: SessionStatus?,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    childCount: Int = 0,
+    isExpanded: Boolean = false,
+    onExpandToggle: (() -> Unit)? = null,
+    isSubAgent: Boolean = false
+) {
+    val isBusy = status is SessionStatus.Busy
+    val isRetrying = status is SessionStatus.Retry
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isBusy -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                isRetrying -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                isSubAgent -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (onExpandToggle != null) {
+                IconButton(
+                    onClick = onExpandToggle,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else if (isSubAgent) {
+                Icon(
+                    Icons.Default.SubdirectoryArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .padding(end = 4.dp),
+                    tint = MaterialTheme.colorScheme.outline
+                )
+            }
+            
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = session.title ?: "Untitled",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (childCount > 0) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "$childCount sub-agent${if (childCount > 1) "s" else ""}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    SessionStatusIndicator(status = status)
+                }
+                Text(
+                    text = formatDateTime(session.updatedAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                session.summary?.let { summary ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (summary.additions > 0) {
+                            Text(
+                                text = "+${summary.additions}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (summary.deletions > 0) {
+                            Text(
+                                text = "-${summary.deletions}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        if (summary.files > 0) {
+                            Text(
+                                text = "${summary.files} files",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }
 
