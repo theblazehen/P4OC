@@ -419,10 +419,18 @@ class ChatViewModel @Inject constructor(
                     val defaultModel = result.data.default.entries.firstOrNull()?.let { (provider, modelId) ->
                         ModelInput(providerID = provider, modelID = modelId)
                     }
+                    val lastUsedModel = recentModels.value.firstOrNull()
+                    val selectedModel = if (lastUsedModel != null && models.any { 
+                        it.first == lastUsedModel.providerID && it.second.id == lastUsedModel.modelID 
+                    }) {
+                        lastUsedModel
+                    } else {
+                        defaultModel
+                    }
                     _uiState.update { state ->
                         state.copy(
                             availableModels = models,
-                            selectedModel = defaultModel
+                            selectedModel = selectedModel
                         )
                     }
                 }
