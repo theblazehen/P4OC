@@ -132,8 +132,8 @@ fun ChatScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp, horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(vertical = 6.dp, horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(
                         items = messages,
