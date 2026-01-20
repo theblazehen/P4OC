@@ -76,7 +76,7 @@ class FilesViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             files = files,
-                            currentPath = path
+                            currentPath = if (path == ".") "" else path
                         )
                     }
                 }
