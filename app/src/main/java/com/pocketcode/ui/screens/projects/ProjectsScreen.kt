@@ -80,7 +80,8 @@ class ProjectsViewModel @Inject constructor(
 fun ProjectsScreen(
     viewModel: ProjectsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onProjectClick: (String) -> Unit = {}
+    onProjectClick: (String) -> Unit = {},
+    onGitClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -180,7 +181,8 @@ fun ProjectsScreen(
                     items(uiState.projects, key = { it.id }) { project ->
                         ProjectCard(
                             project = project,
-                            onClick = { onProjectClick(project.id) }
+                            onClick = { onProjectClick(project.id) },
+                            onGitClick = onGitClick
                         )
                     }
                 }
@@ -192,7 +194,8 @@ fun ProjectsScreen(
 @Composable
 private fun ProjectCard(
     project: ProjectDto,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onGitClick: () -> Unit = {}
 ) {
     val projectName = project.worktree.substringAfterLast("/")
     val projectPath = project.worktree
@@ -235,7 +238,7 @@ private fun ProjectCard(
                 }
                 if (project.vcs != null) {
                     AssistChip(
-                        onClick = {},
+                        onClick = onGitClick,
                         label = { Text(project.vcs) },
                         leadingIcon = {
                             Icon(

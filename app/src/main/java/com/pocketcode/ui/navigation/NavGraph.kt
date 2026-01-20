@@ -106,7 +106,8 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onProjectClick = { projectId ->
                     // TODO: Filter sessions by project or navigate to project detail
-                }
+                },
+                onGitClick = { navController.navigate(Screen.Git.route) }
             )
         }
 
