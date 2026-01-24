@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,12 +9,31 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        load(localPropertiesFile.inputStream())
+    }
+}
+
 android {
-    namespace = "com.pocketcode"
+    namespace = "dev.blazelight.p4oc"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            val storeFilePath = localProperties.getProperty("RELEASE_STORE_FILE")
+            if (storeFilePath != null) {
+                storeFile = file(storeFilePath)
+                storePassword = localProperties.getProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = localProperties.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     defaultConfig {
-        applicationId = "com.pocketcode"
+        applicationId = "dev.blazelight.p4oc"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -25,6 +46,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -57,6 +79,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 
     // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.08.00"))
@@ -100,8 +123,8 @@ dependencies {
     ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Markdown Rendering
-    implementation("com.github.jeziellago:compose-markdown:0.5.4")
+    // Markdown Rendering - FluidMarkdown for streaming
+    implementation(project(":libs:fluid-markdown"))
 
     // Image Loading
     implementation("io.coil-kt:coil-compose:2.7.0")

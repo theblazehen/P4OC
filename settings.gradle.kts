@@ -23,3 +23,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "PocketCode"
 include(":app")
+
+// FluidMarkdown and dependencies (local modules in libs/)
+include(":libs:fluid-markdown")
+include(":libs:markwon-core")
+include(":libs:markwon-ext-tables")
+include(":libs:markwon-ext-strikethrough")
+include(":libs:markwon-inline-parser")
+include(":libs:markwon-html")
