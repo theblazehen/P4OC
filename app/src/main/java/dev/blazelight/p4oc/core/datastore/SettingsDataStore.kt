@@ -46,6 +46,9 @@ class SettingsDataStore @Inject constructor(
         private val KEY_FAVORITE_MODELS = stringSetPreferencesKey("favorite_models")
         private val KEY_RECENT_MODELS = stringPreferencesKey("recent_models")
         private const val MAX_RECENT_MODELS = 10
+        
+        // Project directory persistence
+        private val KEY_PROJECT_WORKTREE = stringPreferencesKey("project_worktree")
 
         const val DEFAULT_LOCAL_URL = "http://localhost:4096"
         const val THEME_SYSTEM = "system"
@@ -309,6 +312,25 @@ class SettingsDataStore @Inject constructor(
             existing.remove(key)
             existing.add(0, key)
             prefs[KEY_RECENT_MODELS] = existing.take(MAX_RECENT_MODELS).joinToString("|||")
+        }
+    }
+
+    // Project directory persistence
+    val projectWorktree: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[KEY_PROJECT_WORKTREE]
+    }
+
+    suspend fun getProjectWorktree(): String? {
+        return context.dataStore.data.first()[KEY_PROJECT_WORKTREE]
+    }
+
+    suspend fun setProjectWorktree(worktree: String?) {
+        context.dataStore.edit { prefs ->
+            if (worktree != null) {
+                prefs[KEY_PROJECT_WORKTREE] = worktree
+            } else {
+                prefs.remove(KEY_PROJECT_WORKTREE)
+            }
         }
     }
 }

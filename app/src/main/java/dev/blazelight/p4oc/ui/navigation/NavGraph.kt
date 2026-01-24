@@ -73,9 +73,20 @@ fun NavGraph(
 
         composable(Screen.Server.route) {
             ServerScreen(
-                onConnected = {
-                    navController.navigate(Screen.Sessions.route) {
+                onNavigateToProjects = {
+                    navController.navigate(Screen.Projects.route) {
                         popUpTo(Screen.Server.route) { inclusive = true }
+                    }
+                },
+                onNavigateToSessions = { projectId ->
+                    if (projectId != null) {
+                        navController.navigate(Screen.SessionsFiltered.createRoute(projectId)) {
+                            popUpTo(Screen.Server.route) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Screen.Sessions.route) {
+                            popUpTo(Screen.Server.route) { inclusive = true }
+                        }
                     }
                 },
                 onSettings = {
@@ -104,7 +115,7 @@ fun NavGraph(
         composable(Screen.Projects.route) {
             ProjectsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onProjectClick = { projectId ->
+                onProjectClick = { projectId, _ ->
                     navController.navigate(Screen.SessionsFiltered.createRoute(projectId))
                 },
                 onGitClick = { projectId ->

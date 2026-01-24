@@ -5,8 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.datastore.RecentServer
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
+import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
+import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
+import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.core.termux.TermuxBridge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +25,8 @@ private const val TAG = "ServerViewModel"
 class ServerViewModel @Inject constructor(
     private val termuxBridge: TermuxBridge,
     private val settingsDataStore: SettingsDataStore,
-    private val connectionManager: ConnectionManager
+    private val connectionManager: ConnectionManager,
+    private val directoryManager: DirectoryManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUiState())
@@ -60,6 +64,7 @@ class ServerViewModel @Inject constructor(
             result.fold(
                 onSuccess = {
                     Log.d(TAG, "Auto-reconnect successful")
+                    initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
                 onFailure = { error ->
@@ -129,6 +134,7 @@ class ServerViewModel @Inject constructor(
             result.fold(
                 onSuccess = {
                     settingsDataStore.saveLastConnection(config)
+                    initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
                 onFailure = { error ->
@@ -174,6 +180,7 @@ class ServerViewModel @Inject constructor(
                     Log.d(TAG, "Connection successful!")
                     settingsDataStore.saveLastConnection(config)
                     settingsDataStore.addRecentServer(url, "Remote Server")
+                    initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
                 onFailure = { error ->
@@ -225,6 +232,75 @@ class ServerViewModel @Inject constructor(
             settingsDataStore.removeRecentServer(server.url)
         }
     }
+
+    /**
+     * Initialize project context after successful connection.
+     * Fetches projects, validates persisted worktree, and determines navigation destination.
+     */
+    private suspend fun initializeProjectContext() {
+        val api = connectionManager.getApi() ?: run {
+            Log.w(TAG, "No API available for project initialization")
+            _uiState.update { it.copy(navigationDestination = NavigationDestination.Projects) }
+            return
+        }
+
+        // Fetch projects from server
+        val projectsResult = safeApiCall { api.listProjects() }
+        val projects = when (projectsResult) {
+            is ApiResult.Success -> projectsResult.data
+            is ApiResult.Error -> {
+                Log.e(TAG, "Failed to fetch projects: ${projectsResult.message}")
+                // Fall back to project selector on error
+                _uiState.update { it.copy(navigationDestination = NavigationDestination.Projects) }
+                return
+            }
+        }
+
+        Log.d(TAG, "Fetched ${projects.size} projects")
+
+        // No projects exist - use global context
+        if (projects.isEmpty()) {
+            Log.d(TAG, "No projects found, using global context")
+            directoryManager.setDirectory(null)
+            _uiState.update { it.copy(navigationDestination = NavigationDestination.GlobalSessions) }
+            return
+        }
+
+        // Load persisted worktree
+        val persistedWorktree = directoryManager.loadPersistedDirectory()
+        Log.d(TAG, "Persisted worktree: $persistedWorktree")
+
+        // Validate persisted worktree against project list
+        val matchingProject = if (persistedWorktree != null) {
+            projects.find { it.worktree == persistedWorktree }
+        } else null
+
+        if (matchingProject != null) {
+            // Valid persisted project - navigate directly to its sessions
+            Log.d(TAG, "Valid persisted project: ${matchingProject.worktree}")
+            directoryManager.setDirectory(matchingProject.worktree)
+            _uiState.update { 
+                it.copy(
+                    navigationDestination = NavigationDestination.Sessions(
+                        projectId = matchingProject.id,
+                        worktree = matchingProject.worktree
+                    )
+                ) 
+            }
+        } else {
+            // No valid persisted project - show project selector
+            Log.d(TAG, "No valid persisted project, showing project selector")
+            if (persistedWorktree != null) {
+                // Clear invalid persisted worktree
+                directoryManager.clearDirectory()
+            }
+            _uiState.update { it.copy(navigationDestination = NavigationDestination.Projects) }
+        }
+    }
+
+    fun clearNavigationDestination() {
+        _uiState.update { it.copy(navigationDestination = null) }
+    }
 }
 
 data class ServerUiState(
@@ -236,5 +312,21 @@ data class ServerUiState(
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
     val error: String? = null,
-    val recentServers: List<RecentServer> = emptyList()
+    val recentServers: List<RecentServer> = emptyList(),
+    // Navigation destination after connection
+    val navigationDestination: NavigationDestination? = null
 )
+
+/**
+ * Where to navigate after successful connection.
+ */
+sealed class NavigationDestination {
+    /** Navigate to project selector - no valid persisted project */
+    data object Projects : NavigationDestination()
+    
+    /** Navigate directly to sessions for a specific project */
+    data class Sessions(val projectId: String, val worktree: String) : NavigationDestination()
+    
+    /** Navigate to global sessions (no projects exist) */
+    data object GlobalSessions : NavigationDestination()
+}

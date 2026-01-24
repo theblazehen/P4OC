@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
+import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,7 +41,8 @@ data class ProjectsUiState(
 
 @HiltViewModel
 class ProjectsViewModel @Inject constructor(
-    private val connectionManager: ConnectionManager
+    private val connectionManager: ConnectionManager,
+    private val directoryManager: DirectoryManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProjectsUiState())
@@ -73,14 +75,23 @@ class ProjectsViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Select a project and persist the directory.
+     */
+    fun selectProject(worktree: String) {
+        viewModelScope.launch {
+            directoryManager.setDirectoryAndPersist(worktree)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectsScreen(
     viewModel: ProjectsViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit,
-    onProjectClick: (String) -> Unit = {},
+    onNavigateBack: (() -> Unit)? = null,
+    onProjectClick: (projectId: String, worktree: String) -> Unit = { _, _ -> },
     onGitClick: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -98,15 +109,17 @@ fun ProjectsScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            modifier = Modifier.size(24.dp)
-                        )
+                    if (onNavigateBack != null) {
+                        IconButton(
+                            onClick = onNavigateBack,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                     
                     Text(
@@ -204,7 +217,10 @@ fun ProjectsScreen(
                     items(uiState.projects, key = { it.id }) { project ->
                         ProjectCard(
                             project = project,
-                            onClick = { onProjectClick(project.id) },
+                            onClick = { 
+                                viewModel.selectProject(project.worktree)
+                                onProjectClick(project.id, project.worktree) 
+                            },
                             onGitClick = { onGitClick(project.id) }
                         )
                     }
