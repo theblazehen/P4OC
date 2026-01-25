@@ -178,33 +178,6 @@ fun VisualSettingsScreen(
                     onValueChange = viewModel::updateCodeBlockFontSize,
                     range = 8..20
                 )
-                
-                LineSpacingSlider(
-                    value = settings.lineSpacing,
-                    onValueChange = viewModel::updateLineSpacing
-                )
-                
-                FontFamilySelector(
-                    selected = settings.fontFamily,
-                    onSelect = viewModel::updateFontFamily
-                )
-            }
-            
-            SettingsSection(title = "Layout") {
-                SettingsSwitch(
-                    title = "Compact Mode",
-                    subtitle = "Reduce padding and margins",
-                    checked = settings.compactMode,
-                    onCheckedChange = { viewModel.toggleCompactMode() },
-                    icon = Icons.Default.ViewCompact
-                )
-                
-                SpacingSlider(
-                    label = "Message Spacing",
-                    value = settings.messageSpacing,
-                    onValueChange = viewModel::updateMessageSpacing,
-                    range = 0..24
-                )
             }
             
             SettingsSection(title = "Code Display") {
@@ -321,113 +294,6 @@ private fun FontSizeSlider(
     }
 }
 
-@Composable
-private fun LineSpacingSlider(
-    value: Float,
-    onValueChange: (Float) -> Unit
-) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Line Spacing", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                String.format(java.util.Locale.US, "%.1fx", value),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = 1f..2.5f,
-            steps = 5
-        )
-    }
-}
-
-@Composable
-private fun SpacingSlider(
-    label: String,
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    range: IntRange
-) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "${value}dp",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        Slider(
-            value = value.toFloat(),
-            onValueChange = { onValueChange(it.toInt()) },
-            valueRange = range.first.toFloat()..range.last.toFloat(),
-            steps = (range.last - range.first) / 2 - 1
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FontFamilySelector(
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val options = listOf("System", "Monospace", "Serif", "Sans Serif")
-    
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selected,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Font Family") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
-        )
-        
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { 
-                        Text(
-                            option, 
-                            fontFamily = when (option) {
-                                "Monospace" -> FontFamily.Monospace
-                                "Serif" -> FontFamily.Serif
-                                "Sans Serif" -> FontFamily.SansSerif
-                                else -> FontFamily.Default
-                            }
-                        ) 
-                    },
-                    onClick = {
-                        onSelect(option)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemeSelector(
@@ -521,7 +387,7 @@ private fun PreviewCard(settings: VisualSettings) {
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(settings.messageSpacing.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = "Preview",
@@ -536,14 +402,7 @@ private fun PreviewCard(settings: VisualSettings) {
                 Text(
                     text = "This is a sample message with your current settings.",
                     modifier = Modifier.padding(12.dp),
-                    fontSize = settings.fontSize.sp,
-                    lineHeight = (settings.fontSize * settings.lineSpacing).sp,
-                    fontFamily = when (settings.fontFamily) {
-                        "Monospace" -> FontFamily.Monospace
-                        "Serif" -> FontFamily.Serif
-                        "Sans Serif" -> FontFamily.SansSerif
-                        else -> FontFamily.Default
-                    }
+                    fontSize = settings.fontSize.sp
                 )
             }
             
@@ -551,44 +410,12 @@ private fun PreviewCard(settings: VisualSettings) {
                 color = MaterialTheme.colorScheme.surface,
                 shape = MaterialTheme.shapes.medium
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    if (settings.showLineNumbers) {
-                        Row {
-                            Text(
-                                "1",
-                                fontSize = settings.codeBlockFontSize.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "fun example(): String {",
-                                fontSize = settings.codeBlockFontSize.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                        Row {
-                            Text(
-                                "2",
-                                fontSize = settings.codeBlockFontSize.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "    return \"Hello\"",
-                                fontSize = settings.codeBlockFontSize.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    } else {
-                        Text(
-                            "fun example(): String {\n    return \"Hello\"\n}",
-                            fontSize = settings.codeBlockFontSize.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
+                Text(
+                    "fun example(): String {\n    return \"Hello\"\n}",
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = settings.codeBlockFontSize.sp,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }

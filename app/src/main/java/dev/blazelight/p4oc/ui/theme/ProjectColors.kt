@@ -33,17 +33,16 @@ object ProjectColors {
     
     /**
      * Returns appropriate text color for project chip based on background luminance.
-     * Always uses dark text on these bright accent color backgrounds.
+     * Uses luminance check on the actual tag color to pick contrasting text.
      */
     @Composable
     fun textColorForProject(projectId: String): Color {
-        val theme = LocalOpenCodeTheme.current
-        // In dark themes, accent colors are bright/saturated, so use dark background color for text
-        // In light themes, accent colors are also saturated, so still use dark text
-        return if (theme.isDark) {
-            theme.background  // Dark background color as text (e.g., #1e1e2e)
+        val bgColor = colorForProject(projectId)
+        // Use luminance to pick contrasting text - dark text on bright bg, light text on dark bg
+        return if (bgColor.luminance() > 0.4f) {
+            Color(0xFF11111b) // Very dark text for bright backgrounds (catppuccin crust)
         } else {
-            theme.background  // Light theme background is light, but accents are dark, so use bg
+            Color(0xFFcdd6f4) // Light text for dark backgrounds (catppuccin text)
         }
     }
     

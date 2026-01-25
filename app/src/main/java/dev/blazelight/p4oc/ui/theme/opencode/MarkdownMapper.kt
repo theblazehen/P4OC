@@ -62,24 +62,25 @@ fun rememberOpenCodeMarkdownStyles(): MarkdownStyles {
                 .fontColor(theme.markdownBlockQuote.toArgb())
             
             // Headings - tight spacing for TUI
+            // Note: TitleStyle doesn't support lineHeight, so we rely on size multiplier
             setTitleStyle(0, com.fluid.afm.styles.TitleStyle.create(1.4f)
+                .paragraphSpacing(ParseUtil.parseDp("6px"))
+                .paragraphSpacingBefore(ParseUtil.parseDp("8px")))
+            setTitleStyle(1, com.fluid.afm.styles.TitleStyle.create(1.3f)
+                .paragraphSpacing(ParseUtil.parseDp("5px"))
+                .paragraphSpacingBefore(ParseUtil.parseDp("7px")))
+            setTitleStyle(2, com.fluid.afm.styles.TitleStyle.create(1.2f)
                 .paragraphSpacing(ParseUtil.parseDp("4px"))
                 .paragraphSpacingBefore(ParseUtil.parseDp("6px")))
-            setTitleStyle(1, com.fluid.afm.styles.TitleStyle.create(1.3f)
-                .paragraphSpacing(ParseUtil.parseDp("3px"))
-                .paragraphSpacingBefore(ParseUtil.parseDp("5px")))
-            setTitleStyle(2, com.fluid.afm.styles.TitleStyle.create(1.2f)
-                .paragraphSpacing(ParseUtil.parseDp("3px"))
-                .paragraphSpacingBefore(ParseUtil.parseDp("4px")))
             setTitleStyle(3, com.fluid.afm.styles.TitleStyle.create(1.1f)
-                .paragraphSpacing(ParseUtil.parseDp("2px"))
-                .paragraphSpacingBefore(ParseUtil.parseDp("3px")))
+                .paragraphSpacing(ParseUtil.parseDp("4px"))
+                .paragraphSpacingBefore(ParseUtil.parseDp("5px")))
             setTitleStyle(4, com.fluid.afm.styles.TitleStyle.create(1.05f)
-                .paragraphSpacing(ParseUtil.parseDp("2px"))
-                .paragraphSpacingBefore(ParseUtil.parseDp("2px")))
+                .paragraphSpacing(ParseUtil.parseDp("4px"))
+                .paragraphSpacingBefore(ParseUtil.parseDp("4px")))
             setTitleStyle(5, com.fluid.afm.styles.TitleStyle.create(1.0f)
-                .paragraphSpacing(ParseUtil.parseDp("2px"))
-                .paragraphSpacingBefore(ParseUtil.parseDp("2px")))
+                .paragraphSpacing(ParseUtil.parseDp("4px"))
+                .paragraphSpacingBefore(ParseUtil.parseDp("4px")))
         }
     }
 }
