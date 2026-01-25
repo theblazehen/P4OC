@@ -4,7 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -119,7 +119,7 @@ private fun CommandSearchView(
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(12.dp),
+        shape = RectangleShape,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
     )
 
@@ -187,7 +187,7 @@ private fun CommandItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        shape = RoundedCornerShape(8.dp)
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
@@ -218,7 +218,7 @@ private fun CommandItem(
                     if (command.subtask) {
                         Surface(
                             color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RectangleShape
                         ) {
                             Text(
                                 text = "subtask",
@@ -335,7 +335,7 @@ private fun CommandArgumentsView(
         singleLine = false,
         minLines = 2,
         maxLines = 4,
-        shape = RoundedCornerShape(12.dp),
+        shape = RectangleShape,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onExecute() })
     )
@@ -345,7 +345,7 @@ private fun CommandArgumentsView(
     Button(
         onClick = onExecute,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        shape = RectangleShape
     ) {
         Icon(Icons.Default.PlayArrow, contentDescription = null)
         Spacer(modifier = Modifier.width(8.dp))

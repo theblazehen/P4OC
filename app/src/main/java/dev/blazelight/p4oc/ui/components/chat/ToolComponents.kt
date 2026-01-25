@@ -8,7 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
@@ -198,7 +198,7 @@ fun DiffPreview(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerLowest)
     ) {
         hunks.forEach { hunk ->
@@ -302,7 +302,7 @@ fun ToolOutputDialog(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.85f),
-            shape = RoundedCornerShape(16.dp),
+            shape = RectangleShape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 8.dp
         ) {
@@ -517,7 +517,7 @@ fun EnhancedToolPart(
                             if (state.output.isNotBlank() && !hasDiff) {
                                 Surface(
                                     color = MaterialTheme.colorScheme.surface,
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RectangleShape,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(
@@ -549,7 +549,7 @@ fun EnhancedToolPart(
                         is ToolState.Error -> {
                             Surface(
                                 color = MaterialTheme.colorScheme.errorContainer,
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RectangleShape,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(

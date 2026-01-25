@@ -34,11 +34,37 @@ class VisualSettingsViewModel @Inject constructor(
     private val _settings = MutableStateFlow(VisualSettings())
     val settings: StateFlow<VisualSettings> = _settings.asStateFlow()
     
+    private val _themeName = MutableStateFlow(SettingsDataStore.DEFAULT_THEME_NAME)
+    val themeName: StateFlow<String> = _themeName.asStateFlow()
+    
+    val availableThemes = listOf(
+        "catppuccin" to "Catppuccin Mocha",
+        "catppuccin-macchiato" to "Catppuccin Macchiato",
+        "catppuccin-frappe" to "Catppuccin Frappé",
+        "dracula" to "Dracula",
+        "gruvbox" to "Gruvbox",
+        "nord" to "Nord",
+        "opencode" to "OpenCode",
+        "tokyonight" to "Tokyo Night"
+    )
+    
     init {
         viewModelScope.launch {
             settingsDataStore.visualSettings.collect { saved ->
                 _settings.value = saved
             }
+        }
+        viewModelScope.launch {
+            settingsDataStore.themeName.collect { name ->
+                _themeName.value = name
+            }
+        }
+    }
+    
+    fun updateThemeName(name: String) {
+        _themeName.value = name
+        viewModelScope.launch {
+            settingsDataStore.setThemeName(name)
         }
     }
     
@@ -105,6 +131,7 @@ fun VisualSettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val settings by viewModel.settings.collectAsState()
+    val themeName by viewModel.themeName.collectAsState()
     
     Scaffold(
         topBar = {
@@ -129,6 +156,14 @@ fun VisualSettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
+            SettingsSection(title = "Theme") {
+                ThemeSelector(
+                    selected = themeName,
+                    options = viewModel.availableThemes,
+                    onSelect = viewModel::updateThemeName
+                )
+            }
+            
             SettingsSection(title = "Text") {
                 FontSizeSlider(
                     label = "Message Font Size",
@@ -385,6 +420,48 @@ private fun FontFamilySelector(
                     },
                     onClick = {
                         onSelect(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSelector(
+    selected: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.find { it.first == selected }?.second ?: selected
+    
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Color Theme") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+        
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { (id, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onSelect(id)
                         expanded = false
                     }
                 )

@@ -5,7 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -68,7 +68,7 @@ fun RetryPartDisplay(
             
             errorMessage?.let { message ->
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RectangleShape,
                     color = MaterialTheme.colorScheme.errorContainer
                 ) {
                     Text(
@@ -98,7 +98,7 @@ private fun RetryCountdown(targetTime: Long) {
     
     if (remainingSeconds > 0) {
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RectangleShape,
             color = MaterialTheme.colorScheme.error
         ) {
             Text(
@@ -130,7 +130,7 @@ fun StepStartDisplay(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-        shape = RoundedCornerShape(8.dp)
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
@@ -207,7 +207,7 @@ fun StepFinishDisplay(
                 
                 reason?.let { r ->
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RectangleShape,
                         color = getReasonColor(r).copy(alpha = 0.2f)
                     ) {
                         Text(
@@ -290,7 +290,7 @@ fun SnapshotPartDisplay(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
-        shape = RoundedCornerShape(8.dp)
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
@@ -328,7 +328,7 @@ fun CompactionPartDisplay(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-        shape = RoundedCornerShape(8.dp)
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier

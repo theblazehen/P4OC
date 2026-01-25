@@ -25,6 +25,9 @@ class SettingsDataStore @Inject constructor(
         private val KEY_USERNAME = stringPreferencesKey("username")
         private val KEY_PASSWORD = stringPreferencesKey("password")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        private val KEY_THEME_NAME = stringPreferencesKey("theme_name")
+        
+        const val DEFAULT_THEME_NAME = "catppuccin"
         private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val KEY_LAST_SESSION_ID = stringPreferencesKey("last_session_id")
         private val KEY_RECENT_SERVERS = stringPreferencesKey("recent_servers")
@@ -92,6 +95,10 @@ class SettingsDataStore @Inject constructor(
         prefs[KEY_THEME_MODE] ?: THEME_SYSTEM
     }
 
+    val themeName: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_THEME_NAME] ?: DEFAULT_THEME_NAME
+    }
+
     val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_ONBOARDING_COMPLETED] ?: false
     }
@@ -136,6 +143,12 @@ class SettingsDataStore @Inject constructor(
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_THEME_MODE] = mode
+        }
+    }
+
+    suspend fun setThemeName(name: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_THEME_NAME] = name
         }
     }
 

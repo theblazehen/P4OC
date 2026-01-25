@@ -18,14 +18,16 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.blazelight.p4oc.core.network.ConnectionState
+import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageWithParts
+import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.Permission
 import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
 import dev.blazelight.p4oc.ui.components.chat.ChatMessage
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
 import dev.blazelight.p4oc.ui.components.chat.JumpToBottomButton
 import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
-import dev.blazelight.p4oc.ui.components.chat.PermissionDialog
+import dev.blazelight.p4oc.ui.components.chat.PermissionDialogEnhanced
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.question.QuestionDialog
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerFab
@@ -57,13 +59,12 @@ fun ChatScreen(
     var hasNewContentWhileAway by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     
-    // Derived state: check if user is "at bottom" (within 2 items of end)
+    // Derived state: check if user is "at bottom" (reversed layout: index 0 is bottom)
     val isAtBottom by remember {
         derivedStateOf {
             val layoutInfo = listState.layoutInfo
-            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val totalItems = layoutInfo.totalItemsCount
-            totalItems == 0 || lastVisibleItem >= totalItems - 2 || !listState.canScrollForward
+            layoutInfo.totalItemsCount == 0 || 
+                (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 100)
         }
     }
     
@@ -90,13 +91,13 @@ fun ChatScreen(
 
     // Auto-scroll when new messages arrive or content changes during streaming
     val lastMessageContent = remember(messages) {
-        messages.lastOrNull()?.parts?.sumOf { it.hashCode() } ?: 0
+        messages.firstOrNull()?.parts?.sumOf { it.hashCode() } ?: 0
     }
     
     LaunchedEffect(messages.size, lastMessageContent) {
         if (messages.isNotEmpty()) {
             if (!userScrolledAway) {
-                listState.animateScrollToItem(messages.size - 1)
+                listState.scrollToItem(0)  // In reversed layout, 0 is bottom
             } else {
                 // Track that new content arrived while user was scrolled away
                 hasNewContentWhileAway = true
@@ -171,19 +172,31 @@ fun ChatScreen(
             if (messages.isEmpty() && !uiState.isLoading) {
                 EmptyChatView(modifier = Modifier.align(Alignment.Center))
             } else {
+                // Group consecutive messages into blocks for display
+                // User messages are their own block, consecutive assistant messages merge into one block
+                val messageBlocks = remember(messages) {
+                    groupMessagesIntoBlocks(messages)
+                }
+                
                 SelectionContainer {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        contentPadding = PaddingValues(vertical = 2.dp, horizontal = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(1.dp),
+                        reverseLayout = true
                     ) {
                         items(
-                            items = messages,
-                            key = { it.message.id }
-                        ) { messageWithParts ->
-                            ChatMessage(
-                                messageWithParts = messageWithParts,
+                            items = messageBlocks.asReversed(),
+                            key = { block -> 
+                                when (block) {
+                                    is MessageBlock.UserBlock -> block.message.message.id
+                                    is MessageBlock.AssistantBlock -> block.messages.first().message.id
+                                }
+                            }
+                        ) { block ->
+                            MessageBlockView(
+                                block = block,
                                 onToolApprove = { viewModel.respondToPermission(it, "allow") },
                                 onToolDeny = { viewModel.respondToPermission(it, "deny") }
                             )
@@ -206,7 +219,7 @@ fun ChatScreen(
             }
 
             uiState.pendingPermission?.let { permission ->
-                PermissionDialog(
+                PermissionDialogEnhanced(
                     permission = permission,
                     onAllow = { viewModel.respondToPermission(permission.id, "allow") },
                     onDeny = { viewModel.respondToPermission(permission.id, "deny") },
@@ -247,7 +260,7 @@ fun ChatScreen(
                     coroutineScope.launch {
                         userScrolledAway = false
                         hasNewContentWhileAway = false
-                        listState.animateScrollToItem(messages.size - 1)
+                        listState.scrollToItem(0)  // In reversed layout, 0 is bottom
                     }
                 },
                 modifier = Modifier
@@ -448,5 +461,80 @@ private fun EmptyChatView(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * Sealed class representing a block of messages for display.
+ * User messages are their own block. Consecutive assistant messages are merged.
+ */
+private sealed class MessageBlock {
+    data class UserBlock(val message: MessageWithParts) : MessageBlock()
+    data class AssistantBlock(val messages: List<MessageWithParts>) : MessageBlock()
+}
+
+/**
+ * Group messages into blocks: user messages standalone, consecutive assistant messages merged.
+ */
+private fun groupMessagesIntoBlocks(messages: List<MessageWithParts>): List<MessageBlock> {
+    if (messages.isEmpty()) return emptyList()
+    
+    val blocks = mutableListOf<MessageBlock>()
+    var i = 0
+    
+    while (i < messages.size) {
+        val current = messages[i]
+        
+        if (current.message is Message.User) {
+            blocks.add(MessageBlock.UserBlock(current))
+            i++
+        } else {
+            // Collect consecutive assistant messages
+            val assistantMessages = mutableListOf<MessageWithParts>()
+            while (i < messages.size && messages[i].message is Message.Assistant) {
+                assistantMessages.add(messages[i])
+                i++
+            }
+            blocks.add(MessageBlock.AssistantBlock(assistantMessages))
+        }
+    }
+    
+    return blocks
+}
+
+/**
+ * Render a message block (either user or merged assistant messages)
+ */
+@Composable
+private fun MessageBlockView(
+    block: MessageBlock,
+    onToolApprove: (String) -> Unit,
+    onToolDeny: (String) -> Unit
+) {
+    when (block) {
+        is MessageBlock.UserBlock -> {
+            ChatMessage(
+                messageWithParts = block.message,
+                onToolApprove = onToolApprove,
+                onToolDeny = onToolDeny
+            )
+        }
+        is MessageBlock.AssistantBlock -> {
+            // Merge all parts from all messages, preserving order
+            val allParts = block.messages.flatMap { it.parts }
+            
+            // Create a synthetic merged message for display
+            // Use the first message as the base
+            val mergedMessageWithParts = MessageWithParts(
+                message = block.messages.first().message,
+                parts = allParts
+            )
+            
+            ChatMessage(
+                messageWithParts = mergedMessageWithParts,
+                onToolApprove = onToolApprove,
+                onToolDeny = onToolDeny
+            )
+        }
     }
 }

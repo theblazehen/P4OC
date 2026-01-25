@@ -5,7 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -74,7 +74,7 @@ fun MultiAgentRunsIndicator(
                 val runningCount = agents.count { it.status == AgentRunStatus.RUNNING }
                 if (runningCount > 0) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RectangleShape,
                         color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Text(
@@ -188,7 +188,7 @@ fun AgentSwitchIndicator(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(8.dp)
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
@@ -230,7 +230,7 @@ private fun AgentBadge(
     isActive: Boolean
 ) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RectangleShape,
         color = if (isActive) 
             MaterialTheme.colorScheme.primary 
         else 

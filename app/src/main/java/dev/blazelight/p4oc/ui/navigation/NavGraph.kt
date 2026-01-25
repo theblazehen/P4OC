@@ -73,20 +73,14 @@ fun NavGraph(
 
         composable(Screen.Server.route) {
             ServerScreen(
-                onNavigateToProjects = {
-                    navController.navigate(Screen.Projects.route) {
+                onNavigateToSessions = {
+                    navController.navigate(Screen.Sessions.route) {
                         popUpTo(Screen.Server.route) { inclusive = true }
                     }
                 },
-                onNavigateToSessions = { projectId ->
-                    if (projectId != null) {
-                        navController.navigate(Screen.SessionsFiltered.createRoute(projectId)) {
-                            popUpTo(Screen.Server.route) { inclusive = true }
-                        }
-                    } else {
-                        navController.navigate(Screen.Sessions.route) {
-                            popUpTo(Screen.Server.route) { inclusive = true }
-                        }
+                onNavigateToProjects = {
+                    navController.navigate(Screen.Projects.route) {
+                        popUpTo(Screen.Server.route) { inclusive = true }
                     }
                 },
                 onSettings = {
@@ -108,13 +102,21 @@ fun NavGraph(
                 },
                 onProjects = {
                     navController.navigate(Screen.Projects.route)
+                },
+                onProjectClick = { projectId ->
+                    navController.navigate(Screen.SessionsFiltered.createRoute(projectId))
                 }
             )
         }
 
         composable(Screen.Projects.route) {
             ProjectsScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = { 
+                    // Navigate back to Sessions (unified view)
+                    navController.navigate(Screen.Sessions.route) {
+                        popUpTo(Screen.Sessions.route) { inclusive = true }
+                    }
+                },
                 onProjectClick = { projectId, _ ->
                     navController.navigate(Screen.SessionsFiltered.createRoute(projectId))
                 },
@@ -262,9 +264,16 @@ fun NavGraph(
                     navController.navigate(Screen.Settings.route)
                 },
                 onProjects = {
-                    navController.popBackStack()
+                    navController.navigate(Screen.Projects.route)
                 },
-                onNavigateBack = { navController.popBackStack() }
+                onProjectClick = { pid ->
+                    // Navigate to another project's filtered view
+                    navController.navigate(Screen.SessionsFiltered.createRoute(pid))
+                },
+                onNavigateBack = { 
+                    // Use popBackStack to go back to wherever we came from (Projects or Sessions)
+                    navController.popBackStack()
+                }
             )
         }
 

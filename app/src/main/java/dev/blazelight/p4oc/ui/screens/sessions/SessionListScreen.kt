@@ -3,7 +3,8 @@ package dev.blazelight.p4oc.ui.screens.sessions
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,17 +15,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.SessionStatus
+import dev.blazelight.p4oc.ui.theme.ProjectColors
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
 private data class SessionNode(
-    val session: Session,
+    val sessionWithProject: SessionWithProject,
     val children: List<SessionNode>
 ) {
     val totalDescendants: Int
@@ -40,23 +43,16 @@ fun SessionListScreen(
     onNewSession: (sessionId: String, directory: String?) -> Unit,
     onSettings: () -> Unit,
     onProjects: () -> Unit = {},
+    onProjectClick: (projectId: String) -> Unit = {},
     onNavigateBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showNewSessionDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Session?>(null) }
     
-    val filterWorktree = remember(uiState.projects, filterProjectId) {
+    val displayedSessions = remember(uiState.sessions, filterProjectId) {
         if (filterProjectId != null) {
-            uiState.projects.find { it.id == filterProjectId }?.worktree
-        } else null
-    }
-    
-    val displayedSessions = remember(uiState.sessions, filterWorktree) {
-        if (filterWorktree != null) {
-            uiState.sessions.filter { session ->
-                session.directory.startsWith(filterWorktree)
-            }
+            uiState.sessions.filter { it.projectId == filterProjectId }
         } else {
             uiState.sessions
         }
@@ -107,13 +103,12 @@ fun SessionListScreen(
                         modifier = Modifier.weight(1f)
                     )
                     
-                    if (filterProjectId == null) {
-                        IconButton(
-                            onClick = onProjects,
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(Icons.Default.Folder, contentDescription = "Projects", modifier = Modifier.size(22.dp))
-                        }
+                    // Always show folder icon for project navigation
+                    IconButton(
+                        onClick = onProjects,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Default.Folder, contentDescription = "Projects", modifier = Modifier.size(22.dp))
                     }
                     IconButton(
                         onClick = viewModel::refresh,
@@ -169,15 +164,17 @@ fun SessionListScreen(
                     ) {
                         items(
                             items = sessionTree,
-                            key = { it.session.id }
+                            key = { it.sessionWithProject.session.id }
                         ) { node ->
                             SessionTreeNode(
                                 node = node,
                                 depth = 0,
                                 expandedSessions = expandedSessions,
                                 sessionStatuses = uiState.sessionStatuses,
+                                showProjectChip = filterProjectId == null,
                                 onSessionClick = { session -> onSessionClick(session.id, session.directory) },
                                 onDeleteSession = { showDeleteDialog = it },
+                                onProjectClick = onProjectClick,
                                 onToggleExpand = { id ->
                                     expandedSessions[id] = !(expandedSessions[id] ?: false)
                                 }
@@ -243,19 +240,18 @@ fun SessionListScreen(
     }
 }
 
-private fun buildSessionTree(sessions: List<Session>): List<SessionNode> {
-    val sessionMap = sessions.associateBy { it.id }
+private fun buildSessionTree(sessions: List<SessionWithProject>): List<SessionNode> {
     val childrenByParent = sessions
-        .filter { it.parentID != null }
-        .groupBy { it.parentID!! }
+        .filter { it.session.parentID != null }
+        .groupBy { it.session.parentID!! }
     
-    fun buildNode(session: Session): SessionNode {
-        val children = childrenByParent[session.id]?.map { buildNode(it) } ?: emptyList()
-        return SessionNode(session, children)
+    fun buildNode(sessionWithProject: SessionWithProject): SessionNode {
+        val children = childrenByParent[sessionWithProject.session.id]?.map { buildNode(it) } ?: emptyList()
+        return SessionNode(sessionWithProject, children)
     }
     
     return sessions
-        .filter { it.parentID == null }
+        .filter { it.session.parentID == null }
         .map { buildNode(it) }
 }
 
@@ -265,23 +261,31 @@ private fun SessionTreeNode(
     depth: Int,
     expandedSessions: MutableMap<String, Boolean>,
     sessionStatuses: Map<String, SessionStatus>,
+    showProjectChip: Boolean,
     onSessionClick: (Session) -> Unit,
     onDeleteSession: (Session) -> Unit,
+    onProjectClick: (String) -> Unit,
     onToggleExpand: (String) -> Unit
 ) {
-    val isExpanded = expandedSessions[node.session.id] ?: false
+    val swp = node.sessionWithProject
+    val session = swp.session
+    val isExpanded = expandedSessions[session.id] ?: false
     val hasChildren = node.children.isNotEmpty()
     val indentPadding: Dp = (depth * 24).dp
     
     Column(modifier = Modifier.padding(start = indentPadding)) {
         SessionCard(
-            session = node.session,
-            status = sessionStatuses[node.session.id],
-            onClick = { onSessionClick(node.session) },
-            onDelete = { onDeleteSession(node.session) },
+            session = session,
+            projectId = swp.projectId,
+            projectName = swp.projectName,
+            showProjectChip = showProjectChip,
+            status = sessionStatuses[session.id],
+            onClick = { onSessionClick(session) },
+            onDelete = { onDeleteSession(session) },
+            onProjectClick = onProjectClick,
             childCount = node.totalDescendants,
             isExpanded = isExpanded,
-            onExpandToggle = if (hasChildren) { { onToggleExpand(node.session.id) } } else null,
+            onExpandToggle = if (hasChildren) { { onToggleExpand(session.id) } } else null,
             isSubAgent = depth > 0
         )
         
@@ -300,8 +304,10 @@ private fun SessionTreeNode(
                         depth = depth + 1,
                         expandedSessions = expandedSessions,
                         sessionStatuses = sessionStatuses,
+                        showProjectChip = showProjectChip,
                         onSessionClick = onSessionClick,
                         onDeleteSession = onDeleteSession,
+                        onProjectClick = onProjectClick,
                         onToggleExpand = onToggleExpand
                     )
                 }
@@ -310,12 +316,17 @@ private fun SessionTreeNode(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SessionCard(
     session: Session,
+    projectId: String?,
+    projectName: String?,
+    showProjectChip: Boolean,
     status: SessionStatus?,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onProjectClick: (String) -> Unit,
     childCount: Int = 0,
     isExpanded: Boolean = false,
     onExpandToggle: (() -> Unit)? = null,
@@ -323,11 +334,15 @@ private fun SessionCard(
 ) {
     val isBusy = status is SessionStatus.Busy
     val isRetrying = status is SessionStatus.Retry
+    var showContextMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showContextMenu = true }
+            ),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 isBusy -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
@@ -335,56 +350,53 @@ private fun SessionCard(
                 isSubAgent -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                 else -> MaterialTheme.colorScheme.surfaceVariant
             }
-        )
+        ),
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 8.dp, vertical = 6.dp)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Expand/collapse or subagent indicator
             if (onExpandToggle != null) {
                 IconButton(
                     onClick = onExpandToggle,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (isExpanded) "Collapse" else "Expand",
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             } else if (isSubAgent) {
                 Icon(
                     Icons.Default.SubdirectoryArrowRight,
                     contentDescription = null,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .padding(end = 4.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.outline
                 )
+                Spacer(modifier = Modifier.width(4.dp))
             }
             
+            // Main content column
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // Title
                 Text(
                     text = session.title ?: "Untitled",
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                Text(
-                    text = session.directory.let { dir ->
-                        if (dir.length > 40) "…${dir.takeLast(38)}" else dir
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
+                
+                // Metadata row
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (childCount > 0) {
@@ -400,6 +412,7 @@ private fun SessionCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
+                    
                     session.summary?.let { summary ->
                         if (summary.additions > 0) {
                             Text(
@@ -418,17 +431,61 @@ private fun SessionCard(
                     }
                 }
             }
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(20.dp)
+            
+            // Project chip on far right
+            if (showProjectChip && projectId != null && !projectName.isNullOrEmpty()) {
+                ProjectChip(
+                    projectId = projectId,
+                    projectName = projectName,
+                    onClick = { onProjectClick(projectId) }
                 )
             }
+        }
+    }
+    
+    // Long-press context menu
+    DropdownMenu(
+        expanded = showContextMenu,
+        onDismissRequest = { showContextMenu = false }
+    ) {
+        DropdownMenuItem(
+            text = { Text("Delete") },
+            onClick = {
+                showContextMenu = false
+                onDelete()
+            },
+            leadingIcon = {
+                Icon(Icons.Default.Delete, contentDescription = null)
+            }
+        )
+    }
+}
+
+@Composable
+private fun ProjectChip(
+    projectId: String,
+    projectName: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RectangleShape,
+        color = ProjectColors.colorForProject(projectId),
+        modifier = Modifier
+            .padding(start = 8.dp)
+            .widthIn(max = 150.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = projectName,
+                style = MaterialTheme.typography.labelMedium,
+                color = ProjectColors.textColorForProject(projectId),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -526,8 +583,9 @@ private fun NewSessionDialog(
     onCreate: (String?, String?) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
+    // Default to null (Global) unless a specific project is requested
     var selectedProject by remember(defaultProjectId, projects) { 
-        mutableStateOf(projects.find { it.id == defaultProjectId }) 
+        mutableStateOf(if (defaultProjectId != null) projects.find { it.id == defaultProjectId } else null) 
     }
     var expanded by remember { mutableStateOf(false) }
 
@@ -541,7 +599,7 @@ private fun NewSessionDialog(
                     onExpandedChange = { expanded = it }
                 ) {
                     OutlinedTextField(
-                        value = selectedProject?.name ?: "Select project...",
+                        value = selectedProject?.name ?: "Global",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Project") },
@@ -554,6 +612,25 @@ private fun NewSessionDialog(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
+                        // Global option first
+                        DropdownMenuItem(
+                            text = { 
+                                Column {
+                                    Text("Global", style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        "No project context",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = {
+                                selectedProject = null
+                                expanded = false
+                            }
+                        )
+                        
+                        // Project options
                         projects.forEach { project ->
                             DropdownMenuItem(
                                 text = { 
@@ -586,8 +663,7 @@ private fun NewSessionDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onCreate(title.takeIf { it.isNotBlank() }, selectedProject?.worktree) },
-                enabled = selectedProject != null
+                onClick = { onCreate(title.takeIf { it.isNotBlank() }, selectedProject?.worktree) }
             ) {
                 Text("Create")
             }

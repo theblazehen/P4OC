@@ -2,11 +2,14 @@ package dev.blazelight.p4oc.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+// Selective monospace: 
+// - Body text (prose, markdown) uses default sans-serif
+// - Labels, titles use default sans-serif  
+// - Code/tool output uses monospace (handled separately via CodeTypography)
 val Typography = Typography(
     displayLarge = TextStyle(
         fontWeight = FontWeight.Normal,
@@ -100,9 +103,18 @@ val Typography = Typography(
     )
 )
 
+// Use this for code blocks, tool output, terminal-style text
 val CodeTypography = TextStyle(
     fontFamily = FontFamily.Monospace,
     fontWeight = FontWeight.Normal,
     fontSize = 13.sp,
-    lineHeight = 20.sp
+    lineHeight = 18.sp
+)
+
+// Monospace style for tool summaries and TUI elements
+val TuiTypography = TextStyle(
+    fontFamily = FontFamily.Monospace,
+    fontWeight = FontWeight.Normal,
+    fontSize = 12.sp,
+    lineHeight = 14.sp
 )

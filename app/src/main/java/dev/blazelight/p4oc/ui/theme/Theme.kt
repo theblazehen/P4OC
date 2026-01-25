@@ -1,91 +1,57 @@
 package dev.blazelight.p4oc.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import dev.blazelight.p4oc.ui.theme.opencode.OpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.opencode.ThemeLoader
+import dev.blazelight.p4oc.ui.theme.opencode.toMaterial3ColorScheme
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Primary,
-    onPrimary = Color.White,
-    primaryContainer = PrimaryContainer,
-    onPrimaryContainer = OnPrimaryContainer,
-    secondary = Secondary,
-    onSecondary = Color.Black,
-    secondaryContainer = SecondaryContainer,
-    onSecondaryContainer = OnSecondaryContainer,
-    tertiary = Tertiary,
-    onTertiary = Color.Black,
-    tertiaryContainer = TertiaryContainer,
-    onTertiaryContainer = OnTertiaryContainer,
-    error = Error,
-    onError = Color.Black,
-    errorContainer = ErrorContainer,
-    onErrorContainer = OnErrorContainer,
-    background = SurfaceDark,
-    onBackground = OnSurfaceDark,
-    surface = SurfaceDark,
-    onSurface = OnSurfaceDark,
-    surfaceVariant = SurfaceContainerDark,
-    onSurfaceVariant = OnSurfaceVariantDark,
-    surfaceContainer = SurfaceContainerDark,
-    surfaceContainerHigh = SurfaceContainerHighDark,
-    outline = OutlineDark,
-    outlineVariant = OutlineDark.copy(alpha = 0.5f)
-)
+/**
+ * CompositionLocal for accessing the current OpenCode theme.
+ * Use `LocalOpenCodeTheme.current` to access theme colors in composables.
+ */
+val LocalOpenCodeTheme = staticCompositionLocalOf<OpenCodeTheme> {
+    error("No OpenCodeTheme provided - wrap content in PocketCodeTheme")
+}
 
-private val LightColorScheme = lightColorScheme(
-    primary = PrimaryDark,
-    onPrimary = Color.White,
-    primaryContainer = Primary.copy(alpha = 0.1f),
-    onPrimaryContainer = PrimaryDark,
-    secondary = Secondary,
-    onSecondary = Color.Black,
-    secondaryContainer = Secondary.copy(alpha = 0.1f),
-    onSecondaryContainer = SecondaryContainer,
-    tertiary = Tertiary,
-    onTertiary = Color.Black,
-    tertiaryContainer = Tertiary.copy(alpha = 0.1f),
-    onTertiaryContainer = TertiaryContainer,
-    error = Color(0xFFDC2626),
-    onError = Color.White,
-    errorContainer = Color(0xFFFEE2E2),
-    onErrorContainer = Color(0xFF7F1D1D),
-    background = SurfaceLight,
-    onBackground = OnSurfaceLight,
-    surface = SurfaceLight,
-    onSurface = OnSurfaceLight,
-    surfaceVariant = SurfaceContainerLight,
-    onSurfaceVariant = OnSurfaceVariantLight,
-    surfaceContainer = SurfaceContainerLight,
-    surfaceContainerHigh = SurfaceContainerHighLight,
-    outline = OutlineLight,
-    outlineVariant = OutlineLight.copy(alpha = 0.5f)
+/**
+ * TUI shapes - ZERO roundness, full terminal aesthetic.
+ * All shapes use RoundedCornerShape(0.dp) for consistent sharp corners.
+ */
+val TuiShapes = Shapes(
+    extraSmall = RoundedCornerShape(0.dp),
+    small = RoundedCornerShape(0.dp),
+    medium = RoundedCornerShape(0.dp),
+    large = RoundedCornerShape(0.dp),
+    extraLarge = RoundedCornerShape(0.dp)
 )
 
 @Composable
 fun PocketCodeTheme(
+    themeName: String = "catppuccin",
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val context = LocalContext.current
+    
+    val openCodeTheme = remember(themeName, darkTheme) {
+        ThemeLoader.loadBundledTheme(context, themeName, darkTheme)
+    }
+    
+    val colorScheme = remember(openCodeTheme) {
+        openCodeTheme.toMaterial3ColorScheme()
     }
 
     val view = LocalView.current
@@ -99,9 +65,12 @@ fun PocketCodeTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalOpenCodeTheme provides openCodeTheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            shapes = TuiShapes,
+            typography = Typography,
+            content = content
+        )
+    }
 }

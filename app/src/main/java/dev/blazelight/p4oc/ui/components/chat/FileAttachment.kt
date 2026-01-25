@@ -14,7 +14,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -87,7 +87,7 @@ private fun AttachmentChip(
     onRemove: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RectangleShape,
         color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Row(
@@ -299,7 +299,7 @@ fun AttachmentPreview(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RectangleShape,
                 color = getFileColor(attachment.mimeType).copy(alpha = 0.2f)
             ) {
                 Icon(

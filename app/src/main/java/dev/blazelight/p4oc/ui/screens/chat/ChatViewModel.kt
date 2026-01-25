@@ -305,11 +305,13 @@ class ChatViewModel @Inject constructor(
                 model = selectedModel
             )
 
-            val result = safeApiCall { api.sendMessageStreaming(sessionId, request, getDirectory()) }
+            // Use async endpoint - returns immediately, all content streams via SSE
+            // This avoids HTTP timeout issues for long-running tool executions
+            val result = safeApiCall { api.sendMessageAsync(sessionId, request, getDirectory()) }
 
             when (result) {
                 is ApiResult.Success -> {
-                    Log.d(TAG, "sendMessage: API call succeeded, waiting for SSE events")
+                    Log.d(TAG, "sendMessage: Async call succeeded, waiting for SSE events")
                 }
                 is ApiResult.Error -> {
                     _uiState.update { 

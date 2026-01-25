@@ -115,7 +115,8 @@ public class MarkdownParser {
         long startTime = SystemClock.elapsedRealtime();
         ArrayList<AbstractMarkwonPlugin> plugins = new ArrayList<>(4);
         plugins.add(CorePlugin.create(context));
-        plugins.add(CodeBlockPlugin.create(context, true));
+        // Pass false to disable code block header (copy/fullscreen buttons)
+        plugins.add(CodeBlockPlugin.create(context, mProductStyles.codeStyle().isShowTitle()));
         plugins.add(new AbstractMarkwonPlugin() {
 
             @NonNull

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -185,7 +185,7 @@ private fun BreadcrumbNavigation(
         Surface(
             onClick = { onNavigateTo("") },
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = RoundedCornerShape(4.dp)
+            shape = RectangleShape
         ) {
             Icon(
                 Icons.Default.Home,
@@ -214,7 +214,7 @@ private fun BreadcrumbNavigation(
                 color = if (index == parts.lastIndex) 
                     MaterialTheme.colorScheme.primaryContainer 
                 else MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(4.dp)
+                shape = RectangleShape
             ) {
                 Text(
                     text = part,
@@ -277,7 +277,7 @@ private fun EnhancedFileItem(
                 }
             },
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RectangleShape)
                 .combinedClickable(
                     onClick = onClick,
                     onLongClick = {
@@ -326,7 +326,7 @@ private fun GitStatusBadge(status: String) {
     
     Surface(
         color = color.copy(alpha = 0.2f),
-        shape = RoundedCornerShape(4.dp)
+        shape = RectangleShape
     ) {
         Text(
             text = text,

@@ -72,13 +72,14 @@ class MessageRepositoryImpl @Inject constructor(
     override suspend fun sendMessage(sessionId: String, text: String): ApiResult<Unit> {
         val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
-            api.sendMessageStreaming(
+            // Use async endpoint - returns immediately, all content streams via SSE
+            // This avoids HTTP timeout issues for long-running tool executions
+            api.sendMessageAsync(
                 sessionId,
                 SendMessageRequest(
                     parts = listOf(PartInputDto(type = "text", text = text))
                 )
             )
-            Unit // sendMessageStreaming returns MessageWrapperDto, we discard it
         }
     }
 

@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -476,7 +476,7 @@ fun DiffStats(added: Int, removed: Int, modifier: Modifier = Modifier) {
         if (added > 0) {
             Surface(
                 color = Color(0xFF4CAF50).copy(alpha = 0.15f),
-                shape = RoundedCornerShape(4.dp)
+                shape = RectangleShape
             ) {
                 Text(
                     text = "+$added",
@@ -489,7 +489,7 @@ fun DiffStats(added: Int, removed: Int, modifier: Modifier = Modifier) {
         if (removed > 0) {
             Surface(
                 color = Color(0xFFF44336).copy(alpha = 0.15f),
-                shape = RoundedCornerShape(4.dp)
+                shape = RectangleShape
             ) {
                 Text(
                     text = "-$removed",

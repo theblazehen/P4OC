@@ -22,7 +22,11 @@ interface OpenCodeApi {
 
     @GET("session")
     suspend fun listSessions(
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String? = null,
+        @Query("roots") roots: Boolean? = null,
+        @Query("start") start: Long? = null,
+        @Query("search") search: String? = null,
+        @Query("limit") limit: Int? = null
     ): List<SessionDto>
 
     @POST("session")
@@ -153,6 +157,18 @@ interface OpenCodeApi {
         @Body request: SendMessageRequest,
         @Query("directory") directory: String? = null
     ): MessageWrapperDto
+
+    /**
+     * Send a message asynchronously (fire-and-forget).
+     * Returns immediately - all response content streams via SSE events.
+     * Use this for long-running operations to avoid HTTP timeout issues.
+     */
+    @POST("session/{sessionId}/prompt_async")
+    suspend fun sendMessageAsync(
+        @Path("sessionId") sessionId: String,
+        @Body request: SendMessageRequest,
+        @Query("directory") directory: String? = null
+    )
 
     @POST("session/{sessionId}/command")
     suspend fun executeCommand(

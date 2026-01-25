@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -135,7 +135,7 @@ private fun ProgressCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
+                    .clip(RectangleShape),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
             )
@@ -253,7 +253,7 @@ private fun TodoSectionHeader(title: String, count: Int) {
         )
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(8.dp)
+            shape = RectangleShape
         ) {
             Text(
                 text = count.toString(),
@@ -285,7 +285,7 @@ private fun TodoItem(todo: Todo) {
             else
                 MaterialTheme.colorScheme.surfaceVariant
         ),
-        shape = RoundedCornerShape(8.dp)
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
@@ -333,7 +333,7 @@ private fun TodoItem(todo: Todo) {
 private fun PriorityBadge(priority: String, color: Color) {
     Surface(
         color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(4.dp)
+        shape = RectangleShape
     ) {
         Text(
             text = priority.uppercase(),
@@ -349,7 +349,7 @@ private fun PriorityBadge(priority: String, color: Color) {
 private fun StatusBadge(status: String, color: Color) {
     Surface(
         color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(4.dp)
+        shape = RectangleShape
     ) {
         Text(
             text = status.replace("_", " "),

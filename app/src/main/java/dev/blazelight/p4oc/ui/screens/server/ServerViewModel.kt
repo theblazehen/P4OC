@@ -235,67 +235,14 @@ class ServerViewModel @Inject constructor(
 
     /**
      * Initialize project context after successful connection.
-     * Fetches projects, validates persisted worktree, and determines navigation destination.
+     * Now always navigates to the unified Sessions screen.
      */
     private suspend fun initializeProjectContext() {
-        val api = connectionManager.getApi() ?: run {
-            Log.w(TAG, "No API available for project initialization")
-            _uiState.update { it.copy(navigationDestination = NavigationDestination.Projects) }
-            return
-        }
-
-        // Fetch projects from server
-        val projectsResult = safeApiCall { api.listProjects() }
-        val projects = when (projectsResult) {
-            is ApiResult.Success -> projectsResult.data
-            is ApiResult.Error -> {
-                Log.e(TAG, "Failed to fetch projects: ${projectsResult.message}")
-                // Fall back to project selector on error
-                _uiState.update { it.copy(navigationDestination = NavigationDestination.Projects) }
-                return
-            }
-        }
-
-        Log.d(TAG, "Fetched ${projects.size} projects")
-
-        // No projects exist - use global context
-        if (projects.isEmpty()) {
-            Log.d(TAG, "No projects found, using global context")
-            directoryManager.setDirectory(null)
-            _uiState.update { it.copy(navigationDestination = NavigationDestination.GlobalSessions) }
-            return
-        }
-
-        // Load persisted worktree
-        val persistedWorktree = directoryManager.loadPersistedDirectory()
-        Log.d(TAG, "Persisted worktree: $persistedWorktree")
-
-        // Validate persisted worktree against project list
-        val matchingProject = if (persistedWorktree != null) {
-            projects.find { it.worktree == persistedWorktree }
-        } else null
-
-        if (matchingProject != null) {
-            // Valid persisted project - navigate directly to its sessions
-            Log.d(TAG, "Valid persisted project: ${matchingProject.worktree}")
-            directoryManager.setDirectory(matchingProject.worktree)
-            _uiState.update { 
-                it.copy(
-                    navigationDestination = NavigationDestination.Sessions(
-                        projectId = matchingProject.id,
-                        worktree = matchingProject.worktree
-                    )
-                ) 
-            }
-        } else {
-            // No valid persisted project - show project selector
-            Log.d(TAG, "No valid persisted project, showing project selector")
-            if (persistedWorktree != null) {
-                // Clear invalid persisted worktree
-                directoryManager.clearDirectory()
-            }
-            _uiState.update { it.copy(navigationDestination = NavigationDestination.Projects) }
-        }
+        // Clear any persisted directory - we now show all sessions unified
+        directoryManager.setDirectory(null)
+        
+        Log.d(TAG, "Navigating to unified Sessions screen")
+        _uiState.update { it.copy(navigationDestination = NavigationDestination.Sessions) }
     }
 
     fun clearNavigationDestination() {
@@ -321,12 +268,9 @@ data class ServerUiState(
  * Where to navigate after successful connection.
  */
 sealed class NavigationDestination {
-    /** Navigate to project selector - no valid persisted project */
+    /** Navigate to unified sessions view */
+    data object Sessions : NavigationDestination()
+    
+    /** Navigate to project selector */
     data object Projects : NavigationDestination()
-    
-    /** Navigate directly to sessions for a specific project */
-    data class Sessions(val projectId: String, val worktree: String) : NavigationDestination()
-    
-    /** Navigate to global sessions (no projects exist) */
-    data object GlobalSessions : NavigationDestination()
 }

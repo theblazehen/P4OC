@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "jdwp": {
+      "type": "local",
+      "command": ["jdwp-mcp"],
+      "enabled": true
+    }
+  }
+}

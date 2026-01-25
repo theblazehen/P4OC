@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -173,7 +173,7 @@ fun FilePickerDialog(
                                                 )
                                             },
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
+                                                .clip(RectangleShape)
                                                 .clickable(onClick = onNavigateUp)
                                         )
                                     }
@@ -224,7 +224,7 @@ private fun PickerBreadcrumb(
         Surface(
             onClick = { onNavigateTo("") },
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = RoundedCornerShape(4.dp)
+            shape = RectangleShape
         ) {
             Icon(
                 Icons.Default.Home,
@@ -253,7 +253,7 @@ private fun PickerBreadcrumb(
                 color = if (index == parts.lastIndex) 
                     MaterialTheme.colorScheme.primaryContainer 
                 else MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(4.dp)
+                shape = RectangleShape
             ) {
                 Text(
                     text = part,
@@ -343,7 +343,7 @@ private fun PickerFileItem(
             }
         },
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .clickable(onClick = onClick),
         colors = if (isSelected && !file.isDirectory) {
             ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))

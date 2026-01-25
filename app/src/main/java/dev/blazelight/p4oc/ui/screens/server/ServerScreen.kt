@@ -23,25 +23,21 @@ import dev.blazelight.p4oc.core.datastore.RecentServer
 @Composable
 fun ServerScreen(
     viewModel: ServerViewModel = hiltViewModel(),
+    onNavigateToSessions: () -> Unit,
     onNavigateToProjects: () -> Unit,
-    onNavigateToSessions: (projectId: String?) -> Unit,
     onSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(uiState.navigationDestination) {
-        when (val destination = uiState.navigationDestination) {
+        when (uiState.navigationDestination) {
+            is NavigationDestination.Sessions -> {
+                viewModel.clearNavigationDestination()
+                onNavigateToSessions()
+            }
             is NavigationDestination.Projects -> {
                 viewModel.clearNavigationDestination()
                 onNavigateToProjects()
-            }
-            is NavigationDestination.Sessions -> {
-                viewModel.clearNavigationDestination()
-                onNavigateToSessions(destination.projectId)
-            }
-            is NavigationDestination.GlobalSessions -> {
-                viewModel.clearNavigationDestination()
-                onNavigateToSessions(null)
             }
             null -> { /* waiting for connection */ }
         }
