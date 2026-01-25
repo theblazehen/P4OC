@@ -20,8 +20,8 @@ fun rememberOpenCodeMarkdownStyles(): MarkdownStyles {
             // Paragraph - tight spacing for TUI density
             paragraphStyle()
                 .fontColor(theme.markdownText.toArgb())
-                .lineHeight(ParseUtil.parseDp("20px"))
-                .paragraphSpacing(ParseUtil.parseDp("4px"))
+                .lineHeight(ParseUtil.parseDp("24px"))  // Increased from 20px to prevent overlap
+                .paragraphSpacing(ParseUtil.parseDp("6px"))  // Increased from 4px
             
             // Link styling
             linkStyle().fontColor(theme.markdownLink.toArgb())
@@ -96,8 +96,8 @@ fun rememberTertiaryOpenCodeMarkdownStyles(): MarkdownStyles {
         MarkdownStyles.getDefaultStyles().apply {
             paragraphStyle()
                 .fontColor(theme.success.toArgb())
-                .lineHeight(ParseUtil.parseDp("18px"))
-                .paragraphSpacing(ParseUtil.parseDp("3px"))
+                .lineHeight(ParseUtil.parseDp("22px"))  // Increased from 18px
+                .paragraphSpacing(ParseUtil.parseDp("4px"))  // Increased from 3px
             
             linkStyle().fontColor(theme.info.toArgb())
             

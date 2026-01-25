@@ -410,7 +410,7 @@ private fun SessionCard(
                     Text(
                         text = formatDateTime(session.updatedAt),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     
                     session.summary?.let { summary ->

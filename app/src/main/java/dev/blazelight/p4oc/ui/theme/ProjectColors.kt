@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.ui.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import kotlin.math.absoluteValue
 
 /**
@@ -31,12 +32,18 @@ object ProjectColors {
     }
     
     /**
-     * Returns appropriate text color for project chip.
+     * Returns appropriate text color for project chip based on background luminance.
+     * Uses white text on dark backgrounds, dark text on light backgrounds.
      */
     @Composable
     fun textColorForProject(projectId: String): Color {
-        val theme = LocalOpenCodeTheme.current
-        return theme.text
+        val bgColor = colorForProject(projectId)
+        // Use luminance to determine if we need light or dark text
+        return if (bgColor.luminance() > 0.5f) {
+            Color(0xFF1e1e2e) // Dark text for light backgrounds
+        } else {
+            Color(0xFFcdd6f4) // Light text for dark backgrounds
+        }
     }
     
     /**
