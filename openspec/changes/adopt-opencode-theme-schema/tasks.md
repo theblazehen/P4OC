@@ -4,7 +4,7 @@
 - [x] 1.2 Create `ui/theme/opencode/ThemeLoader.kt` - JSON parsing, reference resolution, dark/light handling
 - [x] 1.3 Create `ui/theme/opencode/Material3Mapper.kt` - OpenCodeTheme → M3 ColorScheme extension
 - [x] 1.4 Copy bundled theme JSON files to `assets/themes/` (8 themes)
-- [ ] 1.5 Write unit tests for ThemeLoader (parse, resolve refs, dark/light)
+- [x] 1.5 Write unit tests for ThemeLoader (parse, resolve refs, dark/light)
 
 ## 2. Core Theme System
 
