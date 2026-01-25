@@ -29,7 +29,7 @@ import dev.blazelight.p4oc.ui.components.chat.JumpToBottomButton
 import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
 import dev.blazelight.p4oc.ui.components.chat.PermissionDialogEnhanced
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
-import dev.blazelight.p4oc.ui.components.question.QuestionDialog
+import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerFab
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import kotlinx.coroutines.launch
@@ -186,6 +186,20 @@ fun ChatScreen(
                         verticalArrangement = Arrangement.spacedBy(1.dp),
                         reverseLayout = true
                     ) {
+                        // Inline question card at the bottom (top in reversed layout)
+                        uiState.pendingQuestion?.let { questionRequest ->
+                            item(key = "pending_question_${questionRequest.id}") {
+                                InlineQuestionCard(
+                                    questionData = dev.blazelight.p4oc.domain.model.QuestionData(questionRequest.questions),
+                                    onDismiss = viewModel::dismissQuestion,
+                                    onSubmit = { answers ->
+                                        viewModel.respondToQuestion(questionRequest.id, answers)
+                                    },
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                        }
+                        
                         items(
                             items = messageBlocks.asReversed(),
                             key = { block -> 
@@ -224,16 +238,6 @@ fun ChatScreen(
                     onAllow = { viewModel.respondToPermission(permission.id, "allow") },
                     onDeny = { viewModel.respondToPermission(permission.id, "deny") },
                     onAlways = { viewModel.respondToPermission(permission.id, "always") }
-                )
-            }
-
-            uiState.pendingQuestion?.let { questionRequest ->
-                QuestionDialog(
-                    questionData = dev.blazelight.p4oc.domain.model.QuestionData(questionRequest.questions),
-                    onDismiss = viewModel::dismissQuestion,
-                    onSubmit = { answers ->
-                        viewModel.respondToQuestion(questionRequest.id, answers)
-                    }
                 )
             }
 
