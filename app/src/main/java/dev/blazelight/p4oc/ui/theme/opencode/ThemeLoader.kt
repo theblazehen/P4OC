@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -36,35 +37,35 @@ object ThemeLoader {
         val defs = root["defs"]?.jsonObject ?: JsonObject(emptyMap())
         val theme = root["theme"]?.jsonObject ?: error("Theme must have 'theme' object")
         
+        fun resolveRef(ref: String): Color {
+            // Could be a direct hex or a reference to defs
+            return if (ref.startsWith("#")) {
+                parseHexColor(ref)
+            } else {
+                val resolved = defs[ref]?.jsonPrimitive?.content ?: return Color.Magenta
+                parseHexColor(resolved)
+            }
+        }
+        
         fun resolveColor(key: String): Color {
             val value = theme[key] ?: return Color.Magenta // Fallback for missing keys
             
-            return when {
-                // Direct hex color
-                value.jsonPrimitive.isString && value.jsonPrimitive.content.startsWith("#") -> {
-                    parseHexColor(value.jsonPrimitive.content)
+            return when (value) {
+                // String primitive - either direct hex or reference
+                is JsonPrimitive -> {
+                    val content = value.content
+                    resolveRef(content)
                 }
-                // Reference to defs
-                value.jsonPrimitive.isString -> {
-                    val ref = value.jsonPrimitive.content
-                    val resolved = defs[ref]?.jsonPrimitive?.content
-                        ?: return Color.Magenta
-                    parseHexColor(resolved)
-                }
-                // Dark/light pair object
+                // Object with dark/light keys
                 else -> {
-                    val pair = value.jsonObject
-                    val modeKey = if (isDark) "dark" else "light"
-                    val modeValue = pair[modeKey]?.jsonPrimitive?.content
-                        ?: return Color.Magenta
-                    
-                    // Could be a reference or direct hex
-                    if (modeValue.startsWith("#")) {
-                        parseHexColor(modeValue)
-                    } else {
-                        val resolved = defs[modeValue]?.jsonPrimitive?.content
+                    try {
+                        val pair = value.jsonObject
+                        val modeKey = if (isDark) "dark" else "light"
+                        val modeValue = pair[modeKey]?.jsonPrimitive?.content
                             ?: return Color.Magenta
-                        parseHexColor(resolved)
+                        resolveRef(modeValue)
+                    } catch (e: Exception) {
+                        Color.Magenta
                     }
                 }
             }
