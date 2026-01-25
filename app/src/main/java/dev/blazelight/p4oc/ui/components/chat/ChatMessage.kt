@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
-import dev.blazelight.p4oc.ui.components.toolwidgets.ToolCallWidget
+import dev.blazelight.p4oc.ui.components.toolwidgets.ToolGroupWidget
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 
 @Composable
@@ -125,15 +125,13 @@ private fun AssistantMessage(
         partGroups.forEach { group ->
             when (group) {
                 is PartGroupItem.Tools -> {
-                    // Render each tool as a separate widget (for parallel tool calls)
-                    group.tools.forEach { tool ->
-                        ToolCallWidget(
-                            tool = tool,
-                            defaultState = defaultToolWidgetState,
-                            onToolApprove = onToolApprove,
-                            onToolDeny = onToolDeny
-                        )
-                    }
+                    // Use the grouped tool summary with progressive disclosure
+                    ToolGroupWidget(
+                        tools = group.tools,
+                        defaultState = defaultToolWidgetState,
+                        onToolApprove = onToolApprove,
+                        onToolDeny = onToolDeny
+                    )
                 }
                 is PartGroupItem.Other -> {
                     when (val part = group.part) {

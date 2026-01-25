@@ -243,14 +243,6 @@ fun VisualSettingsScreen(
                     onCheckedChange = { viewModel.toggleReasoningExpanded() },
                     icon = Icons.Default.Psychology
                 )
-                
-                SettingsSwitch(
-                    title = "Expand Tool Calls by Default",
-                    subtitle = "Show tool call details expanded",
-                    checked = settings.toolCallsExpandedByDefault,
-                    onCheckedChange = { viewModel.toggleToolCallsExpanded() },
-                    icon = Icons.Default.Build
-                )
             }
             
             SettingsSection(title = "Tool Call Display") {

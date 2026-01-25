@@ -110,40 +110,10 @@ fun SettingsScreen(
 
             ListItem(
                 headlineContent = { Text("Visual Settings") },
-                supportingContent = { Text("Font size, spacing, and display") },
-                leadingContent = { Icon(Icons.Default.TextFields, contentDescription = null) },
+                supportingContent = { Text("Theme, font size, and display options") },
+                leadingContent = { Icon(Icons.Default.Palette, contentDescription = null) },
                 trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
                 modifier = Modifier.clickable { onVisualSettings() }
-            )
-
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text("Theme") },
-                supportingContent = { Text(uiState.themeMode.replaceFirstChar { it.uppercase() }) },
-                leadingContent = { Icon(Icons.Default.Palette, contentDescription = null) },
-                trailingContent = {
-                    var expanded by remember { mutableStateOf(false) }
-                    Box {
-                        IconButton(onClick = { expanded = true }) {
-                            Icon(Icons.Default.ExpandMore, contentDescription = null)
-                        }
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            listOf("system", "light", "dark").forEach { theme ->
-                                DropdownMenuItem(
-                                    text = { Text(theme.replaceFirstChar { it.uppercase() }) },
-                                    onClick = {
-                                        viewModel.setThemeMode(theme)
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
             )
 
             HorizontalDivider()

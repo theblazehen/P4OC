@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -22,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.SessionStatus
 import dev.blazelight.p4oc.ui.theme.ProjectColors
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -126,8 +128,11 @@ fun SessionListScreen(
             }
         },
         floatingActionButton = {
+            val theme = LocalOpenCodeTheme.current
             SmallFloatingActionButton(
-                onClick = { showNewSessionDialog = true }
+                onClick = { showNewSessionDialog = true },
+                containerColor = theme.backgroundElement,
+                contentColor = theme.text
             ) {
                 Icon(Icons.Default.Add, contentDescription = "New Session", modifier = Modifier.size(22.dp))
             }
