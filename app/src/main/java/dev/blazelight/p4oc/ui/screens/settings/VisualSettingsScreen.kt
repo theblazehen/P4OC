@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.screens.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,6 +27,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 
 @HiltViewModel
 class VisualSettingsViewModel @Inject constructor(
@@ -250,6 +253,11 @@ fun VisualSettingsScreen(
                     selected = settings.toolWidgetDefaultState,
                     onSelect = viewModel::updateToolWidgetDefaultState
                 )
+                
+                Spacer(Modifier.height(12.dp))
+                
+                // Live preview of all three states
+                ToolWidgetPreviewSection(selectedState = settings.toolWidgetDefaultState)
             }
             
             Spacer(Modifier.height(16.dp))
@@ -502,5 +510,210 @@ private fun ToolWidgetStateSelector(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+}
+
+@Composable
+private fun ToolWidgetPreviewSection(selectedState: String) {
+    val theme = LocalOpenCodeTheme.current
+    
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Preview",
+            style = MaterialTheme.typography.labelMedium,
+            color = theme.textMuted
+        )
+        
+        // Show preview based on selected state
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = theme.backgroundElement.copy(alpha = 0.3f),
+            shape = RectangleShape
+        ) {
+            Column(
+                modifier = Modifier.padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                when (selectedState) {
+                    "oneline" -> {
+                        // Oneline: Just HUD summary
+                        Text(
+                            text = "✓ Read ×2 | ✓ Edit | ⟳ Bash",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 14.sp
+                            ),
+                            color = theme.text,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(theme.backgroundPanel.copy(alpha = 0.5f))
+                                .padding(6.dp)
+                        )
+                        Text(
+                            text = "Tap to expand",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = theme.textMuted
+                        )
+                    }
+                    "compact" -> {
+                        // Compact: HUD + rows
+                        Text(
+                            text = "✓ Read ×2 | ✓ Edit | ⟳ Bash",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 14.sp
+                            ),
+                            color = theme.text,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(theme.backgroundPanel.copy(alpha = 0.5f))
+                                .padding(6.dp)
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                        ) {
+                            CompactRowPreview("✓", "Read Theme.kt", theme.success, theme)
+                            CompactRowPreview("✓", "Read Colors.kt", theme.success, theme)
+                            CompactRowPreview("✓", "Edit Theme.kt +12 -3", theme.success, theme)
+                            CompactRowPreview("⟳", "./gradlew build", theme.warning, theme)
+                        }
+                        Text(
+                            text = "Shows file paths/commands",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = theme.textMuted
+                        )
+                    }
+                    "expanded" -> {
+                        // Expanded: HUD + detailed widgets
+                        Text(
+                            text = "✓ Read ×2 | ✓ Edit | ⟳ Bash",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 14.sp
+                            ),
+                            color = theme.text,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(theme.backgroundPanel.copy(alpha = 0.5f))
+                                .padding(6.dp)
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            ExpandedWidgetPreview(
+                                title = "Read Theme.kt",
+                                preview = "data class OpenCodeTheme(...)",
+                                icon = "✓",
+                                color = theme.success,
+                                theme = theme
+                            )
+                            ExpandedWidgetPreview(
+                                title = "Edit Theme.kt",
+                                preview = "- val primary = Color(...)\n+ val primary = theme.primary",
+                                icon = "✓",
+                                color = theme.success,
+                                theme = theme
+                            )
+                            ExpandedWidgetPreview(
+                                title = "./gradlew build",
+                                preview = "BUILD SUCCESSFUL in 8s",
+                                icon = "✓",
+                                color = theme.success,
+                                theme = theme
+                            )
+                        }
+                        Text(
+                            text = "Shows full output/diffs",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = theme.textMuted
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactRowPreview(
+    icon: String,
+    description: String,
+    iconColor: androidx.compose.ui.graphics.Color,
+    theme: dev.blazelight.p4oc.ui.theme.opencode.OpenCodeTheme
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(theme.backgroundPanel.copy(alpha = 0.4f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = icon,
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+            color = iconColor
+        )
+        Text(
+            text = description,
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+            color = theme.text,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ExpandedWidgetPreview(
+    title: String,
+    preview: String,
+    icon: String,
+    color: androidx.compose.ui.graphics.Color,
+    theme: dev.blazelight.p4oc.ui.theme.opencode.OpenCodeTheme
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(theme.backgroundPanel.copy(alpha = 0.5f))
+            .padding(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = icon,
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                color = color
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp
+                ),
+                color = theme.text
+            )
+        }
+        Text(
+            text = preview,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+                lineHeight = 12.sp
+            ),
+            color = theme.textMuted,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(theme.backgroundElement)
+                .padding(4.dp),
+            maxLines = 2
+        )
     }
 }
