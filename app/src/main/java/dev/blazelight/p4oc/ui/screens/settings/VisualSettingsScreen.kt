@@ -133,10 +133,6 @@ class VisualSettingsViewModel @Inject constructor(
         persistSettings(_settings.value.copy(reasoningExpandedByDefault = !_settings.value.reasoningExpandedByDefault))
     }
     
-    fun toggleToolCallsExpanded() {
-        persistSettings(_settings.value.copy(toolCallsExpandedByDefault = !_settings.value.toolCallsExpandedByDefault))
-    }
-    
     fun updateToolWidgetDefaultState(state: String) {
         persistSettings(_settings.value.copy(toolWidgetDefaultState = state))
     }
