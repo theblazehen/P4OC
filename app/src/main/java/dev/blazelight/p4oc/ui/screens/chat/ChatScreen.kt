@@ -32,6 +32,7 @@ import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerFab
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
+import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +49,12 @@ fun ChatScreen(
     val connectionState by viewModel.connectionState.collectAsState()
     val favoriteModels by viewModel.favoriteModels.collectAsState()
     val recentModels by viewModel.recentModels.collectAsState()
+    val visualSettings by viewModel.visualSettings.collectAsState()
+    
+    // Convert setting string to ToolWidgetState
+    val defaultToolWidgetState = remember(visualSettings.toolWidgetDefaultState) {
+        ToolWidgetState.fromString(visualSettings.toolWidgetDefaultState)
+    }
 
     val listState = rememberLazyListState()
     var showCommandPalette by remember { mutableStateOf(false) }
@@ -212,7 +219,8 @@ fun ChatScreen(
                             MessageBlockView(
                                 block = block,
                                 onToolApprove = { viewModel.respondToPermission(it, "allow") },
-                                onToolDeny = { viewModel.respondToPermission(it, "deny") }
+                                onToolDeny = { viewModel.respondToPermission(it, "deny") },
+                                defaultToolWidgetState = defaultToolWidgetState
                             )
                         }
                     }
@@ -513,14 +521,16 @@ private fun groupMessagesIntoBlocks(messages: List<MessageWithParts>): List<Mess
 private fun MessageBlockView(
     block: MessageBlock,
     onToolApprove: (String) -> Unit,
-    onToolDeny: (String) -> Unit
+    onToolDeny: (String) -> Unit,
+    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT
 ) {
     when (block) {
         is MessageBlock.UserBlock -> {
             ChatMessage(
                 messageWithParts = block.message,
                 onToolApprove = onToolApprove,
-                onToolDeny = onToolDeny
+                onToolDeny = onToolDeny,
+                defaultToolWidgetState = defaultToolWidgetState
             )
         }
         is MessageBlock.AssistantBlock -> {
@@ -537,7 +547,8 @@ private fun MessageBlockView(
             ChatMessage(
                 messageWithParts = mergedMessageWithParts,
                 onToolApprove = onToolApprove,
-                onToolDeny = onToolDeny
+                onToolDeny = onToolDeny,
+                defaultToolWidgetState = defaultToolWidgetState
             )
         }
     }

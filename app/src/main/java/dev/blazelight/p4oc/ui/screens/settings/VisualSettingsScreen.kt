@@ -37,6 +37,9 @@ class VisualSettingsViewModel @Inject constructor(
     private val _themeName = MutableStateFlow(SettingsDataStore.DEFAULT_THEME_NAME)
     val themeName: StateFlow<String> = _themeName.asStateFlow()
     
+    private val _themeMode = MutableStateFlow("system")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+    
     val availableThemes = listOf(
         "catppuccin" to "Catppuccin Mocha",
         "catppuccin-macchiato" to "Catppuccin Macchiato",
@@ -59,12 +62,24 @@ class VisualSettingsViewModel @Inject constructor(
                 _themeName.value = name
             }
         }
+        viewModelScope.launch {
+            settingsDataStore.themeMode.collect { mode ->
+                _themeMode.value = mode
+            }
+        }
     }
     
     fun updateThemeName(name: String) {
         _themeName.value = name
         viewModelScope.launch {
             settingsDataStore.setThemeName(name)
+        }
+    }
+    
+    fun updateThemeMode(mode: String) {
+        _themeMode.value = mode
+        viewModelScope.launch {
+            settingsDataStore.setThemeMode(mode)
         }
     }
     
@@ -119,6 +134,10 @@ class VisualSettingsViewModel @Inject constructor(
         persistSettings(_settings.value.copy(toolCallsExpandedByDefault = !_settings.value.toolCallsExpandedByDefault))
     }
     
+    fun updateToolWidgetDefaultState(state: String) {
+        persistSettings(_settings.value.copy(toolWidgetDefaultState = state))
+    }
+    
     fun resetToDefaults() {
         persistSettings(VisualSettings())
     }
@@ -132,6 +151,7 @@ fun VisualSettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsState()
     val themeName by viewModel.themeName.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     
     Scaffold(
         topBar = {
@@ -157,6 +177,13 @@ fun VisualSettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             SettingsSection(title = "Theme") {
+                ThemeModeSelector(
+                    selected = themeMode,
+                    onSelect = viewModel::updateThemeMode
+                )
+                
+                Spacer(Modifier.height(8.dp))
+                
                 ThemeSelector(
                     selected = themeName,
                     options = viewModel.availableThemes,
@@ -226,6 +253,13 @@ fun VisualSettingsScreen(
                 )
             }
             
+            SettingsSection(title = "Tool Call Display") {
+                ToolWidgetStateSelector(
+                    selected = settings.toolWidgetDefaultState,
+                    onSelect = viewModel::updateToolWidgetDefaultState
+                )
+            }
+            
             Spacer(Modifier.height(16.dp))
             
             PreviewCard(settings = settings)
@@ -291,6 +325,33 @@ private fun FontSizeSlider(
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = range.last - range.first - 1
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeModeSelector(
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    val modes = listOf(
+        "system" to "System",
+        "light" to "Light",
+        "dark" to "Dark"
+    )
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        modes.forEach { (id, label) ->
+            FilterChip(
+                selected = selected == id,
+                onClick = { onSelect(id) },
+                label = { Text(label) },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -417,6 +478,37 @@ private fun PreviewCard(settings: VisualSettings) {
                     fontFamily = FontFamily.Monospace
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ToolWidgetStateSelector(
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    val states = listOf(
+        "oneline" to "Oneline (minimal)",
+        "compact" to "Compact (summary)",
+        "expanded" to "Expanded (full details)"
+    )
+    
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Default display mode for tool calls",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        states.forEach { (id, label) ->
+            FilterChip(
+                selected = selected == id,
+                onClick = { onSelect(id) },
+                label = { Text(label) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

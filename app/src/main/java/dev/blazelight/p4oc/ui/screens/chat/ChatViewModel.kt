@@ -76,6 +76,9 @@ class ChatViewModel @Inject constructor(
     val recentModels: StateFlow<List<ModelInput>> = settingsDataStore.recentModels
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    val visualSettings = settingsDataStore.visualSettings
+        .stateIn(viewModelScope, SharingStarted.Eagerly, dev.blazelight.p4oc.core.datastore.VisualSettings())
+
     init {
         loadSession()
         loadMessages()

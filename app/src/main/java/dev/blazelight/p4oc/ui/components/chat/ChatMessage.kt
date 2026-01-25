@@ -12,12 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.components.toolwidgets.ToolCallWidget
+import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 
 @Composable
 fun ChatMessage(
     messageWithParts: MessageWithParts,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT,
     modifier: Modifier = Modifier
 ) {
     val message = messageWithParts.message
@@ -32,7 +35,8 @@ fun ChatMessage(
             AssistantMessage(
                 messageWithParts = messageWithParts,
                 onToolApprove = onToolApprove,
-                onToolDeny = onToolDeny
+                onToolDeny = onToolDeny,
+                defaultToolWidgetState = defaultToolWidgetState
             )
         }
     }
@@ -77,7 +81,8 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
 private fun AssistantMessage(
     messageWithParts: MessageWithParts,
     onToolApprove: (String) -> Unit,
-    onToolDeny: (String) -> Unit
+    onToolDeny: (String) -> Unit,
+    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT
 ) {
     // Build ordered groups: consecutive tools get batched, non-tools rendered individually
     // Invisible parts (StepStart, StepFinish, Snapshot, etc.) don't break tool groups
@@ -120,11 +125,15 @@ private fun AssistantMessage(
         partGroups.forEach { group ->
             when (group) {
                 is PartGroupItem.Tools -> {
-                    CollapsedToolSummary(
-                        toolParts = group.tools,
-                        onToolApprove = onToolApprove,
-                        onToolDeny = onToolDeny
-                    )
+                    // Render each tool as a separate widget (for parallel tool calls)
+                    group.tools.forEach { tool ->
+                        ToolCallWidget(
+                            tool = tool,
+                            defaultState = defaultToolWidgetState,
+                            onToolApprove = onToolApprove,
+                            onToolDeny = onToolDeny
+                        )
+                    }
                 }
                 is PartGroupItem.Other -> {
                     when (val part = group.part) {

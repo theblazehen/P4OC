@@ -44,6 +44,7 @@ class SettingsDataStore @Inject constructor(
         private val KEY_HIGH_CONTRAST_MODE = booleanPreferencesKey("high_contrast_mode")
         private val KEY_REASONING_EXPANDED = booleanPreferencesKey("reasoning_expanded_by_default")
         private val KEY_TOOL_CALLS_EXPANDED = booleanPreferencesKey("tool_calls_expanded_by_default")
+        private val KEY_TOOL_WIDGET_DEFAULT_STATE = stringPreferencesKey("tool_widget_default_state")
         
         // Model favorites and recents
         private val KEY_FAVORITE_MODELS = stringSetPreferencesKey("favorite_models")
@@ -278,7 +279,8 @@ class SettingsDataStore @Inject constructor(
             messageSpacing = prefs[KEY_MESSAGE_SPACING] ?: 8,
             highContrastMode = prefs[KEY_HIGH_CONTRAST_MODE] ?: false,
             reasoningExpandedByDefault = prefs[KEY_REASONING_EXPANDED] ?: false,
-            toolCallsExpandedByDefault = prefs[KEY_TOOL_CALLS_EXPANDED] ?: false
+            toolCallsExpandedByDefault = prefs[KEY_TOOL_CALLS_EXPANDED] ?: false,
+            toolWidgetDefaultState = prefs[KEY_TOOL_WIDGET_DEFAULT_STATE] ?: "compact"
         )
     }
 
@@ -295,6 +297,7 @@ class SettingsDataStore @Inject constructor(
             prefs[KEY_HIGH_CONTRAST_MODE] = settings.highContrastMode
             prefs[KEY_REASONING_EXPANDED] = settings.reasoningExpandedByDefault
             prefs[KEY_TOOL_CALLS_EXPANDED] = settings.toolCallsExpandedByDefault
+            prefs[KEY_TOOL_WIDGET_DEFAULT_STATE] = settings.toolWidgetDefaultState
         }
     }
 
@@ -373,5 +376,6 @@ data class VisualSettings(
     val messageSpacing: Int = 8,
     val highContrastMode: Boolean = false,
     val reasoningExpandedByDefault: Boolean = false,
-    val toolCallsExpandedByDefault: Boolean = false
+    val toolCallsExpandedByDefault: Boolean = false,
+    val toolWidgetDefaultState: String = "compact" // "oneline", "compact", or "expanded"
 )
