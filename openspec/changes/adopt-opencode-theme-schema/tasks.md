@@ -10,10 +10,10 @@
 
 - [x] 2.1 Rewrite `ui/theme/Theme.kt` - add LocalOpenCodeTheme, TuiShapes, wire ThemeLoader
 - [x] 2.2 Create TuiShapes (all RoundedCornerShape(0.dp)) in Theme.kt
-- [ ] 2.3 Update `ui/theme/Typography.kt` - tighten line heights for TUI density
+- [x] 2.3 Update `ui/theme/Typography.kt` - tighten line heights for TUI density
 - [x] 2.4 Delete `ui/theme/CatppuccinColors.kt` (replaced by OpenCodeTheme)
 - [x] 2.5 Delete `ui/theme/Color.kt` (replaced by OpenCodeTheme)
-- [ ] 2.6 Rewrite `ui/theme/ProjectColors.kt` to use theme accent colors
+- [x] 2.6 Rewrite `ui/theme/ProjectColors.kt` to use theme accent colors
 
 ## 3. Shape Migration (RoundedCornerShape → RectangleShape)
 
@@ -50,7 +50,7 @@
 
 - [x] 6.1 Add `themeName: Flow<String>` to SettingsDataStore
 - [x] 6.2 Add `setThemeName(name: String)` to SettingsDataStore
-- [ ] 6.3 Create theme picker UI in SettingsScreen (or new ThemeSettingsScreen)
+- [x] 6.3 Create theme picker UI in VisualSettingsScreen (8 themes available)
 - [x] 6.4 Wire theme preference through MainActivity → PocketCodeTheme
 
 ## 7. Validation & Testing

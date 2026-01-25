@@ -6,44 +6,44 @@ import kotlin.math.absoluteValue
 
 /**
  * Curated color palette for project chips.
- * Colors are chosen to be visually distinct and work on both light and dark backgrounds.
+ * Colors are derived from the current OpenCode theme accent colors.
  */
 object ProjectColors {
     
-    private val palette = listOf(
-        Color(0xFF4A90D9), // blue
-        Color(0xFFE67E22), // orange
-        Color(0xFF2ECC71), // green
-        Color(0xFF9B59B6), // purple
-        Color(0xFF1ABC9C), // teal
-        Color(0xFFE74C3C), // red
-        Color(0xFFE91E63), // pink
-        Color(0xFF5C6BC0), // indigo
-    )
-    
     /**
-     * Returns a deterministic color for a given project ID.
-     * The same project ID will always return the same color.
+     * Returns a deterministic color for a given project ID using theme accent colors.
+     * The same project ID will always return the same color within a theme.
      */
+    @Composable
     fun colorForProject(projectId: String): Color {
+        val theme = LocalOpenCodeTheme.current
+        val palette = listOf(
+            theme.primary,
+            theme.secondary,
+            theme.accent,
+            theme.success,
+            theme.warning,
+            theme.info,
+            theme.error,
+            theme.syntaxFunction,
+        )
         return palette[projectId.hashCode().absoluteValue % palette.size]
     }
     
     /**
-     * Returns a slightly darkened version of the project color for text on light chip backgrounds.
+     * Returns appropriate text color for project chip.
      */
+    @Composable
     fun textColorForProject(projectId: String): Color {
-        return Color.White
+        val theme = LocalOpenCodeTheme.current
+        return theme.text
     }
     
     /**
      * Get color palette based on current theme for dynamic project colors.
-     * Can be extended in the future to use theme accent colors.
      */
     @Composable
     fun themedColorForProject(projectId: String): Color {
-        // For now, use the static palette
-        // Future: Could derive from LocalOpenCodeTheme.current
         return colorForProject(projectId)
     }
 }
