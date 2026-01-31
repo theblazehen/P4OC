@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @Composable
 fun InlineDiffViewer(
@@ -46,7 +48,7 @@ fun InlineDiffViewer(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(Spacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -54,7 +56,7 @@ fun InlineDiffViewer(
                         Icons.Default.Description,
                         contentDescription = stringResource(R.string.cd_diff_icon),
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(Sizing.iconMd)
                     )
                     Text(
                         text = fileName,
@@ -81,7 +83,7 @@ fun InlineDiffViewer(
                     Icon(
                         if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (expanded) "Collapse" else "Expand",
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(Sizing.iconMd),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -228,7 +230,7 @@ fun PatchDiffViewer(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(Spacing.lg),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -236,7 +238,7 @@ fun PatchDiffViewer(
                                 Icons.Default.Description,
                                 contentDescription = stringResource(R.string.cd_diff_icon),
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(Sizing.iconMd)
                             )
                             Text(
                                 text = file,
@@ -255,7 +257,7 @@ fun PatchDiffViewer(
                                 Icon(
                                     if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                     contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(Sizing.iconMd),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }

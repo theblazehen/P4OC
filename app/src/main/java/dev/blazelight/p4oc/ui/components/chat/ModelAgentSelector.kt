@@ -23,6 +23,8 @@ import dev.blazelight.p4oc.data.remote.dto.AgentDto
 import dev.blazelight.p4oc.data.remote.dto.ModelDto
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @Composable
 private fun getAgentColor(agent: AgentDto?): Color {
@@ -138,7 +140,7 @@ fun ModelAgentSelectorBar(
                         Icon(
                             Icons.Default.ExpandMore,
                             contentDescription = stringResource(R.string.cd_expand),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(Sizing.iconMd)
                         )
                     }
                 }
@@ -338,7 +340,7 @@ fun ModelPickerDialog(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(12.dp),
+                                    .padding(Spacing.lg),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(

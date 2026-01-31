@@ -28,6 +28,8 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.data.remote.dto.ModelDto
 import dev.blazelight.p4oc.data.remote.dto.ProviderDto
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +82,7 @@ fun ProviderConfigScreen(
                             Icons.Default.Error,
                             contentDescription = stringResource(R.string.cd_error_state),
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(Sizing.iconHero)
                         )
                         Text(
                             text = uiState.error ?: "Unknown error",
@@ -176,7 +178,7 @@ private fun CurrentModelCard(
                 Icons.Default.SmartToy,
                 contentDescription = stringResource(R.string.cd_model_icon),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(Sizing.iconLg)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -220,8 +222,8 @@ private fun ProviderCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onToggle)
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(Spacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 ProviderIcon(provider.name)
@@ -244,7 +246,7 @@ private fun ProviderCard(
                         Icons.Default.CheckCircle,
                         contentDescription = stringResource(R.string.cd_active),
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(Sizing.iconMd)
                     )
                 }
 
@@ -262,7 +264,7 @@ private fun ProviderCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        .padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xl),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     HorizontalDivider()
@@ -295,8 +297,8 @@ private fun ModelItem(
                 else Color.Transparent
             )
             .clickable(onClick = onClick)
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(Spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
@@ -399,7 +401,7 @@ private fun DisabledProviderCard(provider: ProviderDto) {
                 Icons.Default.Lock,
                 contentDescription = stringResource(R.string.provider_requires_api_key),
                 tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(Sizing.iconMd)
             )
         }
     }

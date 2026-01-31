@@ -27,6 +27,8 @@ import androidx.compose.ui.window.DialogProperties
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class SelectedFile(
     val path: String,
@@ -108,7 +110,7 @@ fun FilePickerDialog(
                     onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = Spacing.xl),
                     placeholder = { Text(stringResource(R.string.search_files)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
@@ -149,7 +151,7 @@ fun FilePickerDialog(
                                 Icon(
                                     if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.FolderOpen,
                                     contentDescription = stringResource(R.string.cd_folder_icon),
-                                    modifier = Modifier.size(48.dp),
+                                    modifier = Modifier.size(Sizing.iconHero),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
@@ -327,7 +329,7 @@ private fun PickerFileItem(
                 imageVector = icon,
                 contentDescription = stringResource(R.string.cd_file_type),
                 tint = iconColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(Sizing.iconLg)
             )
         },
         trailingContent = {

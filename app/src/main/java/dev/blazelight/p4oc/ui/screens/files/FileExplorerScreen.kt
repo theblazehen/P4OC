@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,7 +138,7 @@ fun FileExplorerScreen(
                         Icon(
                             if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.FolderOpen,
                             contentDescription = if (searchQuery.isNotBlank()) "No matching files" else "Empty folder",
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(Sizing.iconHero),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
@@ -268,7 +269,7 @@ private fun EnhancedFileItem(
                     imageVector = icon,
                     contentDescription = if (file.isDirectory) "Folder" else "File",
                     tint = gitStatusColor ?: iconColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(Sizing.iconLg)
                 )
             },
             trailingContent = {

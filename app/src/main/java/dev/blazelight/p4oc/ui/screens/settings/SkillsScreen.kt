@@ -22,6 +22,8 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiTextButton
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 data class SkillInfo(
     val name: String,
@@ -199,7 +202,7 @@ fun SkillsScreen(
                 
                 if (disconnectedSkills.isNotEmpty()) {
                     item {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(Spacing.md))
                         Text(
                             text = stringResource(R.string.skills_disconnected),
                             style = MaterialTheme.typography.titleSmall,
@@ -253,7 +256,7 @@ private fun SkillCard(
         ) {
             Row(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
@@ -343,98 +346,87 @@ private fun SkillDetailDialog(
     skill: SkillInfo,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    TuiAlertDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                Icons.Default.Extension,
-                contentDescription = stringResource(R.string.cd_skill_icon),
-                tint = if (skill.isEnabled) SemanticColors.Status.success else MaterialTheme.colorScheme.error
-            )
-        },
-        title = { Text(skill.name) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(skill.description)
-                
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.skills_source),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = skill.source,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                
-                if (skill.tools.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.skills_tools),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        skill.tools.forEach { tool ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Build,
-                                    contentDescription = stringResource(R.string.skills_tools),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = tool,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                if (skill.resources.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.skills_resources),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        skill.resources.forEach { resource ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Storage,
-                                    contentDescription = stringResource(R.string.skills_resources),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = resource,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
+        icon = Icons.Default.Extension,
+        title = skill.name,
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TuiTextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.close))
             }
         }
-    )
+    ) {
+        Text(skill.description)
+        
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.skills_source),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = skill.source,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        
+        if (skill.tools.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.skills_tools),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                skill.tools.forEach { tool ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Build,
+                            contentDescription = stringResource(R.string.skills_tools),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = tool,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+        
+        if (skill.resources.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.skills_resources),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                skill.resources.forEach { resource ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Storage,
+                            contentDescription = stringResource(R.string.skills_resources),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = resource,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -442,7 +434,7 @@ private fun EmptySkillsView() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(12.dp),
+            .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

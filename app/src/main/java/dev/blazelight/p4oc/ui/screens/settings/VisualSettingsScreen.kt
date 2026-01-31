@@ -32,6 +32,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @HiltViewModel
 class VisualSettingsViewModel @Inject constructor(
@@ -185,7 +186,7 @@ fun VisualSettingsScreen(
                     onSelect = viewModel::updateThemeMode
                 )
                 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.md))
                 
                 ThemeSelector(
                     selected = themeName,
@@ -260,7 +261,7 @@ fun VisualSettingsScreen(
                 ToolWidgetPreviewSection(selectedState = settings.toolWidgetDefaultState)
             }
             
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.md))
             
             PreviewCard(settings = settings)
             
@@ -295,7 +296,7 @@ private fun SettingsSection(
                 content = content
             )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.md))
     }
 }
 
@@ -412,7 +413,7 @@ private fun SettingsSwitch(
     ) {
         Row(
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
         Icon(
@@ -447,7 +448,7 @@ private fun PreviewCard(settings: VisualSettings) {
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
@@ -462,7 +463,7 @@ private fun PreviewCard(settings: VisualSettings) {
             ) {
                 Text(
                     text = stringResource(R.string.visual_settings_sample_message),
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(Spacing.lg),
                     fontSize = settings.fontSize.sp
                 )
             }
@@ -473,7 +474,7 @@ private fun PreviewCard(settings: VisualSettings) {
             ) {
                 Text(
                     "fun example(): String {\n    return \"Hello\"\n}",
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(Spacing.lg),
                     fontSize = settings.codeBlockFontSize.sp,
                     fontFamily = FontFamily.Monospace
                 )

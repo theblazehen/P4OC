@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Todo
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +48,7 @@ fun TodoTrackerSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .padding(bottom = 16.dp)
+                .padding(bottom = Spacing.xl)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -63,7 +65,7 @@ fun TodoTrackerSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
 
             if (totalCount > 0) {
                 ProgressCard(
@@ -71,7 +73,7 @@ fun TodoTrackerSheet(
                     total = totalCount,
                     progress = progress
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.md))
             }
 
             when {
@@ -131,7 +133,7 @@ private fun ProgressCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
 
             LinearProgressIndicator(
                 progress = { progress },
@@ -143,7 +145,7 @@ private fun ProgressCard(
                 trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
 
             Text(
                 text = stringResource(R.string.percent_complete, (progress * 100).toInt()),
@@ -165,16 +167,16 @@ private fun EmptyTodosCard() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 Icons.Default.CheckCircle,
                 contentDescription = stringResource(R.string.cd_all_complete),
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(Sizing.iconHero),
                 tint = SemanticColors.Todo.completed
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
             Text(
                 text = stringResource(R.string.no_active_todos),
                 style = MaterialTheme.typography.titleSmall,
@@ -293,15 +295,15 @@ private fun TodoItem(todo: Todo) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.Top
         ) {
             Icon(
                 statusIcon,
                 contentDescription = todo.status,
                 tint = statusColor,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(Sizing.iconMd)
             )
 
             Column(modifier = Modifier.weight(1f)) {

@@ -37,6 +37,8 @@ import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import kotlinx.serialization.json.*
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @Composable
 fun getToolIcon(toolName: String): ImageVector {
@@ -313,7 +315,7 @@ fun ToolOutputDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(Spacing.xl),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -324,7 +326,7 @@ fun ToolOutputDialog(
                         Icon(
                             getToolIcon(toolName),
                             contentDescription = stringResource(R.string.cd_tool_status),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(Sizing.iconMd)
                         )
                         Text(
                             text = toolName,
@@ -356,7 +358,7 @@ fun ToolOutputDialog(
                             .weight(1f)
                             .horizontalScroll(rememberScrollState())
                             .verticalScroll(rememberScrollState())
-                            .padding(12.dp)
+                            .padding(Spacing.lg)
                     ) {
                         Text(
                             text = output,
@@ -407,7 +409,7 @@ fun EnhancedToolPart(
         colors = CardDefaults.cardColors(containerColor = containerColor),
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -418,7 +420,7 @@ fun EnhancedToolPart(
                 Icon(
                     toolIcon,
                     contentDescription = stringResource(R.string.cd_tool_status),
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(Sizing.iconSm),
                     tint = if (isError) MaterialTheme.colorScheme.error 
                            else MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -471,7 +473,7 @@ fun EnhancedToolPart(
                         Icon(
                             if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = if (isExpanded) "Collapse" else "Expand",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(Sizing.iconMd)
                         )
                     }
                     else -> {}
@@ -479,7 +481,7 @@ fun EnhancedToolPart(
             }
             
             if (state is ToolState.Pending) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.md))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = { onDeny(part.callID) },

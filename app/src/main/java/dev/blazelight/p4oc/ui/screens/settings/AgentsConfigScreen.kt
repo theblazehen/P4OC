@@ -22,6 +22,8 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiTextButton
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 data class AgentInfo(
     val name: String,
@@ -225,7 +228,7 @@ fun AgentsConfigScreen(
                 
                 if (customAgents.isNotEmpty()) {
                     item {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(Spacing.md))
                         Text(
                             text = stringResource(R.string.agents_custom),
                             style = MaterialTheme.typography.titleSmall,
@@ -279,7 +282,7 @@ private fun AgentCard(
         ) {
             Row(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
@@ -348,75 +351,64 @@ private fun AgentDetailDialog(
     agent: AgentInfo,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    TuiAlertDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                getAgentIcon(agent.name),
-                contentDescription = stringResource(R.string.cd_agent_icon),
-                tint = getAgentColor(agent.name)
-            )
-        },
-        title = { Text(agent.name) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(agent.description)
-                
-                if (agent.tools.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.agents_tools),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        agent.tools.forEach { tool ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Build,
-                                    contentDescription = stringResource(R.string.agents_tools),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = tool,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                agent.systemPrompt?.let { prompt ->
-                    Text(
-                        text = stringResource(R.string.agents_system_prompt),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Text(
-                            text = prompt.take(500) + if (prompt.length > 500) "..." else "",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-            }
-        },
+        icon = getAgentIcon(agent.name),
+        title = agent.name,
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TuiTextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.close))
             }
         }
-    )
+    ) {
+        Text(agent.description)
+        
+        if (agent.tools.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.agents_tools),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                agent.tools.forEach { tool ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Build,
+                            contentDescription = stringResource(R.string.agents_tools),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = tool,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+        
+        agent.systemPrompt?.let { prompt ->
+            Text(
+                text = stringResource(R.string.agents_system_prompt),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = prompt.take(500) + if (prompt.length > 500) "..." else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(Spacing.lg)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -424,7 +416,7 @@ private fun EmptyAgentsView() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(12.dp),
+            .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

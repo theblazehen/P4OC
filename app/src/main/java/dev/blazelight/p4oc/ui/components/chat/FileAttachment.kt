@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class FileAttachment(
     val uri: Uri,
@@ -77,7 +79,7 @@ fun FileAttachmentBar(
                     Icon(
                         Icons.Default.Add,
                         contentDescription = stringResource(R.string.cd_add_more_files),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(Sizing.iconMd)
                     )
                 }
             }
@@ -122,7 +124,7 @@ private fun AttachmentChip(
             
             IconButton(
                 onClick = onRemove,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(Sizing.iconMd)
             ) {
                 Icon(
                     Icons.Default.Close,
@@ -215,9 +217,9 @@ fun AttachmentPreview(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
             Surface(
                 shape = RectangleShape,
@@ -226,7 +228,7 @@ fun AttachmentPreview(
                 Icon(
                     getFileIcon(attachment.mimeType),
                     contentDescription = stringResource(R.string.cd_file_type),
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(Spacing.lg),
                     tint = getFileColor(attachment.mimeType)
                 )
             }

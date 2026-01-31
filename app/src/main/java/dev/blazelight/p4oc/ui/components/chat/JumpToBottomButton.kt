@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 /**
  * Floating action button that appears when user has scrolled away from the bottom
@@ -44,7 +45,7 @@ fun JumpToBottomButton(
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = stringResource(R.string.cd_jump_to_bottom),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(Sizing.iconLg)
             )
         }
     }

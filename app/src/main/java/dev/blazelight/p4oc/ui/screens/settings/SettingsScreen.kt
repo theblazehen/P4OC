@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +55,7 @@ fun SettingsScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(Sizing.iconLg)
                         )
                     }
                     Text(
@@ -150,31 +152,19 @@ fun SettingsScreen(
     }
 
     if (showDisconnectDialog) {
-        AlertDialog(
+        TuiConfirmDialog(
             onDismissRequest = { showDisconnectDialog = false },
-            title = { Text(stringResource(R.string.settings_disconnect)) },
-            text = { Text(stringResource(R.string.settings_disconnect_confirm)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDisconnectDialog = false
-                        scope.launch {
-                            viewModel.disconnect()
-                            onDisconnect()
-                        }
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.settings_disconnect))
+            onConfirm = {
+                scope.launch {
+                    viewModel.disconnect()
+                    onDisconnect()
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDisconnectDialog = false }) {
-                    Text(stringResource(R.string.button_cancel))
-                }
-            }
+            title = stringResource(R.string.settings_disconnect),
+            message = stringResource(R.string.settings_disconnect_confirm),
+            confirmText = stringResource(R.string.settings_disconnect),
+            dismissText = stringResource(R.string.button_cancel),
+            isDestructive = true
         )
     }
 }

@@ -23,6 +23,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
+import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiButton
+import dev.blazelight.p4oc.ui.components.TuiTextButton
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.SessionStatus
 import dev.blazelight.p4oc.ui.theme.ProjectColors
@@ -30,6 +34,8 @@ import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 private data class SessionNode(
     val sessionWithProject: SessionWithProject,
@@ -97,7 +103,7 @@ fun SessionListScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(R.string.cd_back),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(Sizing.iconLg)
                             )
                         }
                     }
@@ -222,28 +228,14 @@ fun SessionListScreen(
     }
 
     showDeleteDialog?.let { session ->
-        AlertDialog(
+        TuiConfirmDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text(stringResource(R.string.sessions_delete_title)) },
-            text = { Text(stringResource(R.string.sessions_delete_confirm, session.title ?: "")) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteSession(session.id)
-                        showDeleteDialog = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.sessions_delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = null }) {
-                    Text(stringResource(R.string.button_cancel))
-                }
-            }
+            onConfirm = { viewModel.deleteSession(session.id) },
+            title = stringResource(R.string.sessions_delete_title),
+            message = stringResource(R.string.sessions_delete_confirm, session.title ?: ""),
+            confirmText = stringResource(R.string.sessions_delete),
+            dismissText = stringResource(R.string.button_cancel),
+            isDestructive = true
         )
     }
 }
@@ -376,14 +368,14 @@ private fun SessionCard(
                     Icon(
                         if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (isExpanded) "Collapse" else "Expand",
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(Sizing.iconSm)
                     )
                 }
             } else if (isSubAgent) {
                 Icon(
                     Icons.Default.SubdirectoryArrowRight,
                     contentDescription = stringResource(R.string.cd_sub_agent_session),
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(Sizing.iconSm),
                     tint = MaterialTheme.colorScheme.outline
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -554,7 +546,7 @@ private fun EmptySessionsView(
     onCreateSession: () -> Unit
 ) {
     Column(
-        modifier = modifier.padding(12.dp),
+        modifier = modifier.padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -599,91 +591,88 @@ private fun NewSessionDialog(
 
     val globalText = stringResource(R.string.sessions_global)
     
-    AlertDialog(
+    TuiAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.sessions_new)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedProject?.name ?: globalText,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.sessions_project)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        // Global option first
-                        DropdownMenuItem(
-                            text = { 
-                                Column {
-                                    Text(stringResource(R.string.sessions_global), style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        stringResource(R.string.sessions_no_project_context),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
-                            onClick = {
-                                selectedProject = null
-                                expanded = false
-                            }
-                        )
-                        
-                        // Project options
-                        projects.forEach { project ->
-                            DropdownMenuItem(
-                                text = { 
-                                    Column {
-                                        Text(project.name, style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            project.worktree,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    selectedProject = project
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(R.string.sessions_title_optional)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
+        title = stringResource(R.string.sessions_new),
         confirmButton = {
-            Button(
+            TuiButton(
                 onClick = { onCreate(title.takeIf { it.isNotBlank() }, selectedProject?.worktree) }
             ) {
                 Text(stringResource(R.string.sessions_create))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TuiTextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.button_cancel))
             }
         }
-    )
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedProject?.name ?: globalText,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(R.string.sessions_project)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                // Global option first
+                DropdownMenuItem(
+                    text = { 
+                        Column {
+                            Text(stringResource(R.string.sessions_global), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                stringResource(R.string.sessions_no_project_context),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    onClick = {
+                        selectedProject = null
+                        expanded = false
+                    }
+                )
+                
+                // Project options
+                projects.forEach { project ->
+                    DropdownMenuItem(
+                        text = { 
+                            Column {
+                                Text(project.name, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    project.worktree,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            selectedProject = project
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+        
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text(stringResource(R.string.sessions_title_optional)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 private fun formatDateTime(epochMillis: Long): String {

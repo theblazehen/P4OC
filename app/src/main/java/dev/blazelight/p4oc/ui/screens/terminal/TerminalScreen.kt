@@ -20,6 +20,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.TermuxExtraKeysBar
 import dev.blazelight.p4oc.ui.components.TermuxTerminalView
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,7 +169,7 @@ private fun EmptyTerminalState(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(12.dp),
+        modifier = modifier.padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

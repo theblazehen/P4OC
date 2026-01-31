@@ -23,6 +23,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileStatus
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,7 +103,7 @@ fun GitScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(Spacing.xl),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
@@ -149,7 +151,7 @@ private fun BranchCard(branch: String) {
                 Icons.Default.AccountTree,
                 contentDescription = stringResource(R.string.git_current_branch),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(Sizing.iconLg)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -205,7 +207,7 @@ private fun EmptyChangesCard() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -249,8 +251,8 @@ private fun FileStatusItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(

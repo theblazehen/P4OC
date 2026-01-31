@@ -23,6 +23,8 @@ import dev.blazelight.p4oc.domain.model.Question
 import dev.blazelight.p4oc.domain.model.QuestionData
 import dev.blazelight.p4oc.domain.model.QuestionOption
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 /**
  * Inline question card that appears in the chat message list.
@@ -48,7 +50,7 @@ fun InlineQuestionCard(
             .fillMaxWidth()
             .background(theme.backgroundPanel)
             .border(1.dp, theme.border, RectangleShape)
-            .padding(12.dp),
+            .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Header row with icon and title
@@ -60,7 +62,7 @@ fun InlineQuestionCard(
                 imageVector = Icons.AutoMirrored.Filled.HelpOutline,
                 contentDescription = stringResource(R.string.cd_question_icon),
                 tint = theme.warning,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(Sizing.iconSm)
             )
             Text(
                 text = stringResource(R.string.question),
@@ -263,13 +265,13 @@ private fun InlineOptionItem(
             Checkbox(
                 checked = isSelected,
                 onCheckedChange = null,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(Sizing.iconMd)
             )
         } else {
             RadioButton(
                 selected = isSelected,
                 onClick = null,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(Sizing.iconMd)
             )
         }
         
@@ -294,7 +296,7 @@ private fun InlineOptionItem(
                 imageVector = Icons.Filled.CheckCircle,
                 contentDescription = stringResource(R.string.cd_selected),
                 tint = theme.primary,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(Sizing.iconSm)
             )
         }
     }

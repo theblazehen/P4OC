@@ -26,6 +26,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Command
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @Composable
 fun ChatInputBarWithAutocomplete(
@@ -95,11 +97,11 @@ fun ChatInputBarWithAutocomplete(
                 FilledIconButton(
                     onClick = onSend,
                     enabled = value.isNotBlank() && enabled && !isLoading,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(Sizing.iconHero)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(Sizing.iconLg),
                             strokeWidth = 2.dp
                         )
                     } else {
@@ -122,7 +124,7 @@ private fun CommandSuggestionsList(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = Spacing.xl),
         shape = RectangleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 4.dp
@@ -157,14 +159,14 @@ private fun CommandSuggestionItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.Terminal,
                 contentDescription = stringResource(R.string.cd_command_icon),
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(Sizing.iconMd),
                 tint = MaterialTheme.colorScheme.primary
             )
             

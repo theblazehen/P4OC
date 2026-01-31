@@ -14,6 +14,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.ui.theme.PocketCodeTheme
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 /**
  * Preview parameter providers for common data types
@@ -54,7 +55,7 @@ private fun EmptyStatePreview() {
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.xl)
             ) {
                 Icon(
                     Icons.Default.ChatBubbleOutline,
@@ -92,7 +93,7 @@ private fun SessionCardPreview(
                 .padding(8.dp)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(Spacing.xl),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
@@ -138,7 +139,7 @@ private fun ErrorStatePreview() {
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.xl)
             ) {
                 Icon(
                     Icons.Default.Error,
@@ -170,8 +171,8 @@ private fun SettingsItemPreview() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(Spacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -211,8 +212,8 @@ private fun FileItemPreview() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(Spacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -277,7 +278,7 @@ private fun ChatInputBarPreview() {
 private fun GitStatusBadgesPreview() {
     PocketCodeTheme {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.xl),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             listOf(
@@ -309,7 +310,7 @@ private fun GitStatusBadgesPreview() {
 private fun ConnectionStatusPreview() {
     PocketCodeTheme {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Connected
@@ -353,8 +354,8 @@ private fun TodoItemPreview() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(Spacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(checked = false, onCheckedChange = {})
@@ -382,7 +383,7 @@ private fun TodoItemPreview() {
 private fun ProjectChipPreview() {
     PocketCodeTheme {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.xl),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(

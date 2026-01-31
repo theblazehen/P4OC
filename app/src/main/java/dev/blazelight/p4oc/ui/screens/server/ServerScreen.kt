@@ -22,6 +22,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.RecentServer
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +143,7 @@ private fun ConnectionModeSelector(
                 text = stringResource(R.string.server_connection_mode),
                 style = MaterialTheme.typography.titleMedium
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.md))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -157,7 +159,7 @@ private fun ConnectionModeSelector(
                                     Icons.Default.PhoneAndroid else Icons.Default.Cloud,
                                 contentDescription = if (mode == ConnectionMode.LOCAL)
                                     stringResource(R.string.cd_local_mode) else stringResource(R.string.cd_remote_mode),
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(Sizing.iconSm)
                             )
                         },
                         modifier = Modifier.weight(1f)
@@ -215,7 +217,7 @@ private fun LocalServerSection(
                             onClick = { /* Open F-Droid link - handled by system */ },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.cd_open_fdroid), modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.cd_open_fdroid), modifier = Modifier.size(Sizing.iconSm))
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.termux_get_from_fdroid))
                         }
@@ -323,7 +325,7 @@ private fun LocalServerSection(
                                 Icons.Default.CheckCircle,
                                 contentDescription = stringResource(R.string.cd_server_running),
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(Sizing.iconMd)
                             )
                             Text(
                                 text = stringResource(R.string.termux_server_running),
@@ -357,7 +359,7 @@ private fun LocalServerSection(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        CircularProgressIndicator(modifier = Modifier.size(Sizing.iconLg))
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = stringResource(R.string.termux_checking),
@@ -485,7 +487,7 @@ private fun TermuxStatusCard(status: TermuxStatusUi) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(icon, contentDescription = stringResource(R.string.cd_connection_status), tint = color, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = stringResource(R.string.cd_connection_status), tint = color, modifier = Modifier.size(Sizing.iconMd))
         Text(text, color = color, style = MaterialTheme.typography.bodyMedium)
     }
 }
@@ -623,13 +625,13 @@ private fun RecentServersSection(
                         .clickable(enabled = !isConnecting) { onServerClick(server) }
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
                 ) {
                     Icon(
                         Icons.Default.History,
                         contentDescription = stringResource(R.string.cd_recent_server),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(Sizing.iconMd)
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(

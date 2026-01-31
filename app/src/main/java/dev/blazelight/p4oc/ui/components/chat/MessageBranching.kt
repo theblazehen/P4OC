@@ -20,9 +20,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
+import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiButton
+import dev.blazelight.p4oc.ui.components.TuiOutlinedButton
+import dev.blazelight.p4oc.ui.components.TuiTextField
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class MessageBranch(
     val id: String,
@@ -61,7 +68,7 @@ fun MessageBranchIndicator(
         IconButton(
             onClick = onPreviousBranch,
             enabled = currentBranchIndex > 0,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(Sizing.iconLg)
         ) {
             Icon(
                 Icons.Default.ChevronLeft,
@@ -79,7 +86,7 @@ fun MessageBranchIndicator(
         IconButton(
             onClick = onNextBranch,
             enabled = currentBranchIndex < branchCount - 1,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(Sizing.iconLg)
         ) {
             Icon(
                 Icons.Default.ChevronRight,
@@ -109,7 +116,7 @@ fun ForkMessageButton(
         Icon(
             Icons.AutoMirrored.Filled.CallSplit,
             contentDescription = stringResource(R.string.cd_fork_conversation),
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(Sizing.iconSm),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -137,7 +144,7 @@ fun BranchSelectorDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(Spacing.xl),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -162,12 +169,12 @@ fun BranchSelectorDialog(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(Spacing.xl),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(Spacing.lg)) {
                         Text(
                             text = stringResource(R.string.branch_point),
                             style = MaterialTheme.typography.labelSmall,
@@ -186,7 +193,7 @@ fun BranchSelectorDialog(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(Spacing.xl),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(branchPoint.branches, key = { it.id }) { branch ->
@@ -203,14 +210,14 @@ fun BranchSelectorDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(Spacing.xl),
                     horizontalArrangement = Arrangement.End
                 ) {
                     Button(onClick = onCreateNewBranch) {
                         Icon(
                             Icons.Default.Add,
                             contentDescription = stringResource(R.string.branch_new),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(Sizing.iconSm)
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(stringResource(R.string.branch_new))
@@ -244,12 +251,12 @@ private fun BranchCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.xl),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
@@ -298,7 +305,7 @@ private fun BranchCard(
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = stringResource(R.string.cd_delete_branch),
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(Sizing.iconSm),
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -307,31 +314,15 @@ private fun BranchCard(
     }
     
     if (showDeleteConfirm) {
-        AlertDialog(
+        TuiConfirmDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            icon = { Icon(Icons.Default.Warning, contentDescription = stringResource(R.string.cd_warning_state)) },
-            title = { Text(stringResource(R.string.branch_delete_title)) },
-            text = { 
-                Text(stringResource(R.string.branch_delete_confirm, branch.title))
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDelete()
-                        showDeleteConfirm = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(R.string.button_cancel))
-                }
-            }
+            onConfirm = { onDelete() },
+            title = stringResource(R.string.branch_delete_title),
+            message = stringResource(R.string.branch_delete_confirm, branch.title),
+            confirmText = stringResource(R.string.delete),
+            dismissText = stringResource(R.string.button_cancel),
+            isDestructive = true,
+            icon = Icons.Default.Warning
         )
     }
 }
@@ -345,46 +336,12 @@ fun CreateBranchDialog(
     var branchName by remember { mutableStateOf("") }
     val context = LocalContext.current
     
-    AlertDialog(
+    TuiAlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = stringResource(R.string.cd_branch_icon)) },
-        title = { Text(stringResource(R.string.branch_create_title)) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.fork_conversation_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Text(
-                        text = messagePreview,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(12.dp),
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                
-                OutlinedTextField(
-                    value = branchName,
-                    onValueChange = { branchName = it },
-                    label = { Text(stringResource(R.string.branch_name_label)) },
-                    placeholder = { Text(stringResource(R.string.branch_placeholder)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
+        icon = Icons.AutoMirrored.Filled.CallSplit,
+        title = stringResource(R.string.branch_create_title),
         confirmButton = {
-            Button(
+            TuiButton(
                 onClick = { onConfirm(branchName.ifBlank { context.getString(R.string.new_branch_default) }) },
                 enabled = true
             ) {
@@ -392,11 +349,39 @@ fun CreateBranchDialog(
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
+            TuiOutlinedButton(onClick = onDismiss) {
                 Text(stringResource(R.string.button_cancel))
             }
         }
-    )
+    ) {
+        Text(
+            text = stringResource(R.string.fork_conversation_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Text(
+                text = messagePreview,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(Spacing.lg),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        
+        TuiTextField(
+            value = branchName,
+            onValueChange = { branchName = it },
+            label = stringResource(R.string.branch_name_label),
+            placeholder = stringResource(R.string.branch_placeholder),
+            singleLine = true
+        )
+    }
 }
 
 @Composable

@@ -37,6 +37,8 @@ import dev.blazelight.p4oc.ui.components.todo.TodoTrackerFab
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 import kotlinx.coroutines.launch
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -280,7 +282,7 @@ fun ChatScreen(
                 },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 8.dp)
+                    .padding(end = Spacing.xl, bottom = 8.dp)
             )
         }
     }
@@ -355,7 +357,7 @@ private fun ChatTopBar(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(R.string.cd_back),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(Sizing.iconLg)
                 )
             }
             
@@ -456,7 +458,7 @@ private fun ConnectionBanner(
 @Composable
 private fun EmptyChatView(modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.padding(12.dp),
+        modifier = modifier.padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

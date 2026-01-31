@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @Composable
 fun SetupScreen(
@@ -23,7 +24,7 @@ fun SetupScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(12.dp),
+                .padding(Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -122,7 +123,7 @@ private fun TermuxInfoStep(onNext: () -> Unit, onSkip: () -> Unit) {
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.md))
 
         Button(
             onClick = onNext,

@@ -35,6 +35,8 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class ProjectsUiState(
     val projects: List<ProjectDto> = emptyList(),
@@ -120,7 +122,7 @@ fun ProjectsScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(R.string.back),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(Sizing.iconLg)
                             )
                         }
                     }
@@ -166,7 +168,7 @@ fun ProjectsScreen(
                         Icon(
                             Icons.Default.Error,
                             contentDescription = stringResource(R.string.cd_error_state),
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(Sizing.iconHero),
                             tint = MaterialTheme.colorScheme.error
                         )
                         Text(
@@ -255,13 +257,13 @@ private fun ProjectCard(
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
             Icon(
                 Icons.Default.Folder,
                 contentDescription = stringResource(R.string.cd_project_folder),
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(Sizing.iconLg)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -272,7 +274,7 @@ private fun ProjectCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
                 ) {
                     Text(
                         text = projectPath,

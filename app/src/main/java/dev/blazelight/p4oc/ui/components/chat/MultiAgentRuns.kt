@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class AgentRun(
     val agentName: String,
@@ -50,7 +52,7 @@ fun MultiAgentRunsIndicator(
         )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -65,7 +67,7 @@ fun MultiAgentRunsIndicator(
                     Icon(
                         Icons.Default.Groups,
                         contentDescription = stringResource(R.string.agent_runs),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(Sizing.iconMd),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
@@ -161,7 +163,7 @@ private fun AgentStatusIndicator(status: AgentRunStatus) {
         
         Box(
             modifier = Modifier
-                .size(24.dp)
+                .size(Sizing.iconLg)
                 .clip(CircleShape)
                 .background(color.copy(alpha = alpha * 0.2f)),
             contentAlignment = Alignment.Center
@@ -177,7 +179,7 @@ private fun AgentStatusIndicator(status: AgentRunStatus) {
         Icon(
             icon,
             contentDescription = stringResource(R.string.cd_agent_status),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(Sizing.iconMd),
             tint = color
         )
     }
@@ -282,8 +284,8 @@ fun SubtaskIndicator(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AgentStatusIndicator(status = status)

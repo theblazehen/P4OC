@@ -24,6 +24,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Command
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +64,7 @@ fun CommandPalette(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .padding(bottom = 16.dp)
+                .padding(bottom = Spacing.xl)
         ) {
             if (selectedCommand == null) {
                 CommandSearchView(
@@ -104,7 +106,7 @@ private fun CommandSearchView(
         text = stringResource(R.string.command_palette),
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(bottom = 16.dp)
+        modifier = Modifier.padding(bottom = Spacing.xl)
     )
 
     OutlinedTextField(
@@ -127,7 +129,7 @@ private fun CommandSearchView(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
     )
 
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(Spacing.md))
 
     when {
         isLoading -> {
@@ -151,10 +153,10 @@ private fun CommandSearchView(
                     Icon(
                         Icons.Default.SearchOff,
                         contentDescription = stringResource(R.string.no_matching_commands),
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(Sizing.iconHero),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     Text(
                         text = if (searchQuery.isEmpty()) stringResource(R.string.no_commands_available) else stringResource(R.string.no_matching_commands),
                         style = MaterialTheme.typography.bodyMedium,
@@ -196,15 +198,15 @@ private fun CommandItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.Terminal,
                 contentDescription = stringResource(R.string.cd_command_icon),
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(Sizing.iconLg)
             )
 
             Column(modifier = Modifier.weight(1f)) {
@@ -307,7 +309,7 @@ private fun CommandArgumentsView(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 16.dp)
+        modifier = Modifier.padding(bottom = Spacing.xl)
     ) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -326,7 +328,7 @@ private fun CommandArgumentsView(
             text = desc,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = Spacing.xl)
         )
     }
 
@@ -344,7 +346,7 @@ private fun CommandArgumentsView(
         keyboardActions = KeyboardActions(onDone = { onExecute() })
     )
 
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(Spacing.md))
 
     Button(
         onClick = onExecute,

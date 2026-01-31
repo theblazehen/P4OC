@@ -30,6 +30,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,8 +83,8 @@ fun PermissionDialogEnhanced(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(Spacing.xl),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xl)
                 ) {
                     Text(
                         text = permission.title,
@@ -113,7 +115,7 @@ fun PermissionDialogEnhanced(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(Spacing.xl),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
                     OutlinedButton(
@@ -122,19 +124,19 @@ fun PermissionDialogEnhanced(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_deny_action), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_deny_action), modifier = Modifier.size(Sizing.iconSm))
                         Spacer(Modifier.width(4.dp))
                         Text(stringResource(R.string.deny))
                     }
                     
                     TextButton(onClick = onAlways) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = stringResource(R.string.cd_approve_all), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.CheckCircle, contentDescription = stringResource(R.string.cd_approve_all), modifier = Modifier.size(Sizing.iconSm))
                         Spacer(Modifier.width(4.dp))
                         Text(stringResource(R.string.always_allow))
                     }
                     
                     Button(onClick = onAllow) {
-                        Icon(Icons.Default.Check, contentDescription = stringResource(R.string.cd_approve_action), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Check, contentDescription = stringResource(R.string.cd_approve_action), modifier = Modifier.size(Sizing.iconSm))
                         Spacer(Modifier.width(4.dp))
                         Text(stringResource(R.string.allow))
                     }
@@ -154,7 +156,7 @@ private fun PermissionTypeCard(type: String) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -189,7 +191,7 @@ private fun FilePathCard(path: String) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -217,7 +219,7 @@ private fun CommandCard(command: String) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
@@ -292,7 +294,7 @@ private fun CodePreviewCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(12.dp)
+                    .padding(Spacing.lg)
             ) {
                 Column {
                     displayLines.forEachIndexed { index, line ->
@@ -303,7 +305,7 @@ private fun CodePreviewCard(
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
-                            Spacer(Modifier.width(16.dp))
+                            Spacer(Modifier.width(Spacing.xl))
                             Text(
                                 text = highlightCodeLine(line),
                                 fontSize = 12.sp,
@@ -313,7 +315,7 @@ private fun CodePreviewCard(
                     }
                     
                     if (hasMore && !isExpanded) {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(Spacing.md))
                         Text(
                             text = stringResource(R.string.more_lines, lines.size - 10),
                             color = Color.White.copy(alpha = 0.5f),

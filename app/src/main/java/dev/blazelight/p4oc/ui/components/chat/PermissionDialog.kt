@@ -11,6 +11,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Permission
+import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiButton
+import dev.blazelight.p4oc.ui.components.TuiOutlinedButton
+import dev.blazelight.p4oc.ui.components.TuiTextButton
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @Composable
 fun PermissionDialog(
@@ -19,54 +24,41 @@ fun PermissionDialog(
     onDeny: () -> Unit,
     onAlways: () -> Unit
 ) {
-    AlertDialog(
+    TuiAlertDialog(
         onDismissRequest = onDeny,
-        icon = {
-            Icon(
-                Icons.Default.Security,
-                contentDescription = stringResource(R.string.cd_permission_icon),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        title = {
-            Text(stringResource(R.string.permission_required))
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(permission.title)
-                
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "Type: ${permission.type}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-        },
+        icon = Icons.Default.Security,
+        title = stringResource(R.string.permission_required),
         confirmButton = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TextButton(onClick = onAlways) {
+                TuiTextButton(onClick = onAlways) {
                     Text(stringResource(R.string.always_allow))
                 }
-                Button(onClick = onAllow) {
+                TuiButton(onClick = onAllow) {
                     Text(stringResource(R.string.allow))
                 }
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDeny) {
+            TuiOutlinedButton(onClick = onDeny) {
                 Text(stringResource(R.string.deny))
             }
         }
-    )
+    ) {
+        Text(permission.title)
+        
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
+                Text(
+                    text = "Type: ${permission.type}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
 }

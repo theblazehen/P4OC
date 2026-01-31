@@ -11,6 +11,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class ErrorState(
     val hasError: Boolean = false,
@@ -57,7 +59,7 @@ fun ErrorFallback(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(12.dp),
+            .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -94,7 +96,7 @@ fun ErrorFallback(
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = stringResource(R.string.cd_retry),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(Sizing.iconSm)
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(stringResource(R.string.retry))
@@ -200,7 +202,7 @@ fun ErrorSnackbar(
             Icon(
                 getErrorIcon(errorType),
                 contentDescription = stringResource(R.string.cd_error_state),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(Sizing.iconMd)
             )
             Text(message)
         }
@@ -268,7 +270,7 @@ fun NetworkErrorBanner(
                     Icon(
                         Icons.Default.WifiOff,
                         contentDescription = stringResource(R.string.no_network_connection),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(Sizing.iconMd),
                         tint = MaterialTheme.colorScheme.onErrorContainer
                     )
                     Text(

@@ -21,6 +21,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Question
 import dev.blazelight.p4oc.domain.model.QuestionData
 import dev.blazelight.p4oc.domain.model.QuestionOption
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @Composable
 fun QuestionDialog(
@@ -46,20 +47,20 @@ fun QuestionDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
+                    .padding(Spacing.lg)
             ) {
                 if (questionData.questions.size > 1) {
                     LinearProgressIndicator(
                         progress = { (currentQuestionIndex + 1f) / questionData.questions.size },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     Text(
                         text = stringResource(R.string.question_x_of_y, currentQuestionIndex + 1, questionData.questions.size),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                 }
                 
                 currentQuestion?.let { question ->
@@ -69,14 +70,14 @@ fun QuestionDialog(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     
                     Text(
                         text = question.question,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.md))
                     
                     QuestionOptions(
                         question = question,

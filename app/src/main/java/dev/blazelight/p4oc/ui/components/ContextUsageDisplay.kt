@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class ContextUsage(
     val usedTokens: Int,
@@ -85,10 +87,10 @@ private fun CompactContextIndicator(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(Sizing.iconLg),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.size(20.dp)) {
+            Canvas(modifier = Modifier.size(Sizing.iconMd)) {
                 val strokeWidth = 3.dp.toPx()
                 
                 drawArc(
@@ -131,8 +133,8 @@ private fun ExpandedContextIndicator(
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class ModelOption(
     val key: String,
@@ -73,7 +74,7 @@ fun ChatInputBar(
                                 )
                                 IconButton(
                                     onClick = { onRemoveAttachment(file.path) },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(Sizing.iconLg)
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
@@ -151,7 +152,7 @@ fun ChatInputBar(
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(Sizing.iconMd),
                             strokeWidth = 2.dp
                         )
                     } else {

@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 data class ModelInfo(
     val id: String,
@@ -199,7 +200,7 @@ fun ModelControlsScreen(
                 onQueryChange = viewModel::updateSearchQuery,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(Spacing.xl)
             )
             
             if (providers.size > 1) {
@@ -207,9 +208,9 @@ fun ModelControlsScreen(
                     providers = providers,
                     selected = state.filterProvider,
                     onSelect = viewModel::setFilterProvider,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = Spacing.xl)
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.md))
             }
             
             if (state.isLoading) {
@@ -222,7 +223,7 @@ fun ModelControlsScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(Spacing.xl),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val favoriteModels = filteredModels.filter { it.isFavorite }
@@ -272,7 +273,7 @@ fun ModelControlsScreen(
     
     state.error?.let { error ->
         Snackbar(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.xl),
             action = {
                 TextButton(onClick = viewModel::clearError) {
                     Text(stringResource(R.string.dismiss))
@@ -356,7 +357,7 @@ private fun ModelCard(
             null
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(

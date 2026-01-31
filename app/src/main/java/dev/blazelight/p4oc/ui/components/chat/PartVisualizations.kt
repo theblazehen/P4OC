@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @Composable
 fun RetryPartDisplay(
@@ -39,7 +41,7 @@ fun RetryPartDisplay(
         )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -54,7 +56,7 @@ fun RetryPartDisplay(
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = stringResource(R.string.cd_retry),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(Sizing.iconMd),
                         tint = MaterialTheme.colorScheme.error
                     )
                     Text(
@@ -139,8 +141,8 @@ fun StepStartDisplay(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -184,7 +186,7 @@ fun StepFinishDisplay(
         )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -199,7 +201,7 @@ fun StepFinishDisplay(
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = stringResource(R.string.cd_completed),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(Sizing.iconMd),
                         tint = SemanticColors.Status.success
                     )
                     Text(
