@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 data class ModelInfo(
     val id: String,
@@ -215,12 +216,7 @@ fun ModelControlsScreen(
             }
             
             if (state.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                TuiLoadingScreen()
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),

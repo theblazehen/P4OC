@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import androidx.compose.ui.graphics.vector.ImageVector
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import androidx.compose.ui.text.font.FontWeight
@@ -128,7 +129,7 @@ fun FileExplorerScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    TuiLoadingScreen(modifier = Modifier.align(Alignment.Center))
                 }
                 filteredFiles.isEmpty() -> {
                     Column(

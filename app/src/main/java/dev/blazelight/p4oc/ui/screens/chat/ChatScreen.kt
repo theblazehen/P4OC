@@ -36,6 +36,7 @@ import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerFab
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import kotlinx.coroutines.launch
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -233,7 +234,7 @@ fun ChatScreen(
             }
 
             if (uiState.isLoading) {
-                CircularProgressIndicator(
+                TuiLoadingScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }

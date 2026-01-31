@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.ui.theme.PocketCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 /**
  * Preview parameter providers for common data types
@@ -117,12 +118,7 @@ private fun SessionCardPreview(
 @Composable
 private fun LoadingStatePreview() {
     PocketCodeTheme {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
+        TuiLoadingScreen()
     }
 }
 

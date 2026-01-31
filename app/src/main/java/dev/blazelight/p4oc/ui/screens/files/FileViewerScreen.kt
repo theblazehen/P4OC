@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.code.Language
 import dev.blazelight.p4oc.ui.components.code.SyntaxHighlightedCode
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +77,7 @@ fun FileViewerScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    TuiLoadingScreen(modifier = Modifier.align(Alignment.Center))
                 }
                 fileContent != null -> {
                     SyntaxHighlightedCode(

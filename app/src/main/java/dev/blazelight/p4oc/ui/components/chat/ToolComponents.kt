@@ -39,6 +39,7 @@ import dev.blazelight.p4oc.ui.theme.SemanticColors
 import kotlinx.serialization.json.*
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @Composable
 fun getToolIcon(toolName: String): ImageVector {
@@ -464,10 +465,7 @@ fun EnhancedToolPart(
                 
                 when (state) {
                     is ToolState.Running -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(Sizing.iconXs),
-                            strokeWidth = 2.dp
-                        )
+                        TuiLoadingIndicator()
                     }
                     is ToolState.Completed, is ToolState.Error -> {
                         Icon(

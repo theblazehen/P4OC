@@ -16,6 +16,7 @@ import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolGroupWidget
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @Composable
 fun ChatMessage(
@@ -173,10 +174,7 @@ private fun TextPart(part: Part.Text) {
             )
         }
         if (part.isStreaming) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(10.dp),
-                strokeWidth = 1.dp
-            )
+            TuiLoadingIndicator()
         }
     }
 }
@@ -208,11 +206,7 @@ private fun ReasoningPart(part: Part.Reasoning) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isThinking) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        strokeWidth = 1.dp,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
+                    TuiLoadingIndicator()
                 } else {
                     Icon(
                         Icons.Default.Psychology,

@@ -30,6 +30,7 @@ import dev.blazelight.p4oc.data.remote.dto.ProviderDto
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,14 +59,9 @@ fun ProviderConfigScreen(
     ) { padding ->
         when {
             uiState.isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                TuiLoadingScreen(
+                    modifier = Modifier.padding(padding)
+                )
             }
             uiState.error != null -> {
                 Box(

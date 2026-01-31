@@ -23,6 +23,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @Composable
 fun InlineDiffViewer(
@@ -249,10 +250,7 @@ fun PatchDiffViewer(
                                 modifier = Modifier.weight(1f)
                             )
                             if (isLoading && isExpanded) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(Sizing.iconXs),
-                                    strokeWidth = 2.dp
-                                )
+                                TuiLoadingIndicator()
                             } else {
                                 Icon(
                                     if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,

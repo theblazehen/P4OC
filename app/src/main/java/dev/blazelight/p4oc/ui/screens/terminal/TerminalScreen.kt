@@ -22,6 +22,7 @@ import dev.blazelight.p4oc.ui.components.TermuxTerminalView
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,9 +93,8 @@ fun TerminalScreen(
             ) {
                 when {
                     uiState.isLoading -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.Center),
-                            color = SemanticColors.Terminal.green
+                        TuiLoadingIndicator(
+                            modifier = Modifier.align(Alignment.Center)
                         )
                     }
                     uiState.ptySessions.isEmpty() -> {

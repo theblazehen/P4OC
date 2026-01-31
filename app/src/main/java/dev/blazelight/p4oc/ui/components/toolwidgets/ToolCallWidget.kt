@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -122,11 +123,7 @@ fun ToolCallOneline(
         
         // Running indicator
         if (tool.state is ToolState.Running) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(10.dp),
-                strokeWidth = 1.dp,
-                color = theme.warning
-            )
+            TuiLoadingIndicator()
         }
     }
 }
@@ -178,11 +175,7 @@ fun ToolCallCompact(
         
         // Running indicator
         if (tool.state is ToolState.Running) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                strokeWidth = 1.5.dp,
-                color = theme.warning
-            )
+            TuiLoadingIndicator()
         }
         
         // Diff stats for edit tools

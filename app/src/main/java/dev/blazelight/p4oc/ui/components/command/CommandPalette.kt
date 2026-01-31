@@ -26,6 +26,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Command
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,7 +140,7 @@ private fun CommandSearchView(
                     .height(200.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                TuiLoadingIndicator()
             }
         }
         filteredCommands.isEmpty() -> {

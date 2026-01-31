@@ -25,6 +25,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileStatus
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,14 +60,9 @@ fun GitScreen(
     ) { padding ->
         when {
             uiState.isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                TuiLoadingScreen(
+                    modifier = Modifier.padding(padding)
+                )
             }
             !uiState.hasVcs -> {
                 Box(

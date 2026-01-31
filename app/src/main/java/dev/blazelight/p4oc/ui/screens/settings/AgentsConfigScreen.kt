@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 data class AgentInfo(
     val name: String,
@@ -154,14 +155,9 @@ fun AgentsConfigScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         if (state.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
+            TuiLoadingScreen(
+                modifier = Modifier.padding(padding)
+            )
         } else if (state.agents.isEmpty() && state.error != null) {
             Box(
                 modifier = Modifier

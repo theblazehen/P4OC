@@ -24,6 +24,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.RecentServer
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -302,10 +303,7 @@ private fun LocalServerSection(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 if (isConnecting) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(Sizing.iconXs),
-                                        strokeWidth = 2.dp
-                                    )
+                                    TuiLoadingIndicator()
                                 } else {
                                     Icon(Icons.Default.Link, contentDescription = stringResource(R.string.cd_connect))
                                 }
@@ -339,10 +337,7 @@ private fun LocalServerSection(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             if (isConnecting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(Sizing.iconXs),
-                                    strokeWidth = 2.dp
-                                )
+                                TuiLoadingIndicator()
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.button_connecting))
                             } else {
@@ -359,7 +354,7 @@ private fun LocalServerSection(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(Sizing.iconLg))
+                        TuiLoadingIndicator()
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = stringResource(R.string.termux_checking),
@@ -570,10 +565,7 @@ private fun RemoteServerSection(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isConnecting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(Sizing.iconXs),
-                        strokeWidth = 2.dp
-                    )
+                    TuiLoadingIndicator()
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.button_connecting))
                 } else {

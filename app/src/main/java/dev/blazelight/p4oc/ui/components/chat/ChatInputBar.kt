@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 data class ModelOption(
     val key: String,
@@ -151,10 +152,7 @@ fun ChatInputBar(
                     modifier = Modifier.size(40.dp)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(Sizing.iconMd),
-                            strokeWidth = 2.dp
-                        )
+                        TuiLoadingIndicator()
                     } else {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,

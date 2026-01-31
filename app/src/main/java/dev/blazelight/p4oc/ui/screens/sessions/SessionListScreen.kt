@@ -27,6 +27,8 @@ import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
 import dev.blazelight.p4oc.ui.components.TuiAlertDialog
 import dev.blazelight.p4oc.ui.components.TuiButton
 import dev.blazelight.p4oc.ui.components.TuiTextButton
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.SessionStatus
 import dev.blazelight.p4oc.ui.theme.ProjectColors
@@ -154,7 +156,7 @@ fun SessionListScreen(
         ) {
             when {
                 uiState.isLoading && displayedSessions.isEmpty() -> {
-                    CircularProgressIndicator(
+                    TuiLoadingScreen(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -498,11 +500,7 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                TuiLoadingIndicator()
                 Text(
                     text = stringResource(R.string.session_working),
                     style = MaterialTheme.typography.bodySmall,

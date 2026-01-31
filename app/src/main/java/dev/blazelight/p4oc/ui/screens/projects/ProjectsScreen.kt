@@ -37,6 +37,7 @@ import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 data class ProjectsUiState(
     val projects: List<ProjectDto> = emptyList(),
@@ -145,14 +146,9 @@ fun ProjectsScreen(
     ) { padding ->
         when {
             uiState.isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                TuiLoadingScreen(
+                    modifier = Modifier.padding(padding)
+                )
             }
             uiState.error != null -> {
                 Box(

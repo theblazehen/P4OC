@@ -20,6 +20,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -79,11 +80,7 @@ fun BashWidgetExpanded(
                 modifier = Modifier.weight(1f)
             )
             if (state is ToolState.Running) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(12.dp),
-                    strokeWidth = 1.5.dp,
-                    color = theme.warning
-                )
+                TuiLoadingIndicator()
             }
         }
         
@@ -178,11 +175,7 @@ fun ReadWidgetExpanded(
             )
             Spacer(Modifier.weight(1f))
             if (state is ToolState.Running) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(12.dp),
-                    strokeWidth = 1.5.dp,
-                    color = theme.warning
-                )
+                TuiLoadingIndicator()
             }
         }
         
@@ -285,11 +278,7 @@ fun EditWidgetExpanded(
             }
             
             if (state is ToolState.Running) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(12.dp),
-                    strokeWidth = 1.5.dp,
-                    color = theme.warning
-                )
+                TuiLoadingIndicator()
             }
         }
         
@@ -389,11 +378,7 @@ fun DefaultWidgetExpanded(
             )
             Spacer(Modifier.weight(1f))
             if (state is ToolState.Running) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(12.dp),
-                    strokeWidth = 1.5.dp,
-                    color = theme.warning
-                )
+                TuiLoadingIndicator()
             }
         }
         

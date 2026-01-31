@@ -29,6 +29,7 @@ import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 data class SelectedFile(
     val path: String,
@@ -140,7 +141,7 @@ fun FilePickerDialog(
                 Box(modifier = Modifier.weight(1f)) {
                     when {
                         isLoading -> {
-                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                            TuiLoadingScreen(modifier = Modifier.align(Alignment.Center))
                         }
                         filteredFiles.isEmpty() -> {
                             Column(

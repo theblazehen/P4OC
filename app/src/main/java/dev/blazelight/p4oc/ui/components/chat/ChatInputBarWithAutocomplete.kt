@@ -28,6 +28,7 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Command
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @Composable
 fun ChatInputBarWithAutocomplete(
@@ -100,10 +101,7 @@ fun ChatInputBarWithAutocomplete(
                     modifier = Modifier.size(Sizing.iconHero)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(Sizing.iconLg),
-                            strokeWidth = 2.dp
-                        )
+                        TuiLoadingIndicator()
                     } else {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
