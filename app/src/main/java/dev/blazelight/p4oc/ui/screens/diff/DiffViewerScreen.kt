@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -22,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 enum class DiffViewMode { UNIFIED, SIDE_BY_SIDE }
 
@@ -113,7 +116,7 @@ fun DiffViewerScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Diff Viewer",
+                            text = stringResource(R.string.diff_viewer_title),
                             style = MaterialTheme.typography.titleMedium
                         )
                         if (displayFileName.isNotEmpty()) {
@@ -127,7 +130,7 @@ fun DiffViewerScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
@@ -141,7 +144,7 @@ fun DiffViewerScreen(
                             if (viewMode == DiffViewMode.UNIFIED) Icons.Default.ViewColumn 
                             else Icons.Default.ViewAgenda,
                             contentDescription = if (viewMode == DiffViewMode.UNIFIED) 
-                                "Switch to side-by-side" else "Switch to unified"
+                                stringResource(R.string.cd_switch_side_by_side) else stringResource(R.string.cd_switch_unified)
                         )
                     }
                 }
@@ -157,7 +160,7 @@ fun DiffViewerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No diff content to display",
+                    text = stringResource(R.string.diff_no_content),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -186,10 +189,10 @@ private fun UnifiedDiffView(
     hunks: List<DiffHunk>,
     modifier: Modifier = Modifier
 ) {
-    val addedBgColor = Color(0xFF2E7D32).copy(alpha = 0.15f)
-    val removedBgColor = Color(0xFFC62828).copy(alpha = 0.15f)
-    val addedTextColor = Color(0xFF4CAF50)
-    val removedTextColor = Color(0xFFF44336)
+    val addedBgColor = SemanticColors.Diff.addedBackground
+    val removedBgColor = SemanticColors.Diff.removedBackground
+    val addedTextColor = SemanticColors.Diff.addedText
+    val removedTextColor = SemanticColors.Diff.removedText
     val headerBgColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     val allLines = remember(hunks) {
@@ -288,10 +291,10 @@ private fun SideBySideDiffView(
     hunks: List<DiffHunk>,
     modifier: Modifier = Modifier
 ) {
-    val addedBgColor = Color(0xFF2E7D32).copy(alpha = 0.15f)
-    val removedBgColor = Color(0xFFC62828).copy(alpha = 0.15f)
-    val addedTextColor = Color(0xFF4CAF50)
-    val removedTextColor = Color(0xFFF44336)
+    val addedBgColor = SemanticColors.Diff.addedBackground
+    val removedBgColor = SemanticColors.Diff.removedBackground
+    val addedTextColor = SemanticColors.Diff.addedText
+    val removedTextColor = SemanticColors.Diff.removedText
     val headerBgColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     data class SideBySideLine(
@@ -475,26 +478,26 @@ fun DiffStats(added: Int, removed: Int, modifier: Modifier = Modifier) {
     ) {
         if (added > 0) {
             Surface(
-                color = Color(0xFF4CAF50).copy(alpha = 0.15f),
+                color = SemanticColors.Diff.addedBackground,
                 shape = RectangleShape
             ) {
                 Text(
                     text = "+$added",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF4CAF50),
+                    color = SemanticColors.Diff.addedText,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
         }
         if (removed > 0) {
             Surface(
-                color = Color(0xFFF44336).copy(alpha = 0.15f),
+                color = SemanticColors.Diff.removedBackground,
                 shape = RectangleShape
             ) {
                 Text(
                     text = "-$removed",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFF44336),
+                    color = SemanticColors.Diff.removedText,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }

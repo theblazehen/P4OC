@@ -7,8 +7,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 
 @Composable
 fun SetupScreen(
@@ -46,19 +48,19 @@ private fun WelcomeStep(onNext: () -> Unit) {
     ) {
         Icon(
             Icons.Default.Code,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_decorative),
             modifier = Modifier.size(96.dp),
             tint = MaterialTheme.colorScheme.primary
         )
 
         Text(
-            text = "Welcome to Pocket Code",
+            text = stringResource(R.string.setup_welcome_title),
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center
         )
 
         Text(
-            text = "Your AI coding assistant, now on Android",
+            text = stringResource(R.string.setup_welcome_subtitle),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -70,7 +72,7 @@ private fun WelcomeStep(onNext: () -> Unit) {
             onClick = onNext,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Get Started")
+            Text(stringResource(R.string.setup_get_started))
         }
     }
 }
@@ -83,19 +85,19 @@ private fun TermuxInfoStep(onNext: () -> Unit, onSkip: () -> Unit) {
     ) {
         Icon(
             Icons.Default.Terminal,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_terminal),
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.secondary
         )
 
         Text(
-            text = "Run OpenCode Locally",
+            text = stringResource(R.string.setup_run_locally_title),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
         )
 
         Text(
-            text = "Pocket Code can run OpenCode directly on your device using Termux. This lets you use AI coding assistance without a separate server.",
+            text = stringResource(R.string.setup_run_locally_description),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -111,12 +113,12 @@ private fun TermuxInfoStep(onNext: () -> Unit, onSkip: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Requirements:",
+                    text = stringResource(R.string.setup_requirements),
                     style = MaterialTheme.typography.titleSmall
                 )
-                Text("• Termux app from F-Droid", style = MaterialTheme.typography.bodySmall)
-                Text("• Node.js (installed via Termux)", style = MaterialTheme.typography.bodySmall)
-                Text("• OpenCode CLI", style = MaterialTheme.typography.bodySmall)
+                Text("• ${stringResource(R.string.setup_requirement_termux)}", style = MaterialTheme.typography.bodySmall)
+                Text("• ${stringResource(R.string.setup_requirement_nodejs)}", style = MaterialTheme.typography.bodySmall)
+                Text("• ${stringResource(R.string.setup_requirement_opencode)}", style = MaterialTheme.typography.bodySmall)
             }
         }
 
@@ -126,11 +128,11 @@ private fun TermuxInfoStep(onNext: () -> Unit, onSkip: () -> Unit) {
             onClick = onNext,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Continue")
+            Text(stringResource(R.string.setup_continue))
         }
 
         TextButton(onClick = onSkip) {
-            Text("Skip for now")
+            Text(stringResource(R.string.setup_skip))
         }
     }
 }

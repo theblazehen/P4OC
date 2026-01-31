@@ -12,10 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Question
 import dev.blazelight.p4oc.domain.model.QuestionData
 import dev.blazelight.p4oc.domain.model.QuestionOption
@@ -53,7 +55,7 @@ fun QuestionDialog(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Question ${currentQuestionIndex + 1} of ${questionData.questions.size}",
+                        text = stringResource(R.string.question_x_of_y, currentQuestionIndex + 1, questionData.questions.size),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -97,14 +99,14 @@ fun QuestionDialog(
                             onClick = { currentQuestionIndex-- },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Previous")
+                            Text(stringResource(R.string.previous))
                         }
                     } else {
                         OutlinedButton(
                             onClick = onDismiss,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.button_cancel))
                         }
                     }
                     
@@ -122,7 +124,7 @@ fun QuestionDialog(
                         enabled = hasAnswer,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(if (isLastQuestion) "Submit" else "Next")
+                        Text(if (isLastQuestion) stringResource(R.string.submit) else stringResource(R.string.next))
                     }
                 }
             }
@@ -182,7 +184,7 @@ private fun QuestionOptions(
                         onSelectionChange(listOf(it))
                     }
                 },
-                label = { Text("Custom answer") },
+                label = { Text(stringResource(R.string.custom_answer)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = false,
                 minLines = 2,
@@ -196,7 +198,7 @@ private fun QuestionOptions(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Other (provide custom answer)")
+                Text(stringResource(R.string.other_custom_answer))
             }
         }
     }
@@ -264,7 +266,7 @@ private fun QuestionOptionItem(
             if (isSelected && !isMultiple) {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = "Selected",
+                    contentDescription = stringResource(R.string.cd_selected),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }

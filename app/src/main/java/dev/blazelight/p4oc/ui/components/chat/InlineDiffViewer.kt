@@ -13,11 +13,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 @Composable
 fun InlineDiffViewer(
@@ -49,7 +52,7 @@ fun InlineDiffViewer(
                 ) {
                     Icon(
                         Icons.Default.Description,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_diff_icon),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -65,14 +68,14 @@ fun InlineDiffViewer(
                         Text(
                             text = "+$additions",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF4CAF50)
+                            color = SemanticColors.Diff.addedText
                         )
                     }
                     if (deletions > 0) {
                         Text(
                             text = "-$deletions",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFF44336)
+                            color = SemanticColors.Diff.removedText
                         )
                     }
                     Icon(
@@ -109,13 +112,13 @@ fun InlineDiffViewer(
 private fun InlineDiffLineRow(line: DiffLine) {
     val (bgColor, textColor, prefix) = when (line.type) {
         DiffLineType.ADDED -> Triple(
-            Color(0xFF4CAF50).copy(alpha = 0.15f),
-            Color(0xFF4CAF50),
+            SemanticColors.Diff.addedBackground,
+            SemanticColors.Diff.addedText,
             "+"
         )
         DiffLineType.REMOVED -> Triple(
-            Color(0xFFF44336).copy(alpha = 0.15f),
-            Color(0xFFF44336),
+            SemanticColors.Diff.removedBackground,
+            SemanticColors.Diff.removedText,
             "-"
         )
         DiffLineType.HEADER -> Triple(
@@ -194,11 +197,11 @@ fun PatchDiffViewer(
     var isLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(expandedFile) {
-        if (expandedFile != null) {
+        expandedFile?.let { file ->
             isLoading = true
-            diffContent = getDiffContent(expandedFile!!)
+            diffContent = getDiffContent(file)
             isLoading = false
-        } else {
+        } ?: run {
             diffContent = null
         }
     }
@@ -231,7 +234,7 @@ fun PatchDiffViewer(
                         ) {
                             Icon(
                                 Icons.Default.Description,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.cd_diff_icon),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -262,7 +265,10 @@ fun PatchDiffViewer(
                     if (isExpanded && diffContent != null) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         
-                        val diffLines = remember(diffContent) { parseInlineDiff(diffContent!!) }
+                        val currentDiffContent = diffContent
+                        val diffLines = remember(currentDiffContent) { 
+                            currentDiffContent?.let { parseInlineDiff(it) } ?: emptyList()
+                        }
                         
                         Box(
                             modifier = Modifier

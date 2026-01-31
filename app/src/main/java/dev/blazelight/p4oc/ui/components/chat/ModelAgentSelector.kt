@@ -15,19 +15,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.data.remote.dto.AgentDto
 import dev.blazelight.p4oc.data.remote.dto.ModelDto
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
-
-private val AgentColorBuild = Color(0xFF3B82F6)
-private val AgentColorPlan = Color(0xFFA855F7)
-private val AgentColorDefault = Color(0xFF6B7280)
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 @Composable
 private fun getAgentColor(agent: AgentDto?): Color {
-    if (agent == null) return AgentColorBuild
+    if (agent == null) return SemanticColors.AgentSelector.build
     
     agent.color?.let { hex ->
         try {
@@ -35,11 +34,7 @@ private fun getAgentColor(agent: AgentDto?): Color {
         } catch (_: Exception) {}
     }
     
-    return when (agent.name.lowercase()) {
-        "build" -> AgentColorBuild
-        "plan" -> AgentColorPlan
-        else -> AgentColorDefault
-    }
+    return SemanticColors.AgentSelector.forName(agent.name)
 }
 
 data class EnhancedModelInfo(
@@ -68,8 +63,9 @@ fun ModelAgentSelectorBar(
 ) {
     var showModelPicker by remember { mutableStateOf(false) }
     
-    val selectedModelName = remember(selectedModel, availableModels) {
-        if (selectedModel == null) return@remember "Select Model"
+    val selectModelText = stringResource(R.string.select_model)
+    val selectedModelName = remember(selectedModel, availableModels, selectModelText) {
+        if (selectedModel == null) return@remember selectModelText
         availableModels.find { it.first == selectedModel.providerID && it.second.id == selectedModel.modelID }
             ?.second?.name ?: selectedModel.modelID
     }
@@ -141,7 +137,7 @@ fun ModelAgentSelectorBar(
                         )
                         Icon(
                             Icons.Default.ExpandMore,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_expand),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -228,10 +224,10 @@ fun ModelPickerDialog(
         ) {
             Column {
                 TopAppBar(
-                    title = { Text("Select Model") },
+                    title = { Text(stringResource(R.string.select_model)) },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, "Close")
+                            Icon(Icons.Default.Close, stringResource(R.string.close))
                         }
                     }
                 )
@@ -242,11 +238,11 @@ fun ModelPickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    placeholder = { Text("Search models...") },
+                    placeholder = { Text(stringResource(R.string.models_search_placeholder)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
                         { IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, "Clear")
+                            Icon(Icons.Default.Clear, stringResource(R.string.clear))
                         }}
                     } else null,
                     singleLine = true
@@ -261,7 +257,7 @@ fun ModelPickerDialog(
                     FilterChip(
                         selected = selectedCategory == null,
                         onClick = { selectedCategory = null },
-                        label = { Text("All") }
+                        label = { Text(stringResource(R.string.all)) }
                     )
                     providers.forEach { provider ->
                         FilterChip(

@@ -741,6 +741,7 @@ class EventMapper @Inject constructor(
             else -> null
         }
     } catch (e: Exception) {
+        android.util.Log.e("EventMapper", "Failed to map event type=${dto.type}: ${e.message}", e)
         null
     }
 }

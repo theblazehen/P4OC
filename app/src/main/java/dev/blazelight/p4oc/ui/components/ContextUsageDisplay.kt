@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Input
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,8 +18,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 data class ContextUsage(
     val usedTokens: Int,
@@ -44,8 +48,8 @@ fun ContextUsageIndicator(
     
     val color = when {
         percentage > 0.9f -> MaterialTheme.colorScheme.error
-        percentage > 0.75f -> Color(0xFFFFA726)
-        percentage > 0.5f -> Color(0xFFFFEE58)
+        percentage > 0.75f -> SemanticColors.Usage.high
+        percentage > 0.5f -> SemanticColors.Usage.medium
         else -> MaterialTheme.colorScheme.primary
     }
     
@@ -141,11 +145,11 @@ private fun ExpandedContextIndicator(
                 ) {
                     Icon(
                         Icons.Default.Memory,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_context_memory),
                         tint = color
                     )
                     Text(
-                        text = "Context Usage",
+                        text = stringResource(R.string.context_usage),
                         style = MaterialTheme.typography.titleSmall
                     )
                 }
@@ -173,7 +177,7 @@ private fun ExpandedContextIndicator(
                 TokenStat(
                     label = "Input",
                     value = usage.inputTokens,
-                    icon = Icons.Default.Input,
+                    icon = Icons.AutoMirrored.Filled.Input,
                     color = MaterialTheme.colorScheme.primary
                 )
                 TokenStat(
@@ -200,7 +204,7 @@ private fun ExpandedContextIndicator(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Estimated Cost",
+                        text = stringResource(R.string.estimated_cost),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -228,7 +232,7 @@ private fun TokenStat(
     ) {
         Icon(
             icon,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_token_stat),
             modifier = Modifier.size(16.dp),
             tint = color
         )
@@ -299,7 +303,7 @@ fun ContextUsageBar(
                 
                 Icon(
                     Icons.Default.ExpandMore,
-                    contentDescription = "Show details",
+                    contentDescription = stringResource(R.string.cd_show_details),
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -313,8 +317,8 @@ private fun getContextColor(usage: ContextUsage): Color {
     val percentage = usage.usedTokens.toFloat() / usage.maxTokens.toFloat()
     return when {
         percentage > 0.9f -> MaterialTheme.colorScheme.error
-        percentage > 0.75f -> Color(0xFFFFA726)
-        percentage > 0.5f -> Color(0xFFFFEE58)
+        percentage > 0.75f -> SemanticColors.Usage.high
+        percentage > 0.5f -> SemanticColors.Usage.medium
         else -> MaterialTheme.colorScheme.primary
     }
 }

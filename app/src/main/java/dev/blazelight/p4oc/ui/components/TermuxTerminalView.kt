@@ -216,10 +216,16 @@ fun TermuxTerminalView(
             container
         },
         update = { container ->
+            @Suppress("UNCHECKED_CAST")
+            val views = container.tag as? Pair<TerminalView, TerminalInputView>
+            
+            // Update the input callback on recomposition to avoid stale callbacks
+            views?.second?.onKeyInput = onKeyInput
+            
             emulator?.let { emu ->
-                @Suppress("UNCHECKED_CAST")
-                val views = container.tag as? Pair<TerminalView, TerminalInputView>
                 views?.first?.let { view ->
+                    // Update the terminal view client to use the new callback
+                    view.setTerminalViewClient(terminalViewClient)
                     view.mEmulator = emu
                     view.onScreenUpdated()
                 }

@@ -28,10 +28,10 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE sessionID = :sessionId")
     suspend fun deleteMessagesForSession(sessionId: String)
 
-    @Query("SELECT * FROM parts WHERE messageID = :messageId ORDER BY id ASC")
+    @Query("SELECT * FROM parts WHERE messageID = :messageId ORDER BY insertedAt ASC, id ASC")
     fun getPartsForMessage(messageId: String): Flow<List<PartEntity>>
 
-    @Query("SELECT * FROM parts WHERE sessionID = :sessionId ORDER BY id ASC")
+    @Query("SELECT * FROM parts WHERE sessionID = :sessionId ORDER BY insertedAt ASC, id ASC")
     fun getPartsForSession(sessionId: String): Flow<List<PartEntity>>
 
     @Query("SELECT * FROM parts WHERE id = :id")

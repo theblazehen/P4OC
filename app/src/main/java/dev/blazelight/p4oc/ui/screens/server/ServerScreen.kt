@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,8 +16,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.RecentServer
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,7 +31,7 @@ fun ServerScreen(
     onNavigateToProjects: () -> Unit,
     onSettings: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.navigationDestination) {
         when (uiState.navigationDestination) {
@@ -46,10 +50,10 @@ fun ServerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Connect to Server") },
+                title = { Text(stringResource(R.string.server_connect_title)) },
                 actions = {
                     IconButton(onClick = onSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
                 }
             )
@@ -112,7 +116,7 @@ fun ServerScreen(
                     ) {
                         Icon(
                             Icons.Default.Error,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_error_icon),
                             tint = MaterialTheme.colorScheme.error
                         )
                         Text(
@@ -134,7 +138,7 @@ private fun ConnectionModeSelector(
     Card {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Connection Mode",
+                text = stringResource(R.string.server_connection_mode),
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -151,7 +155,8 @@ private fun ConnectionModeSelector(
                             Icon(
                                 imageVector = if (mode == ConnectionMode.LOCAL)
                                     Icons.Default.PhoneAndroid else Icons.Default.Cloud,
-                                contentDescription = null,
+                                contentDescription = if (mode == ConnectionMode.LOCAL)
+                                    stringResource(R.string.cd_local_mode) else stringResource(R.string.cd_remote_mode),
                                 modifier = Modifier.size(18.dp)
                             )
                         },
@@ -178,105 +183,282 @@ private fun LocalServerSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Local Server (Termux)",
+                text = stringResource(R.string.server_local_title),
                 style = MaterialTheme.typography.titleMedium
             )
 
             Text(
-                text = "Run OpenCode directly on your device using Termux.",
+                text = stringResource(R.string.server_local_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            TermuxStatusCard(status = termuxStatus)
+            // Setup progress indicator
+            SetupProgressIndicator(status = termuxStatus)
+            
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             when (termuxStatus) {
                 TermuxStatusUi.NotInstalled -> {
-                    Text(
-                        text = "Termux is required. Install it from F-Droid.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.termux_step1_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = stringResource(R.string.termux_step1_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = { /* Open F-Droid link - handled by system */ },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.cd_open_fdroid), modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.termux_get_from_fdroid))
+                        }
+                    }
                 }
                 TermuxStatusUi.SetupRequired -> {
-                    Button(
-                        onClick = onOpenTermux,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Build, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Setup Termux")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.termux_step2_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = stringResource(R.string.termux_step2_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = onOpenTermux,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Build, contentDescription = stringResource(R.string.cd_setup))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.termux_run_setup))
+                        }
+                        Text(
+                            text = stringResource(R.string.termux_step2_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     }
                 }
                 TermuxStatusUi.OpenCodeNotInstalled -> {
-                    Button(
-                        onClick = onInstallOpenCode,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Download, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Install OpenCode")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.termux_step3_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = stringResource(R.string.termux_step3_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = onInstallOpenCode,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = stringResource(R.string.cd_install))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.termux_install_opencode))
+                        }
                     }
                 }
                 TermuxStatusUi.Ready -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onStartServer,
-                            modifier = Modifier.weight(1f)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.termux_ready_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = stringResource(R.string.termux_ready_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Start")
+                            OutlinedButton(
+                                onClick = onStartServer,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.cd_start_server))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.button_start_server))
+                            }
+                            Button(
+                                onClick = onConnect,
+                                enabled = !isConnecting,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                if (isConnecting) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Link, contentDescription = stringResource(R.string.cd_connect))
+                                }
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.button_connect))
+                            }
+                        }
+                    }
+                }
+                TermuxStatusUi.ServerRunning -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = stringResource(R.string.cd_server_running),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.termux_server_running),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                         Button(
                             onClick = onConnect,
                             enabled = !isConnecting,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             if (isConnecting) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp
                                 )
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.button_connecting))
                             } else {
-                                Icon(Icons.Default.Link, contentDescription = null)
+                                Icon(Icons.Default.Link, contentDescription = stringResource(R.string.cd_connect))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.button_connect_now))
                             }
-                            Spacer(Modifier.width(4.dp))
-                            Text("Connect")
-                        }
-                    }
-                }
-                TermuxStatusUi.ServerRunning -> {
-                    Button(
-                        onClick = onConnect,
-                        enabled = !isConnecting,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (isConnecting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Connecting...")
-                        } else {
-                            Icon(Icons.Default.Link, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Connect to Running Server")
                         }
                     }
                 }
                 TermuxStatusUi.Unknown, TermuxStatusUi.Checking -> {
-                    Box(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.termux_checking),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupProgressIndicator(status: TermuxStatusUi) {
+    val steps = listOf(
+        stringResource(R.string.termux_progress_install),
+        stringResource(R.string.termux_progress_access),
+        stringResource(R.string.termux_progress_opencode),
+        stringResource(R.string.termux_progress_ready)
+    )
+    val currentStep = when (status) {
+        TermuxStatusUi.NotInstalled -> 0
+        TermuxStatusUi.SetupRequired -> 1
+        TermuxStatusUi.OpenCodeNotInstalled -> 2
+        TermuxStatusUi.Ready, TermuxStatusUi.ServerRunning -> 3
+        else -> -1
+    }
+    
+    if (currentStep < 0) return
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        steps.forEachIndexed { index, step ->
+            val isCompleted = index < currentStep
+            val isCurrent = index == currentStep
+            
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = when {
+                            isCompleted -> MaterialTheme.colorScheme.primary
+                            isCurrent -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            if (isCompleted) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = stringResource(R.string.cd_completed),
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "${index + 1}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = when {
+                                        isCurrent -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    text = step,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = when {
+                        isCompleted || isCurrent -> MaterialTheme.colorScheme.onSurface
+                        else -> MaterialTheme.colorScheme.outline
+                    },
+                    maxLines = 1
+                )
+            }
+            
+            if (index < steps.lastIndex) {
+                HorizontalDivider(
+                    modifier = Modifier
+                        .weight(0.5f)
+                        .padding(horizontal = 4.dp),
+                    color = if (index < currentStep) 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.outlineVariant
+                )
             }
         }
     }
@@ -303,7 +485,7 @@ private fun TermuxStatusCard(status: TermuxStatusUi) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = stringResource(R.string.cd_connection_status), tint = color, modifier = Modifier.size(20.dp))
         Text(text, color = color, style = MaterialTheme.typography.bodyMedium)
     }
 }
@@ -327,12 +509,12 @@ private fun RemoteServerSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Remote Server",
+                text = stringResource(R.string.server_remote_title),
                 style = MaterialTheme.typography.titleMedium
             )
 
             Text(
-                text = "Connect to an OpenCode server running on your network.",
+                text = stringResource(R.string.server_remote_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -340,38 +522,41 @@ private fun RemoteServerSection(
             OutlinedTextField(
                 value = url,
                 onValueChange = onUrlChange,
-                label = { Text("Server URL") },
-                placeholder = { Text("http://192.168.1.100:4096") },
+                label = { Text(stringResource(R.string.field_server_url)) },
+                placeholder = { Text(stringResource(R.string.field_server_url_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) }
+                leadingIcon = { Icon(Icons.Default.Link, contentDescription = stringResource(R.string.cd_server_url)) }
             )
 
             OutlinedTextField(
                 value = username,
                 onValueChange = onUsernameChange,
-                label = { Text("Username (optional)") },
+                label = { Text(stringResource(R.string.field_username)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = stringResource(R.string.cd_username)) }
             )
 
             OutlinedTextField(
                 value = password,
                 onValueChange = onPasswordChange,
-                label = { Text("Password (optional)") },
+                label = { Text(stringResource(R.string.field_password)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = if (passwordVisible) 
                     VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.cd_password)) },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             if (passwordVisible) Icons.Default.VisibilityOff 
                             else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            contentDescription = if (passwordVisible) 
+                                stringResource(R.string.field_hide_password) 
+                            else 
+                                stringResource(R.string.field_show_password)
                         )
                     }
                 }
@@ -388,11 +573,11 @@ private fun RemoteServerSection(
                         strokeWidth = 2.dp
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Connecting...")
+                    Text(stringResource(R.string.button_connecting))
                 } else {
-                    Icon(Icons.Default.Link, contentDescription = null)
+                    Icon(Icons.Default.Link, contentDescription = stringResource(R.string.cd_connect))
                     Spacer(Modifier.width(8.dp))
-                    Text("Connect")
+                    Text(stringResource(R.string.button_connect))
                 }
             }
         }
@@ -427,7 +612,7 @@ private fun RecentServersSection(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Recent Servers",
+                text = stringResource(R.string.server_recent_servers),
                 style = MaterialTheme.typography.titleMedium
             )
             
@@ -442,7 +627,7 @@ private fun RecentServersSection(
                 ) {
                     Icon(
                         Icons.Default.History,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_recent_server),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -467,7 +652,7 @@ private fun RecentServersSection(
                     ) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Remove",
+                            contentDescription = stringResource(R.string.cd_remove),
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.outline
                         )

@@ -9,8 +9,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.code.Language
 import dev.blazelight.p4oc.ui.components.code.SyntaxHighlightedCode
 
@@ -21,7 +24,7 @@ fun FileViewerScreen(
     viewModel: FilesViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showLineNumbers by remember { mutableStateOf(true) }
 
     LaunchedEffect(path) {
@@ -46,7 +49,7 @@ fun FileViewerScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
@@ -56,13 +59,16 @@ fun FileViewerScreen(
                                 Icons.Default.FormatListNumbered 
                             else 
                                 Icons.Default.FormatListNumberedRtl,
-                            contentDescription = "Toggle line numbers"
+                            contentDescription = stringResource(R.string.cd_toggle_line_numbers)
                         )
                     }
                 }
             )
         }
     ) { padding ->
+        val fileContent = uiState.fileContent
+        val error = uiState.error
+        
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -72,9 +78,9 @@ fun FileViewerScreen(
                 uiState.isLoading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-                uiState.fileContent != null -> {
+                fileContent != null -> {
                     SyntaxHighlightedCode(
-                        code = uiState.fileContent!!,
+                        code = fileContent,
                         filename = filename,
                         modifier = Modifier
                             .fillMaxSize()
@@ -82,9 +88,9 @@ fun FileViewerScreen(
                         showLineNumbers = showLineNumbers
                     )
                 }
-                uiState.error != null -> {
+                error != null -> {
                     Text(
-                        text = uiState.error!!,
+                        text = error,
                         modifier = Modifier.align(Alignment.Center),
                         color = MaterialTheme.colorScheme.error
                     )

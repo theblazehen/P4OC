@@ -14,9 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DirectoryManager
@@ -28,9 +31,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 data class ProjectsUiState(
@@ -94,7 +97,7 @@ fun ProjectsScreen(
     onProjectClick: (projectId: String, worktree: String) -> Unit = { _, _ -> },
     onGitClick: (String) -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -116,14 +119,14 @@ fun ProjectsScreen(
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.back),
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                     
                     Text(
-                        text = "Projects",
+                        text = stringResource(R.string.projects_title),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f)
                     )
@@ -132,7 +135,7 @@ fun ProjectsScreen(
                         onClick = { viewModel.loadProjects() },
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -162,7 +165,7 @@ fun ProjectsScreen(
                     ) {
                         Icon(
                             Icons.Default.Error,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_error_state),
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.error
                         )
@@ -171,7 +174,7 @@ fun ProjectsScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                         Button(onClick = { viewModel.loadProjects() }) {
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -189,17 +192,17 @@ fun ProjectsScreen(
                     ) {
                         Icon(
                             Icons.Default.FolderOpen,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_folder_icon),
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "No Projects",
+                            text = stringResource(R.string.projects_no_projects),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Projects you've worked on will appear here",
+                            text = stringResource(R.string.projects_appear_here),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -238,8 +241,11 @@ private fun ProjectCard(
 ) {
     val projectName = project.worktree.substringAfterLast("/")
     val projectPath = project.worktree
-    val dateFormat = remember { SimpleDateFormat("MMM dd", Locale.US) }
-    val createdDate = dateFormat.format(Date(project.time.created))
+    val createdDate = remember(project.time.created) {
+        val instant = Instant.fromEpochMilliseconds(project.time.created)
+        val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        "${localDateTime.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }} ${localDateTime.dayOfMonth.toString().padStart(2, '0')}"
+    }
 
     Card(
         modifier = Modifier
@@ -253,7 +259,7 @@ private fun ProjectCard(
         ) {
             Icon(
                 Icons.Default.Folder,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_project_folder),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
@@ -297,7 +303,7 @@ private fun ProjectCard(
                     ) {
                         Icon(
                             Icons.Default.Code,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_git),
                             modifier = Modifier.size(16.dp)
                         )
                         Text(

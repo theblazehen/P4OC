@@ -38,11 +38,18 @@ class OpenCodeEventSource(
 
     private var sseJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    
+    // Flag to prevent auto-reconnect after intentional disconnect
+    @Volatile
+    private var shouldReconnect = true
 
     fun connect() {
         Log.d(TAG, "connect() called, state=${_connectionState.value}, jobActive=${sseJob?.isActive}")
         if (_connectionState.value is ConnectionState.Connected) return
         if (sseJob?.isActive == true) return
+        
+        // Re-enable reconnection when explicitly connecting
+        shouldReconnect = true
 
         sseJob = scope.launch {
             _connectionState.value = ConnectionState.Connecting
@@ -62,6 +69,7 @@ class OpenCodeEventSource(
                 val response = okHttpClient.newCall(request).execute()
                 
                 if (!response.isSuccessful) {
+                    response.close()  // Close response body on error
                     throw IOException("Unexpected response: ${response.code}")
                 }
 
@@ -69,8 +77,12 @@ class OpenCodeEventSource(
                 _connectionState.value = ConnectionState.Connected
                 _events.tryEmit(OpenCodeEvent.Connected)
 
-                response.body?.source()?.let { source ->
-                    readSseStream(source)
+                try {
+                    response.body?.source()?.let { source ->
+                        readSseStream(source)
+                    }
+                } finally {
+                    response.close()  // Always close response when done
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -118,6 +130,8 @@ class OpenCodeEventSource(
 
     fun disconnect() {
         Log.d(TAG, "disconnect() called")
+        // Disable auto-reconnect when intentionally disconnecting
+        shouldReconnect = false
         sseJob?.cancel()
         sseJob = null
         _connectionState.value = ConnectionState.Disconnected
@@ -160,9 +174,13 @@ class OpenCodeEventSource(
     }
 
     private fun scheduleReconnect() {
+        if (!shouldReconnect) {
+            Log.d(TAG, "scheduleReconnect() skipped - shouldReconnect=false")
+            return
+        }
         scope.launch {
             delay(RECONNECT_DELAY_MS)
-            if (_connectionState.value !is ConnectionState.Connected) {
+            if (_connectionState.value !is ConnectionState.Connected && shouldReconnect) {
                 connect()
             }
         }

@@ -14,14 +14,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.data.remote.dto.ModelInput
+import dev.blazelight.p4oc.data.remote.dto.SetActiveModelRequest
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -118,7 +124,15 @@ class ModelControlsViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(selectedModelId = modelId) }
             val api = connectionManager.getApi() ?: return@launch
-            safeApiCall { api.setActiveModel(modelId) }
+            // Find the model to get its providerId
+            val model = _state.value.models.find { it.id == modelId } ?: return@launch
+            val request = SetActiveModelRequest(
+                model = ModelInput(
+                    providerID = model.providerId,
+                    modelID = model.id
+                )
+            )
+            safeApiCall { api.setActiveModel(request) }
         }
     }
     
@@ -141,7 +155,7 @@ fun ModelControlsScreen(
     viewModel: ModelControlsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     
     val filteredModels = remember(state.models, state.searchQuery, state.filterProvider) {
         state.models.filter { model ->
@@ -161,15 +175,15 @@ fun ModelControlsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Models") },
+                title = { Text(stringResource(R.string.models_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.loadModels() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
                 }
             )
@@ -217,7 +231,7 @@ fun ModelControlsScreen(
                     if (favoriteModels.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Favorites",
+                                text = stringResource(R.string.models_favorites),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(vertical = 8.dp)
@@ -236,7 +250,7 @@ fun ModelControlsScreen(
                     if (otherModels.isNotEmpty()) {
                         item {
                             Text(
-                                text = "All Models",
+                                text = stringResource(R.string.models_all),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(vertical = 8.dp)
@@ -261,7 +275,7 @@ fun ModelControlsScreen(
             modifier = Modifier.padding(16.dp),
             action = {
                 TextButton(onClick = viewModel::clearError) {
-                    Text("Dismiss")
+                    Text(stringResource(R.string.dismiss))
                 }
             }
         ) {
@@ -280,12 +294,12 @@ private fun SearchBar(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier,
-        placeholder = { Text("Search models...") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        placeholder = { Text(stringResource(R.string.models_search_placeholder)) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search_models)) },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear))
                 }
             }
         },
@@ -307,7 +321,7 @@ private fun ProviderFilterChips(
         FilterChip(
             selected = selected == null,
             onClick = { onSelect(null) },
-            label = { Text("All") }
+            label = { Text(stringResource(R.string.all)) }
         )
         providers.forEach { provider ->
             FilterChip(
@@ -367,15 +381,15 @@ private fun ModelCard(
                     if (isSelected) {
                         Icon(
                             Icons.Default.CheckCircle,
-                            contentDescription = "Selected",
+                            contentDescription = stringResource(R.string.cd_selected),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
                     IconButton(onClick = onToggleFavorite) {
                         Icon(
                             if (model.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = if (model.isFavorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (model.isFavorite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant
+                            contentDescription = if (model.isFavorite) stringResource(R.string.cd_remove_from_favorites) else stringResource(R.string.cd_add_to_favorites),
+                            tint = if (model.isFavorite) SemanticColors.Accent.favorite else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -387,11 +401,11 @@ private fun ModelCard(
                 if (model.supportsTools) {
                     AssistChip(
                         onClick = {},
-                        label = { Text("Tools") },
+                        label = { Text(stringResource(R.string.models_tools)) },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Build,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.models_tools),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -400,11 +414,11 @@ private fun ModelCard(
                 if (model.supportsReasoning) {
                     AssistChip(
                         onClick = {},
-                        label = { Text("Reasoning") },
+                        label = { Text(stringResource(R.string.models_reasoning)) },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Psychology,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.models_reasoning),
                                 modifier = Modifier.size(16.dp)
                             )
                         }

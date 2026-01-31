@@ -7,7 +7,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 
 /**
  * Floating action button that appears when user has scrolled away from the bottom
@@ -41,7 +43,7 @@ fun JumpToBottomButton(
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = "Jump to bottom",
+                contentDescription = stringResource(R.string.cd_jump_to_bottom),
                 modifier = Modifier.size(24.dp)
             )
         }

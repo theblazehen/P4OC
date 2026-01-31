@@ -7,16 +7,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Question
 import dev.blazelight.p4oc.domain.model.QuestionData
 import dev.blazelight.p4oc.domain.model.QuestionOption
@@ -55,13 +57,13 @@ fun InlineQuestionCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.HelpOutline,
-                contentDescription = null,
+                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                contentDescription = stringResource(R.string.cd_question_icon),
                 tint = theme.warning,
                 modifier = Modifier.size(18.dp)
             )
             Text(
-                text = "Question",
+                text = stringResource(R.string.question),
                 style = MaterialTheme.typography.labelMedium,
                 color = theme.warning,
                 fontWeight = FontWeight.Bold
@@ -116,7 +118,7 @@ fun InlineQuestionCard(
                     modifier = Modifier.weight(1f),
                     shape = RectangleShape
                 ) {
-                    Text("Previous")
+                    Text(stringResource(R.string.previous))
                 }
             } else {
                 OutlinedButton(
@@ -124,7 +126,7 @@ fun InlineQuestionCard(
                     modifier = Modifier.weight(1f),
                     shape = RectangleShape
                 ) {
-                    Text("Skip")
+                    Text(stringResource(R.string.skip))
                 }
             }
             
@@ -143,7 +145,7 @@ fun InlineQuestionCard(
                 modifier = Modifier.weight(1f),
                 shape = RectangleShape
             ) {
-                Text(if (isLastQuestion) "Submit" else "Next")
+                Text(if (isLastQuestion) stringResource(R.string.submit) else stringResource(R.string.next))
             }
         }
     }
@@ -198,7 +200,7 @@ private fun InlineQuestionOptions(
                         onSelectionChange(listOf(it))
                     }
                 },
-                placeholder = { Text("Type your answer...") },
+                placeholder = { Text(stringResource(R.string.type_your_answer)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = false,
                 minLines = 1,
@@ -223,7 +225,7 @@ private fun InlineQuestionOptions(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Other...",
+                    text = stringResource(R.string.other),
                     style = MaterialTheme.typography.bodyMedium,
                     color = theme.textMuted
                 )
@@ -290,7 +292,7 @@ private fun InlineOptionItem(
         if (isSelected && !isMultiple) {
             Icon(
                 imageVector = Icons.Filled.CheckCircle,
-                contentDescription = "Selected",
+                contentDescription = stringResource(R.string.cd_selected),
                 tint = theme.primary,
                 modifier = Modifier.size(18.dp)
             )

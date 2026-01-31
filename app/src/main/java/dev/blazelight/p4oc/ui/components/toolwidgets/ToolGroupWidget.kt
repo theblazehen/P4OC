@@ -24,8 +24,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -166,7 +168,7 @@ fun ToolGroupWidget(
             if (currentState != ToolWidgetState.ONELINE) {
                 Icon(
                     imageVector = Icons.Default.ExpandLess,
-                    contentDescription = "Expanded",
+                    contentDescription = stringResource(R.string.cd_expanded),
                     modifier = Modifier.size(16.dp),
                     tint = theme.border
                 )
@@ -240,7 +242,7 @@ private fun PendingApprovalButtonsInline(
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
             shape = RectangleShape
         ) {
-            Text("Deny", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.deny), style = MaterialTheme.typography.labelSmall)
         }
         Button(
             onClick = onApprove,
@@ -250,7 +252,7 @@ private fun PendingApprovalButtonsInline(
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
             shape = RectangleShape
         ) {
-            Text("Allow", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.allow), style = MaterialTheme.typography.labelSmall)
         }
     }
 }

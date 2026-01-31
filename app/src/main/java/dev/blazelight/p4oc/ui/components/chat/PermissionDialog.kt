@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Permission
 
 @Composable
@@ -22,12 +24,12 @@ fun PermissionDialog(
         icon = {
             Icon(
                 Icons.Default.Security,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_permission_icon),
                 tint = MaterialTheme.colorScheme.primary
             )
         },
         title = {
-            Text("Permission Required")
+            Text(stringResource(R.string.permission_required))
         },
         text = {
             Column(
@@ -54,16 +56,16 @@ fun PermissionDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 TextButton(onClick = onAlways) {
-                    Text("Always Allow")
+                    Text(stringResource(R.string.always_allow))
                 }
                 Button(onClick = onAllow) {
-                    Text("Allow")
+                    Text(stringResource(R.string.allow))
                 }
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDeny) {
-                Text("Deny")
+                Text(stringResource(R.string.deny))
             }
         }
     )

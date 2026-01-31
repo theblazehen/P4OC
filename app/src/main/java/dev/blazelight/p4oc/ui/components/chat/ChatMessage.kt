@@ -9,7 +9,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolGroupWidget
@@ -214,7 +216,7 @@ private fun ReasoningPart(part: Part.Reasoning) {
                 } else {
                     Icon(
                         Icons.Default.Psychology,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.models_reasoning),
                         modifier = Modifier.size(12.dp),
                         tint = MaterialTheme.colorScheme.tertiary
                     )
@@ -271,7 +273,7 @@ private fun FilePart(part: Part.File) {
         ) {
             Icon(
                 Icons.Default.AttachFile, 
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_attach_file),
                 modifier = Modifier.size(14.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -307,7 +309,7 @@ private fun CompactPatchPart(part: Part.Patch) {
             ) {
                 Icon(
                     Icons.Default.Description, 
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_diff_icon),
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -333,8 +335,9 @@ private fun CompactPatchPart(part: Part.Patch) {
                     )
                 }
             } else if (part.files.isNotEmpty()) {
+                val firstFile = part.files.firstOrNull() ?: return@Column
                 Text(
-                    text = "  ${part.files.first()}" + if (part.files.size > 1) " ..." else "",
+                    text = "  $firstFile" + if (part.files.size > 1) " ..." else "",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -239,11 +239,8 @@ interface OpenCodeApi {
     @GET("agent")
     suspend fun getAgents(): List<AgentDto>
     
-    @GET("agent")
-    suspend fun listAgents(): List<AgentDto>
-    
     @POST("model/active")
-    suspend fun setActiveModel(@Body modelId: String): Boolean
+    suspend fun setActiveModel(@Body request: SetActiveModelRequest): Boolean
 
     @GET("lsp")
     suspend fun getLspStatus(): List<LspStatusDto>

@@ -14,8 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.TermuxExtraKeysBar
 import dev.blazelight.p4oc.ui.components.TermuxTerminalView
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,32 +27,45 @@ fun TerminalScreen(
     viewModel: TerminalViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show error in snackbar
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(uiState.selectedPty?.title ?: "Terminal")
+                    Text(uiState.selectedPty?.title ?: stringResource(R.string.terminal_title))
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = viewModel::clearTerminal) {
-                        Icon(Icons.Default.Delete, contentDescription = "Clear")
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.clear))
                     }
                     IconButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
                     IconButton(onClick = { viewModel.createNewSession() }) {
-                        Icon(Icons.Default.Add, contentDescription = "New Terminal")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create))
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -69,13 +86,13 @@ fun TerminalScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(Color.Black)
+                    .background(SemanticColors.Terminal.background)
             ) {
                 when {
                     uiState.isLoading -> {
                         CircularProgressIndicator(
                             modifier = Modifier.align(Alignment.Center),
-                            color = Color(0xFF00FF00)
+                            color = SemanticColors.Terminal.green
                         )
                     }
                     uiState.ptySessions.isEmpty() -> {
@@ -99,19 +116,6 @@ fun TerminalScreen(
                 enabled = uiState.selectedPtyId != null && uiState.isConnected,
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-
-        uiState.error?.let { error ->
-            Snackbar(
-                modifier = Modifier.padding(16.dp),
-                action = {
-                    TextButton(onClick = viewModel::clearError) {
-                        Text("Dismiss")
-                    }
-                }
-            ) {
-                Text(error)
-            }
         }
     }
 }
@@ -137,7 +141,7 @@ private fun SessionTabRow(
                 leadingIcon = {
                     Icon(
                         Icons.Default.Terminal,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_terminal_tab),
                         modifier = Modifier.size(16.dp)
                     )
                 },
@@ -148,7 +152,7 @@ private fun SessionTabRow(
                     ) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.close),
                             modifier = Modifier.size(12.dp)
                         )
                     }
@@ -170,25 +174,25 @@ private fun EmptyTerminalState(
     ) {
         Icon(
             Icons.Default.Terminal,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_terminal),
             modifier = Modifier.size(64.dp),
-            tint = Color(0xFF00FF00)
+            tint = SemanticColors.Terminal.green
         )
         Text(
-            text = "No Terminal Sessions",
+            text = stringResource(R.string.terminal_no_sessions),
             color = Color.White,
             style = MaterialTheme.typography.titleMedium
         )
         Button(
             onClick = onCreateTerminal,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF00FF00),
+                containerColor = SemanticColors.Terminal.green,
                 contentColor = Color.Black
             )
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create))
             Spacer(Modifier.width(8.dp))
-            Text("Create Terminal")
+            Text(stringResource(R.string.terminal_create))
         }
     }
 }

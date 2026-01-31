@@ -169,7 +169,8 @@ class ServerViewModel @Inject constructor(
                 url = url,
                 name = "Remote Server",
                 isLocal = false,
-                username = state.username.takeIf { it.isNotBlank() }
+                username = state.username.takeIf { it.isNotBlank() },
+                password = state.password.takeIf { it.isNotBlank() }
             )
             val password = state.password.takeIf { it.isNotBlank() }
 
@@ -178,6 +179,8 @@ class ServerViewModel @Inject constructor(
             result.fold(
                 onSuccess = {
                     Log.d(TAG, "Connection successful!")
+                    // Clear password from UI state after successful connection for security
+                    _uiState.update { it.copy(password = "") }
                     settingsDataStore.saveLastConnection(config)
                     settingsDataStore.addRecentServer(url, "Remote Server")
                     initializeProjectContext()
@@ -185,9 +188,11 @@ class ServerViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     Log.e(TAG, "Connection failed: ${error.message}", error)
+                    // Clear password from UI state on failure too - user can re-enter
                     _uiState.update { 
                         it.copy(
                             isConnecting = false, 
+                            password = "",
                             error = "Failed to connect: ${error.message}"
                         ) 
                     }

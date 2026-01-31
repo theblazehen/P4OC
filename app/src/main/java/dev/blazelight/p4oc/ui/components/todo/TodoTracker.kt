@@ -16,11 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Todo
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,12 +54,12 @@ fun TodoTrackerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Todo Tracker",
+                    text = stringResource(R.string.todo_tracker),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold
                 )
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
                 }
             }
 
@@ -116,12 +119,12 @@ private fun ProgressCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Progress",
+                    text = stringResource(R.string.progress),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "$completed / $total",
+                    text = stringResource(R.string.progress_count, completed, total),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -143,7 +146,7 @@ private fun ProgressCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "${(progress * 100).toInt()}% complete",
+                text = stringResource(R.string.percent_complete, (progress * 100).toInt()),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
@@ -167,18 +170,18 @@ private fun EmptyTodosCard() {
         ) {
             Icon(
                 Icons.Default.CheckCircle,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_all_complete),
                 modifier = Modifier.size(48.dp),
-                tint = Color(0xFF4CAF50)
+                tint = SemanticColors.Todo.completed
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "No active todos",
+                text = stringResource(R.string.no_active_todos),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = "The agent hasn't created any tasks yet",
+                text = stringResource(R.string.agent_no_tasks),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -362,21 +365,16 @@ private fun StatusBadge(status: String, color: Color) {
 
 private fun getStatusInfo(status: String): Pair<androidx.compose.ui.graphics.vector.ImageVector, Color> {
     return when (status) {
-        "pending" -> Icons.Default.Schedule to Color(0xFF9E9E9E)
-        "in_progress" -> Icons.Default.PlayCircle to Color(0xFF2196F3)
-        "completed" -> Icons.Default.CheckCircle to Color(0xFF4CAF50)
-        "cancelled" -> Icons.Default.Cancel to Color(0xFFF44336)
-        else -> Icons.Default.Circle to Color(0xFF9E9E9E)
+        "pending" -> Icons.Default.Schedule to SemanticColors.Todo.pending
+        "in_progress" -> Icons.Default.PlayCircle to SemanticColors.Todo.inProgress
+        "completed" -> Icons.Default.CheckCircle to SemanticColors.Todo.completed
+        "cancelled" -> Icons.Default.Cancel to SemanticColors.Todo.cancelled
+        else -> Icons.Default.Circle to SemanticColors.Todo.pending
     }
 }
 
 private fun getPriorityColor(priority: String): Color {
-    return when (priority.lowercase()) {
-        "high" -> Color(0xFFF44336)
-        "medium" -> Color(0xFFFF9800)
-        "low" -> Color(0xFF4CAF50)
-        else -> Color(0xFF9E9E9E)
-    }
+    return SemanticColors.Todo.forPriority(priority)
 }
 
 @Composable
@@ -404,7 +402,7 @@ fun TodoTrackerFab(
             ) {
                 Icon(
                     Icons.Default.Checklist,
-                    contentDescription = "Todos",
+                    contentDescription = stringResource(R.string.cd_todos),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }

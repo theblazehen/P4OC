@@ -7,10 +7,10 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.ui.navigation.NavGraph
@@ -30,8 +30,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val themeMode by settingsDataStore.themeMode.collectAsState(initial = "system")
-            val themeName by settingsDataStore.themeName.collectAsState(initial = SettingsDataStore.DEFAULT_THEME_NAME)
+            val themeMode by settingsDataStore.themeMode.collectAsStateWithLifecycle(initialValue = "system")
+            val themeName by settingsDataStore.themeName.collectAsStateWithLifecycle(initialValue = SettingsDataStore.DEFAULT_THEME_NAME)
             val darkTheme = when (themeMode) {
                 "dark" -> true
                 "light" -> false

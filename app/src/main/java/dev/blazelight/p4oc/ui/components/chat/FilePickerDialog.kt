@@ -18,12 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 data class SelectedFile(
     val path: String,
@@ -71,14 +74,14 @@ fun FilePickerDialog(
                 TopAppBar(
                     title = { 
                         Text(
-                            text = "Attach Files",
+                            text = stringResource(R.string.attach_files),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, "Close")
+                            Icon(Icons.Default.Close, stringResource(R.string.close))
                         }
                     },
                     actions = {
@@ -95,7 +98,7 @@ fun FilePickerDialog(
                             onClick = onConfirm,
                             enabled = selectedFiles.isNotEmpty()
                         ) {
-                            Text("Attach")
+                            Text(stringResource(R.string.attach))
                         }
                     }
                 )
@@ -106,11 +109,11 @@ fun FilePickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    placeholder = { Text("Search files...") },
+                    placeholder = { Text(stringResource(R.string.search_files)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
                         { IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, "Clear")
+                            Icon(Icons.Default.Clear, stringResource(R.string.clear))
                         }}
                     } else null,
                     singleLine = true
@@ -145,12 +148,12 @@ fun FilePickerDialog(
                             ) {
                                 Icon(
                                     if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.FolderOpen,
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.cd_folder_icon),
                                     modifier = Modifier.size(48.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = if (searchQuery.isNotBlank()) "No matching files" else "Empty folder",
+                                    text = if (searchQuery.isNotBlank()) stringResource(R.string.no_matching_files) else stringResource(R.string.empty_folder),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -164,13 +167,13 @@ fun FilePickerDialog(
                                 if (currentPath.isNotBlank()) {
                                     item(key = "..") {
                                         ListItem(
-                                            headlineContent = { Text("..") },
+                                            headlineContent = { Text(stringResource(R.string.parent_directory)) },
                                             leadingContent = {
-                                                Icon(
-                                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = stringResource(R.string.cd_navigate_up),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
                                             },
                                             modifier = Modifier
                                                 .clip(RectangleShape)
@@ -228,7 +231,7 @@ private fun PickerBreadcrumb(
         ) {
             Icon(
                 Icons.Default.Home,
-                contentDescription = "Root",
+                contentDescription = stringResource(R.string.cd_root),
                 modifier = Modifier
                     .padding(horizontal = 8.dp, vertical = 4.dp)
                     .size(16.dp),
@@ -240,7 +243,7 @@ private fun PickerBreadcrumb(
         parts.forEachIndexed { index, part ->
             Icon(
                 Icons.Default.ChevronRight,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_path_separator),
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.outline
             )
@@ -295,7 +298,7 @@ private fun SelectedFilesChips(
                 trailingIcon = {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Remove",
+                        contentDescription = stringResource(R.string.cd_remove),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -322,7 +325,7 @@ private fun PickerFileItem(
         leadingContent = {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_file_type),
                 tint = iconColor,
                 modifier = Modifier.size(24.dp)
             )
@@ -331,13 +334,13 @@ private fun PickerFileItem(
             if (file.isDirectory) {
                 Icon(
                     Icons.Default.ChevronRight, 
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_open_folder),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else if (isSelected) {
                 Icon(
                     Icons.Default.CheckCircle,
-                    contentDescription = "Selected",
+                    contentDescription = stringResource(R.string.cd_selected),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -363,13 +366,13 @@ private fun getPickerFileIcon(file: FileNode): Pair<ImageVector, Color> {
     
     return when (extension) {
         "kt", "java", "py", "js", "ts", "tsx", "jsx", "c", "cpp", "h", "rs", "go", "rb", "php", "swift", "m" ->
-            Icons.Default.Code to Color(0xFF4CAF50)
+            Icons.Default.Code to SemanticColors.Status.success
         "json", "yaml", "yml", "xml", "toml", "ini", "conf", "config", "properties" ->
-            Icons.Default.Settings to Color(0xFFFF9800)
+            Icons.Default.Settings to SemanticColors.MimeType.archive
         "md", "txt", "rst", "doc", "docx", "pdf" ->
-            Icons.Default.Description to Color(0xFF2196F3)
+            Icons.Default.Description to SemanticColors.Reason.info
         "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp" ->
-            Icons.Default.Image to Color(0xFFE91E63)
+            Icons.Default.Image to SemanticColors.MimeType.video
         else -> Icons.AutoMirrored.Filled.InsertDriveFile to MaterialTheme.colorScheme.onSurfaceVariant
     }
 }

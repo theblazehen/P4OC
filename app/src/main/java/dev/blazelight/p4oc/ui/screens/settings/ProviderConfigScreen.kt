@@ -19,11 +19,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.data.remote.dto.ModelDto
 import dev.blazelight.p4oc.data.remote.dto.ProviderDto
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,20 +35,20 @@ fun ProviderConfigScreen(
     viewModel: ProviderConfigViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Provider Configuration") },
+                title = { Text(stringResource(R.string.provider_config_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.loadProviders() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
                 }
             )
@@ -74,7 +78,7 @@ fun ProviderConfigScreen(
                     ) {
                         Icon(
                             Icons.Default.Error,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_error_state),
                             tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(48.dp)
                         )
@@ -83,7 +87,7 @@ fun ProviderConfigScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                         Button(onClick = { viewModel.loadProviders() }) {
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -112,7 +116,7 @@ fun ProviderConfigScreen(
 
                     item {
                         Text(
-                            text = "Available Providers",
+                            text = stringResource(R.string.provider_available),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
@@ -132,7 +136,7 @@ fun ProviderConfigScreen(
                     if (disconnectedProviders.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Disconnected Providers",
+                                text = stringResource(R.string.provider_disconnected),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -170,18 +174,18 @@ private fun CurrentModelCard(
         ) {
             Icon(
                 Icons.Default.SmartToy,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_model_icon),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(24.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Current Model",
+                    text = stringResource(R.string.provider_current_model),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
                 Text(
-                    text = currentModel ?: "Not configured",
+                    text = currentModel ?: stringResource(R.string.provider_not_configured),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -238,7 +242,7 @@ private fun ProviderCard(
                 if (isActiveProvider) {
                     Icon(
                         Icons.Default.CheckCircle,
-                        contentDescription = "Active",
+                        contentDescription = stringResource(R.string.cd_active),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -246,7 +250,7 @@ private fun ProviderCard(
 
                 Icon(
                     if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand"
+                    contentDescription = if (isExpanded) stringResource(R.string.collapse) else stringResource(R.string.expand)
                 )
             }
 
@@ -385,7 +389,7 @@ private fun DisabledProviderCard(provider: ProviderDto) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Not configured",
+                    text = stringResource(R.string.provider_not_configured),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -393,7 +397,7 @@ private fun DisabledProviderCard(provider: ProviderDto) {
 
             Icon(
                 Icons.Default.Lock,
-                contentDescription = "Requires API key",
+                contentDescription = stringResource(R.string.provider_requires_api_key),
                 tint = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.size(20.dp)
             )
@@ -403,19 +407,7 @@ private fun DisabledProviderCard(provider: ProviderDto) {
 
 @Composable
 private fun ProviderIcon(providerName: String, alpha: Float = 1f) {
-    val (bgColor, iconChar) = when (providerName.lowercase()) {
-        "anthropic" -> Color(0xFFD97706) to "A"
-        "openai" -> Color(0xFF10A37F) to "O"
-        "google" -> Color(0xFF4285F4) to "G"
-        "aws", "amazon" -> Color(0xFFFF9900) to "A"
-        "azure" -> Color(0xFF0078D4) to "Az"
-        "mistral" -> Color(0xFFFF6B35) to "M"
-        "groq" -> Color(0xFFF55036) to "Gr"
-        "ollama" -> Color(0xFF6366F1) to "Ol"
-        "xai" -> Color(0xFF000000) to "X"
-        "deepseek" -> Color(0xFF0066FF) to "D"
-        else -> MaterialTheme.colorScheme.primary to providerName.take(2).uppercase()
-    }
+    val (bgColor, iconChar) = SemanticColors.Provider.forName(providerName)
 
     Box(
         modifier = Modifier

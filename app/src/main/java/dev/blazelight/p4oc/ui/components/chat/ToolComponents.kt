@@ -28,11 +28,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 import kotlinx.serialization.json.*
 
 @Composable
@@ -190,10 +193,10 @@ fun DiffPreview(
     modifier: Modifier = Modifier
 ) {
     val hunks = remember(diffContent) { parseDiffToHunks(diffContent) }
-    val addedBgColor = Color(0xFF2E7D32).copy(alpha = 0.15f)
-    val removedBgColor = Color(0xFFC62828).copy(alpha = 0.15f)
-    val addedTextColor = Color(0xFF4CAF50)
-    val removedTextColor = Color(0xFFF44336)
+    val addedBgColor = SemanticColors.Diff.addedBackground
+    val removedBgColor = SemanticColors.Diff.removedBackground
+    val addedTextColor = SemanticColors.Diff.addedText
+    val removedTextColor = SemanticColors.Diff.removedText
     
     Column(
         modifier = modifier
@@ -320,7 +323,7 @@ fun ToolOutputDialog(
                     ) {
                         Icon(
                             getToolIcon(toolName),
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_tool_status),
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
@@ -329,13 +332,13 @@ fun ToolOutputDialog(
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
                     }
                 }
                 
                 HorizontalDivider()
                 
-                if (hasDiff) {
+                if (hasDiff && diffContent != null) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -343,7 +346,7 @@ fun ToolOutputDialog(
                             .padding(8.dp)
                     ) {
                         DiffPreview(
-                            diffContent = diffContent!!,
+                            diffContent = diffContent,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -414,7 +417,7 @@ fun EnhancedToolPart(
             ) {
                 Icon(
                     toolIcon,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_tool_status),
                     modifier = Modifier.size(18.dp),
                     tint = if (isError) MaterialTheme.colorScheme.error 
                            else MaterialTheme.colorScheme.onSurfaceVariant
@@ -436,12 +439,12 @@ fun EnhancedToolPart(
                                 Text(
                                     text = "+${diffStats.added}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF4CAF50)
+                                    color = SemanticColors.Diff.addedText
                                 )
                                 Text(
                                     text = "-${diffStats.removed}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFFF44336)
+                                    color = SemanticColors.Diff.removedText
                                 )
                             }
                         }
@@ -482,13 +485,13 @@ fun EnhancedToolPart(
                         onClick = { onDeny(part.callID) },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Deny")
+                        Text(stringResource(R.string.deny))
                     }
                     Button(
                         onClick = { onApprove(part.callID) },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Allow")
+                        Text(stringResource(R.string.allow))
                     }
                 }
             }
@@ -538,11 +541,11 @@ fun EnhancedToolPart(
                                 ) {
                                     Icon(
                                         Icons.Default.OpenInFull,
-                                        contentDescription = null,
+                                        contentDescription = stringResource(R.string.view_full_output),
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    Text("View full output")
+                                    Text(stringResource(R.string.view_full_output))
                                 }
                             }
                         }

@@ -18,8 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.SessionStatus
 import dev.blazelight.p4oc.ui.theme.ProjectColors
@@ -48,7 +51,7 @@ fun SessionListScreen(
     onProjectClick: (projectId: String) -> Unit = {},
     onNavigateBack: (() -> Unit)? = null
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showNewSessionDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Session?>(null) }
     
@@ -93,7 +96,7 @@ fun SessionListScreen(
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.cd_back),
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -110,19 +113,19 @@ fun SessionListScreen(
                         onClick = onProjects,
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Default.Folder, contentDescription = "Projects", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_projects), modifier = Modifier.size(22.dp))
                     }
                     IconButton(
                         onClick = viewModel::refresh,
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh), modifier = Modifier.size(22.dp))
                     }
                     IconButton(
                         onClick = onSettings,
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings), modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -134,7 +137,7 @@ fun SessionListScreen(
                 containerColor = theme.backgroundElement,
                 contentColor = theme.text
             ) {
-                Icon(Icons.Default.Add, contentDescription = "New Session", modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_new_session), modifier = Modifier.size(22.dp))
             }
         }
     ) { padding ->
@@ -196,7 +199,7 @@ fun SessionListScreen(
                         .padding(16.dp),
                     action = {
                         TextButton(onClick = viewModel::clearError) {
-                            Text("Dismiss")
+                            Text(stringResource(R.string.sessions_dismiss))
                         }
                     }
                 ) {
@@ -221,8 +224,8 @@ fun SessionListScreen(
     showDeleteDialog?.let { session ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text("Delete Session") },
-            text = { Text("Are you sure you want to delete \"${session.title}\"?") },
+            title = { Text(stringResource(R.string.sessions_delete_title)) },
+            text = { Text(stringResource(R.string.sessions_delete_confirm, session.title ?: "")) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -233,12 +236,12 @@ fun SessionListScreen(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.sessions_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.button_cancel))
                 }
             }
         )
@@ -247,8 +250,8 @@ fun SessionListScreen(
 
 private fun buildSessionTree(sessions: List<SessionWithProject>): List<SessionNode> {
     val childrenByParent = sessions
-        .filter { it.session.parentID != null }
-        .groupBy { it.session.parentID!! }
+        .mapNotNull { swp -> swp.session.parentID?.let { parentId -> parentId to swp } }
+        .groupBy({ it.first }, { it.second })
     
     fun buildNode(sessionWithProject: SessionWithProject): SessionNode {
         val children = childrenByParent[sessionWithProject.session.id]?.map { buildNode(it) } ?: emptyList()
@@ -379,7 +382,7 @@ private fun SessionCard(
             } else if (isSubAgent) {
                 Icon(
                     Icons.Default.SubdirectoryArrowRight,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_sub_agent_session),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.outline
                 )
@@ -454,13 +457,13 @@ private fun SessionCard(
         onDismissRequest = { showContextMenu = false }
     ) {
         DropdownMenuItem(
-            text = { Text("Delete") },
+            text = { Text(stringResource(R.string.sessions_delete)) },
             onClick = {
                 showContextMenu = false
                 onDelete()
             },
             leadingIcon = {
-                Icon(Icons.Default.Delete, contentDescription = null)
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.sessions_delete))
             }
         )
     }
@@ -509,7 +512,7 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Working",
+                    text = stringResource(R.string.session_working),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -522,12 +525,12 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
             ) {
                 Icon(
                     Icons.Default.Refresh,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.retry),
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.error
                 )
                 Text(
-                    text = "Retry #${status.attempt}",
+                    text = stringResource(R.string.session_retry_format, status.attempt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -536,7 +539,7 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
         is SessionStatus.Idle -> {
             Icon(
                 Icons.Default.CheckCircle,
-                contentDescription = "Ready",
+                contentDescription = stringResource(R.string.cd_ready),
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.outline
             )
@@ -556,25 +559,25 @@ private fun EmptySessionsView(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Icon(
-            Icons.Default.Chat,
-            contentDescription = null,
+            Icons.Default.ChatBubbleOutline,
+            contentDescription = stringResource(R.string.sessions_empty_title),
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.outline
         )
         Text(
-            text = "No sessions yet",
+            text = stringResource(R.string.sessions_empty_title),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "Start a new conversation with your AI assistant",
+            text = stringResource(R.string.sessions_empty_description),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Button(onClick = onCreateSession) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.sessions_new))
             Spacer(Modifier.width(8.dp))
-            Text("New Session")
+            Text(stringResource(R.string.sessions_new))
         }
     }
 }
@@ -594,9 +597,11 @@ private fun NewSessionDialog(
     }
     var expanded by remember { mutableStateOf(false) }
 
+    val globalText = stringResource(R.string.sessions_global)
+    
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New Session") },
+        title = { Text(stringResource(R.string.sessions_new)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ExposedDropdownMenuBox(
@@ -604,10 +609,10 @@ private fun NewSessionDialog(
                     onExpandedChange = { expanded = it }
                 ) {
                     OutlinedTextField(
-                        value = selectedProject?.name ?: "Global",
+                        value = selectedProject?.name ?: globalText,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Project") },
+                        label = { Text(stringResource(R.string.sessions_project)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -621,9 +626,9 @@ private fun NewSessionDialog(
                         DropdownMenuItem(
                             text = { 
                                 Column {
-                                    Text("Global", style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.sessions_global), style = MaterialTheme.typography.bodyMedium)
                                     Text(
-                                        "No project context",
+                                        stringResource(R.string.sessions_no_project_context),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -660,7 +665,7 @@ private fun NewSessionDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Title (optional)") },
+                    label = { Text(stringResource(R.string.sessions_title_optional)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -670,12 +675,12 @@ private fun NewSessionDialog(
             Button(
                 onClick = { onCreate(title.takeIf { it.isNotBlank() }, selectedProject?.worktree) }
             ) {
-                Text("Create")
+                Text(stringResource(R.string.sessions_create))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.button_cancel))
             }
         }
     )

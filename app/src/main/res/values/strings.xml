@@ -1,4 +1,460 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Pocket Code</string>
+    
+    <!-- Server Screen -->
+    <string name="server_connect_title">Connect to Server</string>
+    <string name="server_connection_mode">Connection Mode</string>
+    <string name="server_mode_local">Local</string>
+    <string name="server_mode_remote">Remote</string>
+    <string name="server_local_title">Local Server (Termux)</string>
+    <string name="server_local_description">Run OpenCode directly on your device using Termux.</string>
+    <string name="server_remote_title">Remote Server</string>
+    <string name="server_remote_description">Connect to an OpenCode server running on your network.</string>
+    <string name="server_recent_servers">Recent Servers</string>
+    
+    <!-- Termux Setup -->
+    <string name="termux_step1_title">Step 1: Install Termux</string>
+    <string name="termux_step1_description">Termux provides a Linux environment on Android. Install it from F-Droid (not Play Store).</string>
+    <string name="termux_get_from_fdroid">Get Termux from F-Droid</string>
+    <string name="termux_step2_title">Step 2: Enable External Apps</string>
+    <string name="termux_step2_description">Termux needs permission to receive commands from Pocket Code. Tap below to run the setup script.</string>
+    <string name="termux_run_setup">Run Setup Script</string>
+    <string name="termux_step2_note">After running the script, restart Termux and return here.</string>
+    <string name="termux_step3_title">Step 3: Install OpenCode</string>
+    <string name="termux_step3_description">This will install Node.js and the OpenCode CLI in Termux. The process takes a few minutes.</string>
+    <string name="termux_install_opencode">Install OpenCode</string>
+    <string name="termux_ready_title">Ready to Connect</string>
+    <string name="termux_ready_description">Start the server in Termux, then connect from here.</string>
+    <string name="termux_server_running">Server is running</string>
+    <string name="termux_checking">Checking Termux status…</string>
+    <string name="termux_progress_install">Install Termux</string>
+    <string name="termux_progress_access">Enable Access</string>
+    <string name="termux_progress_opencode">Install OpenCode</string>
+    <string name="termux_progress_ready">Ready</string>
+    
+    <!-- Buttons -->
+    <string name="button_connect">Connect</string>
+    <string name="button_connect_now">Connect Now</string>
+    <string name="button_connecting">Connecting…</string>
+    <string name="button_start_server">Start Server</string>
+    <string name="button_settings">Settings</string>
+    <string name="button_remove">Remove</string>
+    
+    <!-- Form Fields -->
+    <string name="field_server_url">Server URL</string>
+    <string name="field_server_url_placeholder">http://192.168.1.100:4096</string>
+    <string name="field_username">Username (optional)</string>
+    <string name="field_password">Password (optional)</string>
+    <string name="field_show_password">Show password</string>
+    <string name="field_hide_password">Hide password</string>
+    
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_provider_model">Provider &amp; Model</string>
+    <string name="settings_provider_model_desc">Configure AI providers and models</string>
+    <string name="settings_agents">Agents</string>
+    <string name="settings_agents_desc">Configure AI agents</string>
+    <string name="settings_skills">Skills</string>
+    <string name="settings_skills_desc">Manage MCP servers and skills</string>
+    <string name="settings_visual">Visual Settings</string>
+    <string name="settings_visual_desc">Theme, font size, and display options</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Pocket Code v0.1.0</string>
+    <string name="settings_disconnect">Disconnect</string>
+    <string name="settings_disconnect_confirm">Are you sure you want to disconnect from the server?</string>
+    <string name="button_cancel">Cancel</string>
+    
+    <!-- Sessions Screen -->
+    <string name="sessions_title">Sessions</string>
+    <string name="sessions_empty_title">No sessions yet</string>
+    <string name="sessions_empty_description">Start a new conversation with your AI assistant</string>
+    <string name="sessions_new">New Session</string>
+    <string name="sessions_delete">Delete</string>
+    <string name="sessions_delete_title">Delete Session</string>
+    <string name="sessions_delete_confirm">Are you sure you want to delete \"%1$s\"?</string>
+    <string name="sessions_sub_count">%d sub</string>
+    <string name="sessions_dismiss">Dismiss</string>
+    <string name="sessions_create">Create</string>
+    <string name="sessions_title_optional">Title (optional)</string>
+    <string name="sessions_project">Project</string>
+    <string name="sessions_global">Global</string>
+    <string name="sessions_no_project_context">No project context</string>
+    
+    <!-- Chat Screen -->
+    <string name="chat_empty_title">Start a conversation</string>
+    <string name="chat_empty_description">Type a message below to begin</string>
+    <string name="chat_input_placeholder">Type a message…</string>
+    <string name="chat_input_placeholder_with_commands">Type a message or / for commands…</string>
+    <string name="chat_send">Send</string>
+    
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="refresh">Refresh</string>
+    <string name="clear">Clear</string>
+    <string name="close">Close</string>
+    <string name="expand">Expand</string>
+    <string name="collapse">Collapse</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="search">Search</string>
+    <string name="all">All</string>
+    
+    <!-- File Explorer Screen -->
+    <string name="files_search_placeholder">Search files…</string>
+    <string name="files_copy_path">Copy Path</string>
+    <string name="files_copy_name">Copy Name</string>
+    
+    <!-- Git Screen -->
+    <string name="git_title">Git</string>
+    <string name="git_title_with_project">%s - Git</string>
+    
+    <!-- Terminal Screen -->
+    <string name="terminal_title">Terminal</string>
+    <string name="terminal_create">Create Terminal</string>
+    
+    <!-- Models Screen -->
+    <string name="models_title">Models</string>
+    <string name="models_search_placeholder">Search models…</string>
+    
+    <!-- Setup Screen -->
+    <string name="setup_get_started">Get Started</string>
+    <string name="setup_continue">Continue</string>
+    <string name="setup_skip">Skip for now</string>
+    <string name="setup_requirement_termux">Termux app from F-Droid</string>
+    <string name="setup_requirement_nodejs">Node.js (installed via Termux)</string>
+    <string name="setup_requirement_opencode">OpenCode CLI</string>
+    
+    <!-- Accessibility Content Descriptions -->
+    <string name="cd_decorative">Decorative icon</string>
+    <string name="cd_expand">Expand</string>
+    <string name="cd_collapse">Collapse</string>
+    <string name="cd_chevron_right">Navigate forward</string>
+    <string name="cd_open_external">Open in external app</string>
+    <string name="cd_connection_status">Connection status indicator</string>
+    <string name="cd_server_url_field">Server URL input field</string>
+    <string name="cd_username_field">Username input field</string>
+    <string name="cd_password_field">Password input field</string>
+    <string name="cd_search_field">Search input field</string>
+    <string name="cd_loading">Loading</string>
+    <string name="cd_success">Success</string>
+    <string name="cd_error">Error</string>
+    <string name="cd_warning">Warning</string>
+    <string name="cd_info">Information</string>
+    <string name="cd_file_icon">File type icon</string>
+    <string name="cd_folder_icon">Folder icon</string>
+    <string name="cd_agent_icon">Agent icon</string>
+    <string name="cd_skill_icon">Skill icon</string>
+    <string name="cd_provider_icon">Provider icon</string>
+    <string name="cd_model_icon">Model icon</string>
+    <string name="cd_close_dialog">Close dialog</string>
+    <string name="cd_dismiss">Dismiss</string>
+    
+    <!-- Setup Screen -->
+    <string name="setup_welcome_title">Welcome to Pocket Code</string>
+    <string name="setup_welcome_subtitle">Your AI coding assistant, now on Android</string>
+    <string name="setup_run_locally_title">Run OpenCode Locally</string>
+    <string name="setup_run_locally_description">Pocket Code can run OpenCode directly on your device using Termux. This lets you use AI coding assistance without a separate server.</string>
+    <string name="setup_requirements">Requirements:</string>
+    
+    <!-- Terminal Screen -->
+    <string name="terminal_no_sessions">No Terminal Sessions</string>
+    <string name="terminal_create_terminal">Create Terminal</string>
+    
+    <!-- Visual Settings Screen -->
+    <string name="visual_settings_title">Visual Settings</string>
+    <string name="visual_settings_reset">Reset</string>
+    <string name="visual_settings_theme">Theme</string>
+    <string name="visual_settings_text">Text</string>
+    <string name="visual_settings_code_display">Code Display</string>
+    <string name="visual_settings_accessibility">Accessibility</string>
+    <string name="visual_settings_message_display">Message Display</string>
+    <string name="visual_settings_tool_call_display">Tool Call Display</string>
+    <string name="visual_settings_preview">Preview</string>
+    <string name="visual_settings_sample_message">This is a sample message with your current settings.</string>
+    <string name="visual_settings_tool_mode_label">Default display mode for tool calls</string>
+    <string name="visual_settings_tap_to_expand">Tap to expand</string>
+    <string name="visual_settings_shows_paths">Shows file paths/commands</string>
+    <string name="visual_settings_shows_full_output">Shows full output/diffs</string>
+    <string name="visual_settings_message_font_size">Message Font Size</string>
+    <string name="visual_settings_code_font_size">Code Block Font Size</string>
+    <string name="visual_settings_show_line_numbers">Show Line Numbers</string>
+    <string name="visual_settings_show_line_numbers_desc">Display line numbers in code blocks</string>
+    <string name="visual_settings_word_wrap">Word Wrap</string>
+    <string name="visual_settings_word_wrap_desc">Wrap long lines in code blocks</string>
+    <string name="visual_settings_high_contrast">High Contrast Mode</string>
+    <string name="visual_settings_high_contrast_desc">Increase contrast for better visibility</string>
+    <string name="visual_settings_expand_reasoning">Expand Reasoning by Default</string>
+    <string name="visual_settings_expand_reasoning_desc">Show reasoning/thinking content expanded</string>
+    <string name="visual_settings_color_theme">Color Theme</string>
+    <string name="visual_settings_oneline_minimal">Oneline (minimal)</string>
+    <string name="visual_settings_compact_summary">Compact (summary)</string>
+    <string name="visual_settings_expanded_full">Expanded (full details)</string>
+    
+    <!-- Agents Config Screen -->
+    <string name="agents_title">Agents</string>
+    <string name="agents_description">Configure AI agents and their capabilities</string>
+    <string name="agents_builtin">Built-in Agents</string>
+    <string name="agents_custom">Custom Agents</string>
+    <string name="agents_failed_to_load">Failed to load agents</string>
+    <string name="agents_no_agents">No agents configured</string>
+    <string name="agents_appear_here">Agents will appear here once configured on the server</string>
+    <string name="agents_tools">Tools</string>
+    <string name="agents_system_prompt">System Prompt</string>
+    
+    <!-- Skills Screen -->
+    <string name="skills_title">Skills</string>
+    <string name="skills_description">Manage MCP servers and skills</string>
+    <string name="skills_connected">Connected</string>
+    <string name="skills_disconnected">Disconnected</string>
+    <string name="skills_source">Source:</string>
+    <string name="skills_tools">Tools</string>
+    <string name="skills_resources">Resources</string>
+    <string name="skills_no_skills">No skills configured</string>
+    <string name="skills_appear_here">MCP servers will appear here once configured</string>
+    
+    <!-- Provider Config Screen -->
+    <string name="provider_config_title">Provider Configuration</string>
+    <string name="provider_available">Available Providers</string>
+    <string name="provider_disconnected">Disconnected Providers</string>
+    <string name="provider_current_model">Current Model</string>
+    <string name="provider_not_configured">Not configured</string>
+    <string name="provider_requires_api_key">Requires API key</string>
+    
+    <!-- Model Controls Screen -->
+    <string name="models_favorites">Favorites</string>
+    <string name="models_all">All Models</string>
+    <string name="models_context_format">Context: %s</string>
+    <string name="models_tools">Tools</string>
+    <string name="models_reasoning">Reasoning</string>
+    
+    <!-- Git Screen -->
+    <string name="git_not_repo">Not a Git Repository</string>
+    <string name="git_not_using_vcs">This project is not using Git version control</string>
+    <string name="git_current_branch">Current Branch</string>
+    <string name="git_changed_files">Changed Files</string>
+    <string name="git_working_tree_clean">Working tree clean</string>
+    <string name="git_no_uncommitted">No uncommitted changes</string>
+    <string name="git_view_diff">View diff</string>
+    
+    <!-- Projects Screen -->
+    <string name="projects_title">Projects</string>
+    <string name="projects_no_projects">No Projects</string>
+    <string name="projects_appear_here">Projects you\'ve worked on will appear here</string>
+    
+    <!-- Session List Screen -->
+    <string name="session_working">Working</string>
+    <string name="session_retry_format">Retry #%d</string>
+    
+    <!-- Common Actions -->
+    <string name="retry">Retry</string>
+    <string name="reset">Reset</string>
+    <string name="allow">Allow</string>
+    <string name="deny">Deny</string>
+    <string name="always_allow">Always Allow</string>
+    <string name="delete">Delete</string>
+    <string name="create">Create</string>
+    <string name="server">Server</string>
+    
+    <!-- Error Boundary -->
+    <string name="error_retry">Retry</string>
+    
+    <!-- Permission Dialog -->
+    <string name="permission_required">Permission Required</string>
+    
+    <!-- Tool Components -->
+    <string name="view_full_output">View full output</string>
+    
+    <!-- Message Branching -->
+    <string name="branch_new">New Branch</string>
+    <string name="branch_delete_title">Delete Branch?</string>
+    <string name="branch_delete_confirm">This will permanently delete the branch \"%1$s\" and all its messages. This cannot be undone.</string>
+    <string name="branch_create_title">Create New Branch</string>
+    <string name="branch_name_label">Branch Name</string>
+    
+    <!-- Model/Agent Selector -->
+    <string name="select_model">Select Model</string>
+    
+    <!-- Question Components -->
+    <string name="question">Question</string>
+    <string name="question_count">(%1$d/%2$d)</string>
+    <string name="previous">Previous</string>
+    <string name="skip">Skip</string>
+    <string name="submit">Submit</string>
+    <string name="next">Next</string>
+    <string name="type_your_answer">Type your answer…</string>
+    <string name="other">Other…</string>
+    <string name="cd_selected">Selected</string>
+    <string name="custom_answer">Custom answer</string>
+    <string name="other_custom_answer">Other (provide custom answer)</string>
+    <string name="question_x_of_y">Question %1$d of %2$d</string>
+    
+    <!-- Command Palette -->
+    <string name="command_palette">Command Palette</string>
+    <string name="search_commands">Search commands…</string>
+    <string name="no_commands_available">No commands available</string>
+    <string name="no_matching_commands">No matching commands</string>
+    <string name="subtask">subtask</string>
+    <string name="cd_select">Select</string>
+    <string name="arguments_optional">Arguments (optional)</string>
+    <string name="enter_command_arguments">Enter command arguments…</string>
+    <string name="execute_command">Execute Command</string>
+    
+    <!-- File Picker Dialog -->
+    <string name="attach_files">Attach Files</string>
+    <string name="attach">Attach</string>
+    <string name="search_files">Search files…</string>
+    <string name="no_matching_files">No matching files</string>
+    <string name="empty_folder">Empty folder</string>
+    <string name="cd_root">Root</string>
+    <string name="cd_remove">Remove</string>
+    <string name="parent_directory">..</string>
+    
+    <!-- Misc -->
+    <string name="branch_placeholder">e.g., Alternative approach</string>
+    <string name="new_branch_default">New Branch</string>
+    <string name="fork_conversation_hint">Fork the conversation from this message:</string>
+    
+    <!-- Content Descriptions -->
+    <string name="cd_back">Back</string>
+    <string name="cd_search">Search</string>
+    <string name="cd_refresh">Refresh</string>
+    <string name="cd_path_separator">Path separator</string>
+    <string name="cd_open_folder">Open folder</string>
+    <string name="cd_toggle_line_numbers">Toggle line numbers</string>
+    <string name="cd_stop">Stop</string>
+    <string name="cd_commands">Commands</string>
+    <string name="cd_terminal">Terminal</string>
+    <string name="cd_files">Files</string>
+    <string name="cd_git">Git</string>
+    <string name="cd_projects">Projects</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_new_session">New Session</string>
+    <string name="cd_sub_agent_session">Sub-agent session</string>
+    <string name="cd_ready">Ready</string>
+    <string name="cd_setup">Setup</string>
+    <string name="cd_install">Install</string>
+    <string name="cd_start_server">Start server</string>
+    <string name="cd_connect">Connect</string>
+    <string name="cd_completed">Completed</string>
+    <string name="cd_active">Active</string>
+    <string name="cd_expanded">Expanded</string>
+    <string name="cd_previous_branch">Previous branch</string>
+    <string name="cd_next_branch">Next branch</string>
+    <string name="cd_show_branches">Show branches</string>
+    <string name="cd_fork_conversation">Fork conversation from here</string>
+    <string name="cd_delete_branch">Delete branch</string>
+    <string name="cd_jump_to_bottom">Jump to bottom</string>
+    <string name="cd_add_more_files">Add more files</string>
+    <string name="cd_attach_files">Attach files</string>
+    <string name="cd_attach_file">Attach file</string>
+    <string name="cd_send">Send</string>
+    <string name="cd_show_details">Show details</string>
+    <string name="cd_todos">Todos</string>
+    <string name="cd_retry">Retry</string>
+    <string name="cd_switch_side_by_side">Switch to side-by-side</string>
+    <string name="cd_switch_unified">Switch to unified</string>
+    <string name="cd_add_to_favorites">Add to favorites</string>
+    <string name="cd_remove_from_favorites">Remove from favorites</string>
+    
+    <!-- Diff Viewer -->
+    <string name="diff_viewer_title">Diff Viewer</string>
+    <string name="diff_no_content">No diff content to display</string>
+    
+    <!-- Message Branching -->
+    <string name="conversation_branches">Conversation Branches</string>
+    <string name="select_branch_to_continue">Select a branch to continue</string>
+    <string name="branch_point">Branch Point</string>
+    <string name="branch_messages_count">%d messages</string>
+    
+    <!-- Error Boundary -->
+    <string name="no_network_connection">No network connection</string>
+    
+    <!-- Multi Agent Runs -->
+    <string name="agent_runs">Agent Runs</string>
+    <string name="agent_running_count">%d running</string>
+    
+    <!-- Expanded Widgets -->
+    <string name="read_file">Read %s</string>
+    <string name="edit_file">Edit %s</string>
+    
+    <!-- Part Visualizations -->
+    <string name="retry_attempt">Retry Attempt %d</string>
+    <string name="retry_in_seconds">Retry in %ds</string>
+    <string name="step_started">Step started</string>
+    <string name="step_completed">Step completed</string>
+    <string name="snapshot_preview">Snapshot: %s…</string>
+    <string name="snapshot_created">Snapshot created</string>
+    
+    <!-- Todo Tracker -->
+    <string name="todo_tracker">Todo Tracker</string>
+    <string name="progress">Progress</string>
+    <string name="progress_count">%1$d / %2$d</string>
+    <string name="percent_complete">%d%% complete</string>
+    <string name="no_active_todos">No active todos</string>
+    <string name="agent_no_tasks">The agent hasn\'t created any tasks yet</string>
+    
+    <!-- Context Usage Display -->
+    <string name="context_usage">Context Usage</string>
+    <string name="estimated_cost">Estimated Cost</string>
+    
+    <!-- Permission Dialog Enhanced -->
+    <string name="command_label">Command</string>
+    <string name="code_preview">Code Preview</string>
+    <string name="more_lines">… %d more lines</string>
+    
+    <!-- Additional Accessibility Content Descriptions -->
+    <string name="cd_error_icon">Error</string>
+    <string name="cd_local_mode">Local mode</string>
+    <string name="cd_remote_mode">Remote mode</string>
+    <string name="cd_open_fdroid">Open F-Droid</string>
+    <string name="cd_server_running">Server running</string>
+    <string name="cd_recent_server">Recent server</string>
+    <string name="cd_server_url">Server URL</string>
+    <string name="cd_username">Username</string>
+    <string name="cd_password">Password</string>
+    <string name="cd_terminal_tab">Terminal tab</string>
+    <string name="cd_terminal_error">Terminal error</string>
+    <string name="cd_search_models">Search models</string>
+    <string name="cd_model_selected">Model selected</string>
+    <string name="cd_favorite_model">Favorite model</string>
+    <string name="cd_agent_status">Agent status</string>
+    <string name="cd_skill_status">Skill status</string>
+    <string name="cd_provider_status">Provider status</string>
+    <string name="cd_project_folder">Project folder</string>
+    <string name="cd_project_status">Project status</string>
+    <string name="cd_error_state">Error state</string>
+    <string name="cd_warning_state">Warning state</string>
+    <string name="cd_success_state">Success state</string>
+    <string name="cd_info_state">Information</string>
+    <string name="cd_retry_action">Retry</string>
+    <string name="cd_copy_action">Copy</string>
+    <string name="cd_branch_icon">Branch</string>
+    <string name="cd_agent_running">Agent running</string>
+    <string name="cd_agent_completed">Agent completed</string>
+    <string name="cd_agent_failed">Agent failed</string>
+    <string name="cd_permission_icon">Permission required</string>
+    <string name="cd_tool_status">Tool status</string>
+    <string name="cd_file_type">File type</string>
+    <string name="cd_folder_type">Folder</string>
+    <string name="cd_image_type">Image</string>
+    <string name="cd_attachment_remove">Remove attachment</string>
+    <string name="cd_file_selected">File selected</string>
+    <string name="cd_navigate_up">Navigate up</string>
+    <string name="cd_approve_action">Approve</string>
+    <string name="cd_approve_all">Approve all</string>
+    <string name="cd_deny_action">Deny</string>
+    <string name="cd_expand_code">Expand code</string>
+    <string name="cd_context_indicator">Context usage indicator</string>
+    <string name="cd_cost_indicator">Cost indicator</string>
+    <string name="cd_question_icon">Question</string>
+    <string name="cd_todo_status">Todo status</string>
+    <string name="cd_command_icon">Command</string>
+    <string name="cd_run_command">Run command</string>
+    <string name="cd_step_status">Step status</string>
+    <string name="cd_snapshot_icon">Snapshot</string>
+    <string name="cd_diff_icon">Diff</string>
+    <string name="cd_expand_diff">Expand diff</string>
+    <string name="cd_context_memory">Context memory usage</string>
+    <string name="cd_token_stat">Token statistic</string>
+    <string name="cd_all_complete">All tasks complete</string>
 </resources>

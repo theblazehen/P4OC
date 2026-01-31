@@ -13,8 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -167,7 +169,7 @@ fun ReadWidgetExpanded(
                 color = color
             )
             Text(
-                text = "Read $fileName",
+                text = stringResource(R.string.read_file, fileName),
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp
@@ -267,7 +269,7 @@ fun EditWidgetExpanded(
                 color = color
             )
             Text(
-                text = "Edit $fileName",
+                text = stringResource(R.string.edit_file, fileName),
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp
@@ -463,7 +465,7 @@ private fun PendingApprovalButtons(
             shape = RectangleShape,
             contentPadding = PaddingValues(horizontal = 8.dp)
         ) {
-            Text("Deny", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.deny), style = MaterialTheme.typography.labelSmall)
         }
         Button(
             onClick = onApprove,
@@ -473,7 +475,7 @@ private fun PendingApprovalButtons(
             shape = RectangleShape,
             contentPadding = PaddingValues(horizontal = 8.dp)
         ) {
-            Text("Allow", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.allow), style = MaterialTheme.typography.labelSmall)
         }
     }
 }

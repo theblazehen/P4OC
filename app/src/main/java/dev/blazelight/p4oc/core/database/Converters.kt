@@ -11,5 +11,11 @@ class Converters {
     fun fromStringList(value: List<String>?): String? = value?.let { json.encodeToString(it) }
 
     @TypeConverter
-    fun toStringList(value: String?): List<String>? = value?.let { json.decodeFromString(it) }
+    fun toStringList(value: String?): List<String>? = value?.let {
+        try {
+            json.decodeFromString(it)
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,8 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 data class AgentRun(
     val agentName: String,
@@ -60,12 +64,12 @@ fun MultiAgentRunsIndicator(
                 ) {
                     Icon(
                         Icons.Default.Groups,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.agent_runs),
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Agent Runs",
+                        text = stringResource(R.string.agent_runs),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
@@ -78,7 +82,7 @@ fun MultiAgentRunsIndicator(
                         color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Text(
-                            text = "$runningCount running",
+                            text = stringResource(R.string.agent_running_count, runningCount),
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -132,7 +136,7 @@ private fun AgentStatusIndicator(status: AgentRunStatus) {
     val color = when (status) {
         AgentRunStatus.PENDING -> MaterialTheme.colorScheme.outline
         AgentRunStatus.RUNNING -> MaterialTheme.colorScheme.primary
-        AgentRunStatus.COMPLETED -> Color(0xFF4CAF50)
+        AgentRunStatus.COMPLETED -> SemanticColors.Status.success
         AgentRunStatus.FAILED -> MaterialTheme.colorScheme.error
     }
     
@@ -164,7 +168,7 @@ private fun AgentStatusIndicator(status: AgentRunStatus) {
         ) {
             Icon(
                 icon,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_agent_status),
                 modifier = Modifier.size(16.dp),
                 tint = color
             )
@@ -172,7 +176,7 @@ private fun AgentStatusIndicator(status: AgentRunStatus) {
     } else {
         Icon(
             icon,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_agent_status),
             modifier = Modifier.size(20.dp),
             tint = color
         )
@@ -201,8 +205,8 @@ fun AgentSwitchIndicator(
                 AgentBadge(name = fromAgent, isActive = false)
                 
                 Icon(
-                    Icons.Default.ArrowForward,
-                    contentDescription = null,
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = stringResource(R.string.cd_decorative),
                     modifier = Modifier
                         .padding(horizontal = 8.dp)
                         .size(16.dp),
@@ -211,7 +215,7 @@ fun AgentSwitchIndicator(
             } else {
                 Icon(
                     Icons.Default.PlayArrow,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_agent_running),
                     modifier = Modifier
                         .padding(end = 8.dp)
                         .size(16.dp),
@@ -243,7 +247,7 @@ private fun AgentBadge(
         ) {
             Icon(
                 Icons.Default.SmartToy,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_agent_icon),
                 modifier = Modifier.size(14.dp),
                 tint = if (isActive) 
                     MaterialTheme.colorScheme.onPrimary 
@@ -290,7 +294,7 @@ fun SubtaskIndicator(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Subtask",
+                        text = stringResource(R.string.subtask),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )

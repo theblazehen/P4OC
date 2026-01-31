@@ -15,11 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.blazelight.p4oc.R
 
 data class ModelOption(
     val key: String,
@@ -75,7 +77,7 @@ fun ChatInputBar(
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
-                                        contentDescription = "Remove",
+                                        contentDescription = stringResource(R.string.cd_remove),
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -99,7 +101,7 @@ fun ChatInputBar(
                 ) {
                     Icon(
                         Icons.Default.AttachFile,
-                        contentDescription = "Attach file",
+                        contentDescription = stringResource(R.string.cd_attach_file),
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -155,7 +157,7 @@ fun ChatInputBar(
                     } else {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
+                            contentDescription = stringResource(R.string.cd_send),
                             modifier = Modifier.size(22.dp)
                         )
                     }

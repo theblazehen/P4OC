@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.ui.components.chat
 
 import android.content.Context
 import android.view.ViewGroup
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +42,8 @@ fun StreamingMarkdown(
             // Always use immediate rendering - no artificial delays
             if (text != lastText) {
                 view.setMarkdownText(text)
+                // Ensure the hosting LazyColumn sees the new measured height.
+                view.requestLayout()
                 lastText = text
             }
         }
@@ -52,7 +55,10 @@ private fun createMarkdownTextView(
     styles: MarkdownStyles,
     onHeightChange: ((Int) -> Unit)?
 ): PrinterMarkDownTextView {
-    return PrinterMarkDownTextView(context).apply {
+    // FluidMarkdown's view relies on AppCompat theme attributes; the app theme is a platform Material theme.
+    val themedContext = ContextThemeWrapper(context, androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar)
+
+    return PrinterMarkDownTextView(themedContext).apply {
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT

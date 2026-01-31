@@ -15,10 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,7 +32,7 @@ fun GitScreen(
     onNavigateBack: () -> Unit,
     onViewDiff: ((String) -> Unit)? = null
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
     LaunchedEffect(projectId) {
         viewModel.loadGitInfoForProject(projectId)
@@ -38,15 +41,15 @@ fun GitScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(uiState.projectName?.let { "$it - Git" } ?: "Git") },
+                title = { Text(uiState.projectName?.let { "$it - ${stringResource(R.string.git_title)}" } ?: stringResource(R.string.git_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.loadGitInfoForProject(projectId) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
                 }
             )
@@ -76,17 +79,17 @@ fun GitScreen(
                     ) {
                         Icon(
                             Icons.Default.FolderOff,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.git_not_repo),
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Not a Git Repository",
+                            text = stringResource(R.string.git_not_repo),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "This project is not using Git version control",
+                            text = stringResource(R.string.git_not_using_vcs),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -144,13 +147,13 @@ private fun BranchCard(branch: String) {
         ) {
             Icon(
                 Icons.Default.AccountTree,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.git_current_branch),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(24.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Current Branch",
+                    text = stringResource(R.string.git_current_branch),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
@@ -173,7 +176,7 @@ private fun ChangedFilesHeader(count: Int) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Changed Files",
+            text = stringResource(R.string.git_changed_files),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -208,18 +211,18 @@ private fun EmptyChangesCard() {
         ) {
             Icon(
                 Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = Color(0xFF4CAF50),
+                contentDescription = stringResource(R.string.git_working_tree_clean),
+                tint = SemanticColors.Git.added,
                 modifier = Modifier.size(32.dp)
             )
             Column {
                 Text(
-                    text = "Working tree clean",
+                    text = stringResource(R.string.git_working_tree_clean),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "No uncommitted changes",
+                    text = stringResource(R.string.git_no_uncommitted),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -284,14 +287,14 @@ private fun FileStatusItem(
                         Text(
                             text = "+${file.added}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF4CAF50)
+                            color = SemanticColors.Git.added
                         )
                     }
                     if (file.removed > 0) {
                         Text(
                             text = "-${file.removed}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFF44336)
+                            color = SemanticColors.Git.deleted
                         )
                     }
                 }
@@ -299,22 +302,23 @@ private fun FileStatusItem(
             
             Icon(
                 Icons.Default.ChevronRight,
-                contentDescription = "View diff",
+                contentDescription = stringResource(R.string.git_view_diff),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
-private fun getStatusInfo(status: String): Pair<Color, String> {
+@Composable
+private fun getStatusInfo(status: String): Pair<androidx.compose.ui.graphics.Color, String> {
     return when (status.uppercase().firstOrNull()) {
-        'M' -> Color(0xFFFF9800) to "M"
-        'A' -> Color(0xFF4CAF50) to "A"
-        'D' -> Color(0xFFF44336) to "D"
-        'R' -> Color(0xFF2196F3) to "R"
-        'C' -> Color(0xFF9C27B0) to "C"
-        '?' -> Color(0xFF607D8B) to "?"
-        'U' -> Color(0xFFFF5722) to "U"
-        else -> Color(0xFF9E9E9E) to status.take(1).uppercase()
+        'M' -> SemanticColors.Git.modified to "M"
+        'A' -> SemanticColors.Git.added to "A"
+        'D' -> SemanticColors.Git.deleted to "D"
+        'R' -> SemanticColors.Git.renamed to "R"
+        'C' -> SemanticColors.Git.copied to "C"
+        '?' -> SemanticColors.Git.untracked to "?"
+        'U' -> SemanticColors.Git.unmerged to "U"
+        else -> SemanticColors.Git.unknown to status.take(1).uppercase()
     }
 }

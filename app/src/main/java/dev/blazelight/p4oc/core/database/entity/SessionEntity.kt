@@ -1,9 +1,17 @@
 package dev.blazelight.p4oc.core.database.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "sessions")
+@Entity(
+    tableName = "sessions",
+    indices = [
+        Index(value = ["projectID"]),
+        Index(value = ["createdAt"]),
+        Index(value = ["updatedAt"])
+    ]
+)
 data class SessionEntity(
     @PrimaryKey val id: String,
     val projectID: String,

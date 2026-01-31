@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,11 +18,14 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import dev.blazelight.p4oc.R
 import androidx.compose.ui.window.DialogProperties
 import dev.blazelight.p4oc.domain.model.Permission
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -62,10 +66,10 @@ fun PermissionDialogEnhanced(
                         ) {
                             Icon(
                                 getPermissionIcon(permission.type),
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.cd_permission_icon),
                                 tint = getPermissionColor(permission.type)
                             )
-                            Text("Permission Required")
+                            Text(stringResource(R.string.permission_required))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -118,21 +122,21 @@ fun PermissionDialogEnhanced(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_deny_action), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Deny")
+                        Text(stringResource(R.string.deny))
                     }
                     
                     TextButton(onClick = onAlways) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.CheckCircle, contentDescription = stringResource(R.string.cd_approve_all), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Always")
+                        Text(stringResource(R.string.always_allow))
                     }
                     
                     Button(onClick = onAllow) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Check, contentDescription = stringResource(R.string.cd_approve_action), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Allow")
+                        Text(stringResource(R.string.allow))
                     }
                 }
             }
@@ -156,7 +160,7 @@ private fun PermissionTypeCard(type: String) {
         ) {
             Icon(
                 getPermissionIcon(type),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_permission_icon),
                 tint = getPermissionColor(type)
             )
             Column {
@@ -190,8 +194,8 @@ private fun FilePathCard(path: String) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(
-                Icons.Default.InsertDriveFile,
-                contentDescription = null,
+                Icons.AutoMirrored.Filled.InsertDriveFile,
+                contentDescription = stringResource(R.string.cd_file_type),
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
@@ -222,12 +226,12 @@ private fun CommandCard(command: String) {
             ) {
                 Icon(
                     Icons.Default.Terminal,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_command_icon),
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer
                 )
                 Text(
-                    text = "Command",
+                    text = stringResource(R.string.command_label),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
@@ -254,7 +258,7 @@ private fun CodePreviewCard(
     
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = SemanticColors.Syntax.background
         )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -266,7 +270,7 @@ private fun CodePreviewCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Code Preview",
+                    text = stringResource(R.string.code_preview),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.7f)
                 )
@@ -311,7 +315,7 @@ private fun CodePreviewCard(
                     if (hasMore && !isExpanded) {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "... ${lines.size - 10} more lines",
+                            text = stringResource(R.string.more_lines, lines.size - 10),
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace
@@ -333,14 +337,14 @@ private fun highlightCodeLine(line: String): AnnotatedString = buildAnnotatedStr
     while (i < line.length) {
         when {
             line.startsWith("//", i) -> {
-                withStyle(SpanStyle(color = Color(0xFF6A9955))) {
+                withStyle(SpanStyle(color = SemanticColors.Syntax.comment)) {
                     append(line.substring(i))
                 }
                 i = line.length
             }
             line[i] == '"' -> {
                 val end = line.indexOf('"', i + 1).takeIf { it >= 0 } ?: line.length
-                withStyle(SpanStyle(color = Color(0xFFCE9178))) {
+                withStyle(SpanStyle(color = SemanticColors.Syntax.string)) {
                     append(line.substring(i, minOf(end + 1, line.length)))
                 }
                 i = end + 1
@@ -351,17 +355,17 @@ private fun highlightCodeLine(line: String): AnnotatedString = buildAnnotatedStr
                 val word = line.substring(i, end)
                 when {
                     keywords.contains(word) -> {
-                        withStyle(SpanStyle(color = Color(0xFF569CD6), fontWeight = FontWeight.Bold)) {
+                        withStyle(SpanStyle(color = SemanticColors.Syntax.keyword, fontWeight = FontWeight.Bold)) {
                             append(word)
                         }
                     }
                     word.firstOrNull()?.isUpperCase() == true -> {
-                        withStyle(SpanStyle(color = Color(0xFF4EC9B0))) {
+                        withStyle(SpanStyle(color = SemanticColors.Syntax.type)) {
                             append(word)
                         }
                     }
                     else -> {
-                        withStyle(SpanStyle(color = Color(0xFFD4D4D4))) {
+                        withStyle(SpanStyle(color = SemanticColors.Syntax.text)) {
                             append(word)
                         }
                     }
@@ -371,13 +375,13 @@ private fun highlightCodeLine(line: String): AnnotatedString = buildAnnotatedStr
             line[i].isDigit() -> {
                 var end = i
                 while (end < line.length && (line[end].isDigit() || line[end] == '.')) end++
-                withStyle(SpanStyle(color = Color(0xFFB5CEA8))) {
+                withStyle(SpanStyle(color = SemanticColors.Syntax.number)) {
                     append(line.substring(i, end))
                 }
                 i = end
             }
             else -> {
-                withStyle(SpanStyle(color = Color(0xFFD4D4D4))) {
+                withStyle(SpanStyle(color = SemanticColors.Syntax.text)) {
                     append(line[i])
                 }
                 i++
@@ -394,13 +398,7 @@ private fun getPermissionIcon(type: String) = when (type.lowercase()) {
     else -> Icons.Default.Security
 }
 
-private fun getPermissionColor(type: String): Color = when (type.lowercase()) {
-    "file.write", "file.edit" -> Color(0xFFFFA726)
-    "file.read" -> Color(0xFF66BB6A)
-    "bash", "shell", "command" -> Color(0xFFEF5350)
-    "file.delete" -> Color(0xFFEF5350)
-    else -> Color(0xFF42A5F5)
-}
+private fun getPermissionColor(type: String): Color = SemanticColors.Permission.forType(type)
 
 private fun formatPermissionType(type: String): String = when (type.lowercase()) {
     "file.write" -> "File Write"

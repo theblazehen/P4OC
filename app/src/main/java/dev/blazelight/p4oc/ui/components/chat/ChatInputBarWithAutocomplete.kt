@@ -19,10 +19,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Command
 
 @Composable
@@ -80,7 +82,7 @@ fun ChatInputBarWithAutocomplete(
                     value = value,
                     onValueChange = onValueChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message or / for commands...") },
+                    placeholder = { Text(stringResource(R.string.chat_input_placeholder_with_commands)) },
                     enabled = enabled,
                     maxLines = 5,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -103,7 +105,7 @@ fun ChatInputBarWithAutocomplete(
                     } else {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send"
+                            contentDescription = stringResource(R.string.chat_send)
                         )
                     }
                 }
@@ -161,7 +163,7 @@ private fun CommandSuggestionItem(
         ) {
             Icon(
                 Icons.Default.Terminal,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_command_icon),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary
             )

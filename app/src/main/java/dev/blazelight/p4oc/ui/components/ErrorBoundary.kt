@@ -7,8 +7,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 
 data class ErrorState(
     val hasError: Boolean = false,
@@ -61,7 +63,7 @@ fun ErrorFallback(
     ) {
         Icon(
             imageVector = getErrorIcon(errorState.errorType),
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_error_state),
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.error
         )
@@ -84,18 +86,18 @@ fun ErrorFallback(
         ) {
             onDismiss?.let {
                 OutlinedButton(onClick = it) {
-                    Text("Dismiss")
+                    Text(stringResource(R.string.dismiss))
                 }
             }
             onRetry?.let {
                 Button(onClick = it) {
                     Icon(
                         Icons.Default.Refresh,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_retry),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("Retry")
+                    Text(stringResource(R.string.retry))
                 }
             }
         }
@@ -125,7 +127,7 @@ fun ErrorCard(
         ) {
             Icon(
                 imageVector = getErrorIcon(errorType),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_error_state),
                 tint = MaterialTheme.colorScheme.error
             )
             
@@ -147,7 +149,7 @@ fun ErrorCard(
                     IconButton(onClick = it) {
                         Icon(
                             Icons.Default.Refresh,
-                            contentDescription = "Retry",
+                            contentDescription = stringResource(R.string.cd_retry),
                             tint = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
@@ -156,7 +158,7 @@ fun ErrorCard(
                     IconButton(onClick = it) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Dismiss",
+                            contentDescription = stringResource(R.string.cd_dismiss),
                             tint = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
@@ -179,13 +181,13 @@ fun ErrorSnackbar(
         action = {
             onRetry?.let {
                 TextButton(onClick = it) {
-                    Text("Retry")
+                    Text(stringResource(R.string.retry))
                 }
             }
         },
         dismissAction = {
             IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Dismiss")
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.dismiss))
             }
         },
         containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -197,7 +199,7 @@ fun ErrorSnackbar(
         ) {
             Icon(
                 getErrorIcon(errorType),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_error_state),
                 modifier = Modifier.size(20.dp)
             )
             Text(message)
@@ -220,7 +222,7 @@ fun InlineError(
     ) {
         Icon(
             Icons.Default.ErrorOutline,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_error_state),
             modifier = Modifier.size(16.dp),
             tint = MaterialTheme.colorScheme.error
         )
@@ -235,7 +237,7 @@ fun InlineError(
                 onClick = it,
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Text("Retry", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.retry), style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -265,18 +267,18 @@ fun NetworkErrorBanner(
                 ) {
                     Icon(
                         Icons.Default.WifiOff,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.no_network_connection),
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onErrorContainer
                     )
                     Text(
-                        text = "No network connection",
+                        text = stringResource(R.string.no_network_connection),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
                 }
                 TextButton(onClick = onRetry) {
-                    Text("Retry")
+                    Text(stringResource(R.string.retry))
                 }
             }
         }

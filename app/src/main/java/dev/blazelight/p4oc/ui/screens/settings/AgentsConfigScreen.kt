@@ -11,14 +11,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +66,7 @@ class AgentsConfigViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = false, error = "Not connected") }
                 return@launch
             }
-            val result = safeApiCall { api.listAgents() }
+            val result = safeApiCall { api.getAgents() }
             when (result) {
                 is ApiResult.Success -> {
                     val agents = result.data.map { dto ->
@@ -112,14 +116,15 @@ fun AgentsConfigScreen(
     viewModel: AgentsConfigViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val dismissLabel = stringResource(R.string.dismiss)
     
     LaunchedEffect(state.error) {
         state.error?.let { error ->
             snackbarHostState.showSnackbar(
                 message = error,
-                actionLabel = "Dismiss",
+                actionLabel = dismissLabel,
                 duration = SnackbarDuration.Long
             )
             viewModel.clearError()
@@ -129,15 +134,15 @@ fun AgentsConfigScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Agents") },
+                title = { Text(stringResource(R.string.agents_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.loadAgents() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
                 }
             )
@@ -166,17 +171,17 @@ fun AgentsConfigScreen(
                 ) {
                     Icon(
                         Icons.Default.Error,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_error_state),
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.error
                     )
                     Text(
-                        text = "Failed to load agents",
+                        text = stringResource(R.string.agents_failed_to_load),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.error
                     )
                     Button(onClick = { viewModel.loadAgents() }) {
-                        Text("Retry")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             }
@@ -190,7 +195,7 @@ fun AgentsConfigScreen(
             ) {
                 item {
                     Text(
-                        text = "Configure AI agents and their capabilities",
+                        text = stringResource(R.string.agents_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -203,7 +208,7 @@ fun AgentsConfigScreen(
                 if (builtInAgents.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Built-in Agents",
+                            text = stringResource(R.string.agents_builtin),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -222,7 +227,7 @@ fun AgentsConfigScreen(
                     item {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Custom Agents",
+                            text = stringResource(R.string.agents_custom),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -283,7 +288,7 @@ private fun AgentCard(
                 ) {
                     Icon(
                         getAgentIcon(agent.name),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_agent_icon),
                         modifier = Modifier.padding(8.dp),
                         tint = getAgentColor(agent.name)
                     )
@@ -348,7 +353,7 @@ private fun AgentDetailDialog(
         icon = {
             Icon(
                 getAgentIcon(agent.name),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_agent_icon),
                 tint = getAgentColor(agent.name)
             )
         },
@@ -361,7 +366,7 @@ private fun AgentDetailDialog(
                 
                 if (agent.tools.isNotEmpty()) {
                     Text(
-                        text = "Tools",
+                        text = stringResource(R.string.agents_tools),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -373,7 +378,7 @@ private fun AgentDetailDialog(
                             ) {
                                 Icon(
                                     Icons.Default.Build,
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.agents_tools),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -388,7 +393,7 @@ private fun AgentDetailDialog(
                 
                 agent.systemPrompt?.let { prompt ->
                     Text(
-                        text = "System Prompt",
+                        text = stringResource(R.string.agents_system_prompt),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -408,7 +413,7 @@ private fun AgentDetailDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.close))
             }
         }
     )
@@ -425,17 +430,17 @@ private fun EmptyAgentsView() {
     ) {
         Icon(
             Icons.Default.SmartToy,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_agent_icon),
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.outline
         )
         Text(
-            text = "No agents configured",
+            text = stringResource(R.string.agents_no_agents),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "Agents will appear here once configured on the server",
+            text = stringResource(R.string.agents_appear_here),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -447,21 +452,11 @@ private fun getAgentIcon(name: String) = when (name.lowercase()) {
     "researcher", "research" -> Icons.Default.Search
     "writer", "writing" -> Icons.Default.Edit
     "analyst", "analysis" -> Icons.Default.Analytics
-    "planner", "planning" -> Icons.Default.EventNote
+    "planner", "planning" -> Icons.Default.DateRange // EventNote is deprecated, use DateRange instead
     "reviewer", "review" -> Icons.Default.RateReview
     "debugger", "debug" -> Icons.Default.BugReport
     "explorer", "explore" -> Icons.Default.Explore
     else -> Icons.Default.SmartToy
 }
 
-private fun getAgentColor(name: String): Color = when (name.lowercase()) {
-    "coder", "coding" -> Color(0xFF42A5F5)
-    "researcher", "research" -> Color(0xFF66BB6A)
-    "writer", "writing" -> Color(0xFFAB47BC)
-    "analyst", "analysis" -> Color(0xFFFFA726)
-    "planner", "planning" -> Color(0xFF26A69A)
-    "reviewer", "review" -> Color(0xFFEF5350)
-    "debugger", "debug" -> Color(0xFFEC407A)
-    "explorer", "explore" -> Color(0xFF7E57C2)
-    else -> Color(0xFF78909C)
-}
+private fun getAgentColor(name: String): Color = SemanticColors.Agent.forName(name)

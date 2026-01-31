@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -67,6 +68,16 @@ class SettingsDataStore @Inject constructor(
     private var cachedUsername: String? = null
     @Volatile
     private var cachedPassword: String? = null
+
+    init {
+        // Preload cache from DataStore to avoid stale values on first access
+        runBlocking {
+            val prefs = context.dataStore.data.first()
+            cachedServerUrl = prefs[KEY_SERVER_URL] ?: DEFAULT_LOCAL_URL
+            cachedUsername = prefs[KEY_USERNAME]
+            cachedPassword = prefs[KEY_PASSWORD]
+        }
+    }
 
     fun getCachedServerUrl(): String = cachedServerUrl
     fun getCachedUsername(): String? = cachedUsername
@@ -170,10 +181,6 @@ class SettingsDataStore @Inject constructor(
     }
 
     suspend fun setServerConfig(url: String, name: String, isLocal: Boolean, username: String? = null, password: String? = null) {
-        cachedServerUrl = url
-        cachedUsername = username
-        cachedPassword = password
-        
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = url
             prefs[KEY_SERVER_NAME] = name
@@ -181,6 +188,10 @@ class SettingsDataStore @Inject constructor(
             if (username != null) prefs[KEY_USERNAME] = username else prefs.remove(KEY_USERNAME)
             if (password != null) prefs[KEY_PASSWORD] = password else prefs.remove(KEY_PASSWORD)
         }
+        // Update cache AFTER successful write
+        cachedServerUrl = url
+        cachedUsername = username
+        cachedPassword = password
     }
 
     suspend fun clearAll() {
@@ -197,8 +208,17 @@ class SettingsDataStore @Inject constructor(
             } else {
                 prefs.remove(KEY_USERNAME)
             }
+            if (config.password != null) {
+                prefs[KEY_PASSWORD] = config.password
+            } else {
+                prefs.remove(KEY_PASSWORD)
+            }
             prefs[KEY_ONBOARDING_COMPLETED] = true
         }
+        // Update cache after successful write
+        cachedServerUrl = config.url
+        cachedUsername = config.username
+        cachedPassword = config.password
     }
 
     suspend fun getLastConnection(): dev.blazelight.p4oc.core.network.ServerConfig? {
@@ -208,7 +228,8 @@ class SettingsDataStore @Inject constructor(
             url = url,
             name = prefs[KEY_SERVER_NAME] ?: "",
             isLocal = prefs[KEY_IS_LOCAL_SERVER] ?: false,
-            username = prefs[KEY_USERNAME]
+            username = prefs[KEY_USERNAME],
+            password = prefs[KEY_PASSWORD]
         )
     }
 
@@ -223,13 +244,23 @@ class SettingsDataStore @Inject constructor(
     }
 
     val recentServers: Flow<List<RecentServer>> = context.dataStore.data.map { prefs ->
-        val json = prefs[KEY_RECENT_SERVERS] ?: return@map emptyList()
+        val stored = prefs[KEY_RECENT_SERVERS] ?: return@map emptyList()
         try {
-            json.split("|||").mapNotNull { entry ->
-                val parts = entry.split(":::")
-                if (parts.size >= 2) {
-                    RecentServer(url = parts[0], name = parts[1])
-                } else null
+            // Try JSON array format first (new format)
+            if (stored.startsWith("[")) {
+                // Parse JSON array: [{"url":"...","name":"..."},...]
+                val jsonItems = stored.removeSurrounding("[", "]")
+                    .split("},")
+                    .map { it.trim().removeSuffix("}") + "}" }
+                jsonItems.mapNotNull { RecentServer.fromJson(it) }
+            } else {
+                // Fallback to legacy delimiter format for migration
+                stored.split("|||").mapNotNull { entry ->
+                    val parts = entry.split(":::")
+                    if (parts.size >= 2) {
+                        RecentServer(url = parts[0], name = parts[1])
+                    } else null
+                }
             }
         } catch (e: Exception) {
             emptyList()
@@ -238,11 +269,18 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun addRecentServer(url: String, name: String) {
         context.dataStore.edit { prefs ->
-            val existingJson = prefs[KEY_RECENT_SERVERS] ?: ""
-            val existingServers = if (existingJson.isBlank()) {
+            val stored = prefs[KEY_RECENT_SERVERS] ?: ""
+            val existingServers = if (stored.isBlank()) {
                 mutableListOf()
+            } else if (stored.startsWith("[")) {
+                // Parse JSON array format
+                val jsonItems = stored.removeSurrounding("[", "]")
+                    .split("},")
+                    .map { it.trim().removeSuffix("}") + "}" }
+                jsonItems.mapNotNull { RecentServer.fromJson(it) }.toMutableList()
             } else {
-                existingJson.split("|||").mapNotNull { entry ->
+                // Legacy format migration
+                stored.split("|||").mapNotNull { entry ->
                     val parts = entry.split(":::")
                     if (parts.size >= 2) RecentServer(parts[0], parts[1]) else null
                 }.toMutableList()
@@ -252,18 +290,26 @@ class SettingsDataStore @Inject constructor(
             existingServers.add(0, RecentServer(url, name))
             val trimmed = existingServers.take(MAX_RECENT_SERVERS)
             
-            prefs[KEY_RECENT_SERVERS] = trimmed.joinToString("|||") { "${it.url}:::${it.name}" }
+            // Save as JSON array
+            prefs[KEY_RECENT_SERVERS] = "[" + trimmed.joinToString(",") { it.toJson() } + "]"
         }
     }
 
     suspend fun removeRecentServer(url: String) {
         context.dataStore.edit { prefs ->
-            val existingJson = prefs[KEY_RECENT_SERVERS] ?: return@edit
-            val servers = existingJson.split("|||").mapNotNull { entry ->
-                val parts = entry.split(":::")
-                if (parts.size >= 2 && parts[0] != url) RecentServer(parts[0], parts[1]) else null
+            val stored = prefs[KEY_RECENT_SERVERS] ?: return@edit
+            val servers = if (stored.startsWith("[")) {
+                val jsonItems = stored.removeSurrounding("[", "]")
+                    .split("},")
+                    .map { it.trim().removeSuffix("}") + "}" }
+                jsonItems.mapNotNull { RecentServer.fromJson(it) }.filter { it.url != url }
+            } else {
+                stored.split("|||").mapNotNull { entry ->
+                    val parts = entry.split(":::")
+                    if (parts.size >= 2 && parts[0] != url) RecentServer(parts[0], parts[1]) else null
+                }
             }
-            prefs[KEY_RECENT_SERVERS] = servers.joinToString("|||") { "${it.url}:::${it.name}" }
+            prefs[KEY_RECENT_SERVERS] = "[" + servers.joinToString(",") { it.toJson() } + "]"
         }
     }
 
@@ -304,7 +350,22 @@ class SettingsDataStore @Inject constructor(
     }
 
     val recentModels: Flow<List<ModelInput>> = context.dataStore.data.map { prefs ->
-        prefs[KEY_RECENT_MODELS]?.split("|||")?.filter { it.isNotBlank() }?.mapNotNull { it.toModelInput() } ?: emptyList()
+        val stored = prefs[KEY_RECENT_MODELS] ?: return@map emptyList()
+        try {
+            if (stored.startsWith("[")) {
+                // JSON array format: ["providerID/modelID", ...]
+                stored.removeSurrounding("[", "]")
+                    .split(",")
+                    .map { it.trim().removeSurrounding("\"") }
+                    .filter { it.isNotBlank() }
+                    .mapNotNull { it.toModelInput() }
+            } else {
+                // Legacy ||| format - migrate on read
+                stored.split("|||").filter { it.isNotBlank() }.mapNotNull { it.toModelInput() }
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     suspend fun toggleFavoriteModel(model: ModelInput) {
@@ -322,10 +383,24 @@ class SettingsDataStore @Inject constructor(
     suspend fun addRecentModel(model: ModelInput) {
         val key = model.toStorageKey()
         context.dataStore.edit { prefs ->
-            val existing = prefs[KEY_RECENT_MODELS]?.split("|||")?.filter { it.isNotBlank() }?.toMutableList() ?: mutableListOf()
+            val stored = prefs[KEY_RECENT_MODELS] ?: ""
+            val existing = if (stored.isBlank()) {
+                mutableListOf()
+            } else if (stored.startsWith("[")) {
+                // JSON array format
+                stored.removeSurrounding("[", "]")
+                    .split(",")
+                    .map { it.trim().removeSurrounding("\"") }
+                    .filter { it.isNotBlank() }
+                    .toMutableList()
+            } else {
+                // Legacy format migration
+                stored.split("|||").filter { it.isNotBlank() }.toMutableList()
+            }
             existing.remove(key)
             existing.add(0, key)
-            prefs[KEY_RECENT_MODELS] = existing.take(MAX_RECENT_MODELS).joinToString("|||")
+            // Save as JSON array
+            prefs[KEY_RECENT_MODELS] = "[" + existing.take(MAX_RECENT_MODELS).joinToString(",") { "\"$it\"" } + "]"
         }
     }
 
@@ -361,7 +436,27 @@ private fun String.toModelInput(): ModelInput? {
 data class RecentServer(
     val url: String,
     val name: String
-)
+) {
+    fun toJson(): String = """{"url":"${url.replace("\"", "\\\"")}","name":"${name.replace("\"", "\\\"")}"}"""
+    
+    companion object {
+        fun fromJson(json: String): RecentServer? {
+            return try {
+                // Simple JSON parsing without external library
+                val urlMatch = """"url"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
+                val nameMatch = """"name"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
+                if (urlMatch != null && nameMatch != null) {
+                    RecentServer(
+                        url = urlMatch.groupValues[1].replace("\\\"", "\""),
+                        name = nameMatch.groupValues[1].replace("\\\"", "\"")
+                    )
+                } else null
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+}
 
 data class VisualSettings(
     val fontSize: Int = 14,

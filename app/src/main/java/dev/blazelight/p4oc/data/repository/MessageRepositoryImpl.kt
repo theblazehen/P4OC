@@ -35,7 +35,7 @@ class MessageRepositoryImpl @Inject constructor(
     private val messageMapper: MessageMapper,
     private val partMapper: PartMapper,
     private val json: Json
-) : MessageRepository {
+) : MessageRepository, java.io.Closeable {
 
     override fun getMessagesForSession(sessionId: String): Flow<List<MessageWithParts>> {
         return combine(
@@ -98,12 +98,20 @@ class MessageRepositoryImpl @Inject constructor(
         }
     }
 
-    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val supervisorJob = SupervisorJob()
+    private val repositoryScope = CoroutineScope(supervisorJob + Dispatchers.IO)
 
     override fun updateMessagePart(part: Part, delta: String?) {
         repositoryScope.launch {
             messageDao.updatePart(part.toEntity())
         }
+    }
+
+    /**
+     * Cleanup resources. Called when the singleton is being destroyed.
+     */
+    override fun close() {
+        supervisorJob.cancel()
     }
 
     private fun MessageEntity.toDomain(): Message {
@@ -238,14 +246,14 @@ class MessageRepositoryImpl @Inject constructor(
             "running" -> ToolState.Running(
                 input = input,
                 title = toolStateTitle,
-                startedAt = toolStateStartedAt!!
+                startedAt = toolStateStartedAt ?: 0L
             )
             "completed" -> ToolState.Completed(
                 input = input,
                 output = toolStateOutput ?: "",
                 title = toolStateTitle ?: "",
-                startedAt = toolStateStartedAt!!,
-                endedAt = toolStateEndedAt!!,
+                startedAt = toolStateStartedAt ?: 0L,
+                endedAt = toolStateEndedAt ?: 0L,
                 metadata = toolStateMetadata?.let {
                     try { json.decodeFromString<JsonObject>(it) }
                     catch (e: Exception) { null }
@@ -254,8 +262,8 @@ class MessageRepositoryImpl @Inject constructor(
             "error" -> ToolState.Error(
                 input = input,
                 error = toolStateError ?: "",
-                startedAt = toolStateStartedAt!!,
-                endedAt = toolStateEndedAt!!
+                startedAt = toolStateStartedAt ?: 0L,
+                endedAt = toolStateEndedAt ?: 0L
             )
             else -> ToolState.Pending(input = input, rawInput = toolStateRawInput ?: "")
         }

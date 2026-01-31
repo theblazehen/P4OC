@@ -79,6 +79,12 @@ class TermuxBridge @Inject constructor(
             return false
         }
 
+        // Check for RUN_COMMAND permission before attempting to start service
+        if (!hasRunCommandPermission()) {
+            Log.w(TAG, "Missing RUN_COMMAND permission")
+            return false
+        }
+
         val intent = Intent().apply {
             setClassName(TERMUX_PACKAGE, RUN_COMMAND_SERVICE)
             action = ACTION_RUN_COMMAND
@@ -203,9 +209,15 @@ class TermuxBridge @Inject constructor(
                     openCodeInstalled = installed
                     latch.countDown()
                 }
-                latch.await(5, TimeUnit.SECONDS)
-                if (openCodeInstalled) TermuxStatus.Ready
-                else TermuxStatus.OpenCodeNotInstalled
+                val completed = latch.await(5, TimeUnit.SECONDS)
+                when {
+                    !completed -> {
+                        Log.w(TAG, "Timeout checking opencode installation")
+                        TermuxStatus.Unknown  // Return Unknown on timeout instead of assuming not installed
+                    }
+                    openCodeInstalled -> TermuxStatus.Ready
+                    else -> TermuxStatus.OpenCodeNotInstalled
+                }
             }
         }.also { _status.value = it }
     }

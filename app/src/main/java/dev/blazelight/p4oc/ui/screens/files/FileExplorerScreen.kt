@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -32,6 +33,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,7 +45,7 @@ fun FileExplorerScreen(
     onFileClick: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
 
@@ -64,7 +68,7 @@ fun FileExplorerScreen(
                             OutlinedTextField(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
-                                placeholder = { Text("Search files...") },
+                                placeholder = { Text(stringResource(R.string.files_search_placeholder)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -91,17 +95,17 @@ fun FileExplorerScreen(
                                 onNavigateBack()
                             }
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                         }
                     },
                     actions = {
                         if (!isSearchActive) {
                             IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search")
+                                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search))
                             }
                         }
                         IconButton(onClick = viewModel::refresh) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
                         }
                     }
                 )
@@ -132,7 +136,7 @@ fun FileExplorerScreen(
                     ) {
                         Icon(
                             if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.FolderOpen,
-                            contentDescription = null,
+                            contentDescription = if (searchQuery.isNotBlank()) "No matching files" else "Empty folder",
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -189,7 +193,7 @@ private fun BreadcrumbNavigation(
         ) {
             Icon(
                 Icons.Default.Home,
-                contentDescription = "Root",
+                contentDescription = stringResource(R.string.cd_root),
                 modifier = Modifier
                     .padding(horizontal = 8.dp, vertical = 4.dp)
                     .size(16.dp),
@@ -201,7 +205,7 @@ private fun BreadcrumbNavigation(
         parts.forEachIndexed { index, part ->
             Icon(
                 Icons.Default.ChevronRight,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_path_separator),
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.outline
             )
@@ -262,7 +266,7 @@ private fun EnhancedFileItem(
             leadingContent = {
                 Icon(
                     imageVector = icon,
-                    contentDescription = null,
+                    contentDescription = if (file.isDirectory) "Folder" else "File",
                     tint = gitStatusColor ?: iconColor,
                     modifier = Modifier.size(24.dp)
                 )
@@ -271,7 +275,7 @@ private fun EnhancedFileItem(
                 if (file.isDirectory) {
                     Icon(
                         Icons.Default.ChevronRight, 
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_open_folder),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -292,23 +296,23 @@ private fun EnhancedFileItem(
             onDismissRequest = { showContextMenu = false }
         ) {
             DropdownMenuItem(
-                text = { Text("Copy Path") },
+                text = { Text(stringResource(R.string.files_copy_path)) },
                 onClick = {
                     clipboardManager.setText(AnnotatedString(file.path))
                     showContextMenu = false
                 },
                 leadingIcon = {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null)
+                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.files_copy_path))
                 }
             )
             DropdownMenuItem(
-                text = { Text("Copy Name") },
+                text = { Text(stringResource(R.string.files_copy_name)) },
                 onClick = {
                     clipboardManager.setText(AnnotatedString(file.name))
                     showContextMenu = false
                 },
                 leadingIcon = {
-                    Icon(Icons.Default.TextFields, contentDescription = null)
+                    Icon(Icons.Default.TextFields, contentDescription = stringResource(R.string.files_copy_name))
                 }
             )
         }
@@ -318,9 +322,9 @@ private fun EnhancedFileItem(
 @Composable
 private fun GitStatusBadge(status: String) {
     val (text, color) = when (status) {
-        "added" -> "A" to Color(0xFF4CAF50)
-        "modified" -> "M" to Color(0xFFFF9800)
-        "deleted" -> "D" to Color(0xFFF44336)
+        "added" -> "A" to SemanticColors.Git.added
+        "modified" -> "M" to SemanticColors.Git.modified
+        "deleted" -> "D" to SemanticColors.Git.deleted
         else -> status.take(1).uppercase() to MaterialTheme.colorScheme.outline
     }
     
@@ -339,17 +343,17 @@ private fun GitStatusBadge(status: String) {
 }
 
 @Composable
-private fun getGitStatusColor(status: String?): Color? {
+private fun getGitStatusColor(status: String?): androidx.compose.ui.graphics.Color? {
     return when (status) {
-        "added" -> Color(0xFF4CAF50)
-        "modified" -> Color(0xFFFF9800)
-        "deleted" -> Color(0xFFF44336)
+        "added" -> SemanticColors.Git.added
+        "modified" -> SemanticColors.Git.modified
+        "deleted" -> SemanticColors.Git.deleted
         else -> null
     }
 }
 
 @Composable
-private fun getFileIcon(file: FileNode): Pair<ImageVector, Color> {
+private fun getFileIcon(file: FileNode): Pair<ImageVector, androidx.compose.ui.graphics.Color> {
     if (file.isDirectory) {
         return Icons.Default.Folder to MaterialTheme.colorScheme.primary
     }
@@ -358,46 +362,46 @@ private fun getFileIcon(file: FileNode): Pair<ImageVector, Color> {
     
     return when (extension) {
         "kt", "java", "py", "js", "ts", "tsx", "jsx", "c", "cpp", "h", "rs", "go", "rb", "php", "swift", "m" ->
-            Icons.Default.Code to Color(0xFF4CAF50)
+            Icons.Default.Code to SemanticColors.FileType.code
         
         "json", "yaml", "yml", "xml", "toml", "ini", "conf", "config", "properties" ->
-            Icons.Default.Settings to Color(0xFFFF9800)
+            Icons.Default.Settings to SemanticColors.FileType.config
         
         "md", "txt", "rst", "doc", "docx", "pdf" ->
-            Icons.Default.Description to Color(0xFF2196F3)
+            Icons.Default.Description to SemanticColors.FileType.document
         
         "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp" ->
-            Icons.Default.Image to Color(0xFFE91E63)
+            Icons.Default.Image to SemanticColors.FileType.image
         
         "mp4", "avi", "mov", "mkv", "webm" ->
-            Icons.Default.VideoFile to Color(0xFF9C27B0)
+            Icons.Default.VideoFile to SemanticColors.FileType.video
         
         "mp3", "wav", "ogg", "flac", "m4a" ->
-            Icons.Default.AudioFile to Color(0xFF00BCD4)
+            Icons.Default.AudioFile to SemanticColors.FileType.audio
         
         "zip", "tar", "gz", "rar", "7z" ->
-            Icons.Default.FolderZip to Color(0xFF795548)
+            Icons.Default.FolderZip to SemanticColors.FileType.archive
         
         "sh", "bash", "zsh", "fish" ->
-            Icons.Default.Terminal to Color(0xFF607D8B)
+            Icons.Default.Terminal to SemanticColors.FileType.shell
         
         "gradle", "gradlew" ->
-            Icons.Default.Build to Color(0xFF009688)
+            Icons.Default.Build to SemanticColors.FileType.build
         
         "gitignore", "gitattributes" ->
-            Icons.Default.AccountTree to Color(0xFFF44336)
+            Icons.Default.AccountTree to SemanticColors.FileType.git
         
         "lock" ->
-            Icons.Default.Lock to Color(0xFF9E9E9E)
+            Icons.Default.Lock to SemanticColors.FileType.lock
         
         "env", "envrc" ->
-            Icons.Default.Security to Color(0xFFFF5722)
+            Icons.Default.Security to SemanticColors.FileType.env
         
         "html", "htm", "css", "scss", "sass", "less" ->
-            Icons.Default.Web to Color(0xFF3F51B5)
+            Icons.Default.Web to SemanticColors.FileType.web
         
         "sql", "db", "sqlite" ->
-            Icons.Default.Storage to Color(0xFF673AB7)
+            Icons.Default.Storage to SemanticColors.FileType.database
         
         else -> Icons.AutoMirrored.Filled.InsertDriveFile to MaterialTheme.colorScheme.onSurfaceVariant
     }

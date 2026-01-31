@@ -7,7 +7,8 @@ data class ServerConfig(
     val url: String,
     val name: String = "",
     val isLocal: Boolean = false,
-    val username: String? = null
+    val username: String? = null,
+    val password: String? = null
 ) {
     companion object {
         val LOCAL_DEFAULT = ServerConfig(

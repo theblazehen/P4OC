@@ -57,7 +57,8 @@ fun PocketCodeTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val activity = view.context as? Activity ?: return@SideEffect
+            val window = activity.window
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme
                 isAppearanceLightNavigationBars = !darkTheme

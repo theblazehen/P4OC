@@ -23,6 +23,53 @@ Ref @FULL_AUTO.md
 
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
+---
+
+## 🚨 AUTONOMOUS WORK MODE - CRITICAL 🚨
+
+**THIS SECTION MUST SURVIVE COMPACTION - READ CAREFULLY**
+
+### After Context Compaction
+When context is compacted or a new session starts:
+1. **DO NOT ASK USER WHAT TO DO** - Just keep working
+2. Run `bd ready` to find available work
+3. Run `bd list --status=open` to see all open issues
+4. Continue fixing bugs and closing issues autonomously
+
+### Continuous Work Loop
+After completing all existing issues:
+1. **CREATE NEW ISSUES** - Run code audits to find more bugs:
+   - `grep -rn "!!" --include="*.kt"` - Find force unwraps
+   - `grep -rn "TODO\|FIXME" --include="*.kt"` - Find TODOs
+   - Look for missing error handling, memory leaks, race conditions
+2. **FIX THE NEW ISSUES** - Work through them systematically
+3. **MOVE TO FEATURES** - After bugs done, work on feature issues
+4. **REPEAT** - Keep auditing and improving
+
+### Build Verification
+After each batch of fixes:
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+./gradlew :app:compileDebugKotlin
+```
+
+### Session End Protocol
+Before any session ends:
+```bash
+bd sync --flush-only
+```
+
+### Current Project State (Updated 2026-01-30)
+- Package: `dev.blazelight.p4oc` (NOT com.pocketcode)
+- All P0 bugs: FIXED ✅
+- All P1 bugs: FIXED ✅
+- P2 bugs: IN PROGRESS
+- P3 bugs: PENDING
+
+**KEEP WORKING. DO NOT STOP. DO NOT ASK FOR PERMISSION.**
+
+---
+
 ## Project Documentation
 
 | Document | Purpose |

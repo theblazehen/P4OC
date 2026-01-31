@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 @Composable
 fun TermuxExtraKeysBar(
@@ -35,7 +36,7 @@ fun TermuxExtraKeysBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF2B2B2B))
+            .background(SemanticColors.TerminalKeys.background)
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -111,10 +112,10 @@ private fun ExtraKey(
         modifier = Modifier.height(36.dp),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = Color(0xFF3C3C3C),
-            contentColor = Color(0xFFE0E0E0),
-            disabledContainerColor = Color(0xFF2A2A2A),
-            disabledContentColor = Color(0xFF666666)
+            containerColor = SemanticColors.TerminalKeys.keyBackground,
+            contentColor = SemanticColors.TerminalKeys.keyText,
+            disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
+            disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
         )
     ) {
         Text(
@@ -138,10 +139,10 @@ private fun ModifierKey(
         modifier = Modifier.height(36.dp),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (active) Color(0xFF4CAF50) else Color(0xFF3C3C3C),
-            contentColor = if (active) Color.White else Color(0xFFE0E0E0),
-            disabledContainerColor = Color(0xFF2A2A2A),
-            disabledContentColor = Color(0xFF666666)
+            containerColor = if (active) SemanticColors.TerminalKeys.activeModifier else SemanticColors.TerminalKeys.keyBackground,
+            contentColor = if (active) Color.White else SemanticColors.TerminalKeys.keyText,
+            disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
+            disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
         )
     ) {
         Text(
@@ -167,10 +168,10 @@ private fun CtrlComboKey(
         modifier = Modifier.height(36.dp),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = Color(0xFF4CAF50),
+            containerColor = SemanticColors.TerminalKeys.activeModifier,
             contentColor = Color.White,
-            disabledContainerColor = Color(0xFF2A2A2A),
-            disabledContentColor = Color(0xFF666666)
+            disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
+            disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
         )
     ) {
         Text(

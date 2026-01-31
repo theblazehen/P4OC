@@ -38,5 +38,6 @@ data class PartEntity(
     val filename: String?,
     val url: String?,
     val hash: String?,
-    val files: List<String>?
+    val files: List<String>?,
+    val insertedAt: Long = System.currentTimeMillis()  // Track insertion order
 )

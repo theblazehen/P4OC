@@ -17,10 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Command
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,16 +74,18 @@ fun CommandPalette(
                     focusRequester = focusRequester
                 )
             } else {
-                CommandArgumentsView(
-                    command = selectedCommand!!,
-                    arguments = commandArgs,
-                    onArgumentsChange = { commandArgs = it },
-                    onBack = { selectedCommand = null; commandArgs = "" },
-                    onExecute = {
-                        onCommandSelected(selectedCommand!!, commandArgs)
-                        onDismiss()
-                    }
-                )
+                selectedCommand?.let { command ->
+                    CommandArgumentsView(
+                        command = command,
+                        arguments = commandArgs,
+                        onArgumentsChange = { commandArgs = it },
+                        onBack = { selectedCommand = null; commandArgs = "" },
+                        onExecute = {
+                            onCommandSelected(command, commandArgs)
+                            onDismiss()
+                        }
+                    )
+                }
             }
         }
     }
@@ -97,7 +101,7 @@ private fun CommandSearchView(
     focusRequester: FocusRequester
 ) {
     Text(
-        text = "Command Palette",
+        text = stringResource(R.string.command_palette),
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(bottom = 16.dp)
@@ -109,12 +113,12 @@ private fun CommandSearchView(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester),
-        placeholder = { Text("Search commands...") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        placeholder = { Text(stringResource(R.string.search_commands)) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search)) },
         trailingIcon = {
             if (searchQuery.isNotEmpty()) {
                 IconButton(onClick = { onSearchChange("") }) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear))
                 }
             }
         },
@@ -146,13 +150,13 @@ private fun CommandSearchView(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         Icons.Default.SearchOff,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.no_matching_commands),
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (searchQuery.isEmpty()) "No commands available" else "No matching commands",
+                        text = if (searchQuery.isEmpty()) stringResource(R.string.no_commands_available) else stringResource(R.string.no_matching_commands),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -198,7 +202,7 @@ private fun CommandItem(
         ) {
             Icon(
                 Icons.Default.Terminal,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_command_icon),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
@@ -221,7 +225,7 @@ private fun CommandItem(
                             shape = RectangleShape
                         ) {
                             Text(
-                                text = "subtask",
+                                text = stringResource(R.string.subtask),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -262,7 +266,7 @@ private fun CommandItem(
 
             Icon(
                 Icons.Default.ChevronRight,
-                contentDescription = "Select",
+                contentDescription = stringResource(R.string.cd_select),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -281,7 +285,7 @@ private fun CommandBadge(
     ) {
         Icon(
             icon,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_decorative),
             modifier = Modifier.size(12.dp),
             tint = color
         )
@@ -306,7 +310,7 @@ private fun CommandArgumentsView(
         modifier = Modifier.padding(bottom = 16.dp)
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
         }
         Text(
             text = "/${command.name}",
@@ -330,8 +334,8 @@ private fun CommandArgumentsView(
         value = arguments,
         onValueChange = onArgumentsChange,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Arguments (optional)") },
-        placeholder = { Text("Enter command arguments...") },
+        label = { Text(stringResource(R.string.arguments_optional)) },
+        placeholder = { Text(stringResource(R.string.enter_command_arguments)) },
         singleLine = false,
         minLines = 2,
         maxLines = 4,
@@ -347,8 +351,8 @@ private fun CommandArgumentsView(
         modifier = Modifier.fillMaxWidth(),
         shape = RectangleShape
     ) {
-        Icon(Icons.Default.PlayArrow, contentDescription = null)
+        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.cd_run_command))
         Spacer(modifier = Modifier.width(8.dp))
-        Text("Execute Command")
+        Text(stringResource(R.string.execute_command))
     }
 }

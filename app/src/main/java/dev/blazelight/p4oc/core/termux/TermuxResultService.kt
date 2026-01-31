@@ -21,9 +21,11 @@ class TermuxResultService : Service() {
     companion object {
         private const val TAG = "TermuxResultService"
         const val EXTRA_EXECUTION_ID = "execution_id"
+        private const val CALLBACK_TIMEOUT_MS = 60_000L
 
         private val executionId = AtomicInteger(1000)
         private val callbacks = ConcurrentHashMap<Int, (TermuxCommandResult) -> Unit>()
+        private val callbackTimestamps = ConcurrentHashMap<Int, Long>()
         private val executor = Executors.newSingleThreadExecutor()
         private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -31,6 +33,20 @@ class TermuxResultService : Service() {
 
         fun registerCallback(id: Int, callback: (TermuxCommandResult) -> Unit) {
             callbacks[id] = callback
+            callbackTimestamps[id] = System.currentTimeMillis()
+            cleanupStaleCallbacks()
+        }
+        
+        private fun cleanupStaleCallbacks() {
+            val now = System.currentTimeMillis()
+            val staleIds = callbackTimestamps.entries
+                .filter { now - it.value > CALLBACK_TIMEOUT_MS }
+                .map { it.key }
+            staleIds.forEach { id ->
+                callbacks.remove(id)
+                callbackTimestamps.remove(id)
+                Log.w(TAG, "Cleaned up stale callback for execution $id")
+            }
         }
 
         fun startService(context: Context, intent: Intent) {
@@ -69,6 +85,7 @@ class TermuxResultService : Service() {
         }
 
         val callback = callbacks.remove(execId)
+        callbackTimestamps.remove(execId)
         if (callback != null) {
             mainHandler.post { callback.invoke(result) }
         }

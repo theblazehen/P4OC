@@ -28,7 +28,7 @@ class SessionRepositoryImpl @Inject constructor(
 ) : SessionRepository {
 
     override fun getSessions(): Flow<List<Session>> {
-        return sessionDao.getActiveSessions().map { entities ->
+        return sessionDao.getAllSessions().map { entities ->
             entities.map { it.toDomain() }
         }
     }

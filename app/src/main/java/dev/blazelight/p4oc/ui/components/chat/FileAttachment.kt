@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,8 +26,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 data class FileAttachment(
     val uri: Uri,
@@ -72,7 +76,7 @@ fun FileAttachmentBar(
                 ) {
                     Icon(
                         Icons.Default.Add,
-                        contentDescription = "Add more files",
+                        contentDescription = stringResource(R.string.cd_add_more_files),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -97,7 +101,7 @@ private fun AttachmentChip(
         ) {
             Icon(
                 getFileIcon(attachment.mimeType),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_file_type),
                 modifier = Modifier.size(16.dp),
                 tint = getFileColor(attachment.mimeType)
             )
@@ -122,7 +126,7 @@ private fun AttachmentChip(
             ) {
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = "Remove",
+                    contentDescription = stringResource(R.string.cd_remove),
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -151,7 +155,7 @@ fun AttachmentButton(
     ) {
         Icon(
             Icons.Default.AttachFile,
-            contentDescription = "Attach files"
+            contentDescription = stringResource(R.string.cd_attach_files)
         )
     }
 }
@@ -172,7 +176,7 @@ fun AttachmentMenu(
     ) {
         DropdownMenuItem(
             text = { Text("Files") },
-            leadingIcon = { Icon(Icons.Default.InsertDriveFile, contentDescription = null) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = stringResource(R.string.cd_file_type)) },
             onClick = {
                 onSelectFiles()
                 onDismiss()
@@ -180,7 +184,7 @@ fun AttachmentMenu(
         )
         DropdownMenuItem(
             text = { Text("Images") },
-            leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Default.Image, contentDescription = stringResource(R.string.cd_image_type)) },
             onClick = {
                 onSelectImages()
                 onDismiss()
@@ -188,95 +192,12 @@ fun AttachmentMenu(
         )
         DropdownMenuItem(
             text = { Text("From Project") },
-            leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_folder_type)) },
             onClick = {
                 onSelectFromProject()
                 onDismiss()
             }
         )
-    }
-}
-
-@Composable
-fun ChatInputBarWithAttachments(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSend: () -> Unit,
-    attachments: List<FileAttachment>,
-    onAddAttachment: (List<Uri>) -> Unit,
-    onRemoveAttachment: (FileAttachment) -> Unit,
-    isLoading: Boolean,
-    enabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    var showAttachmentMenu by remember { mutableStateOf(false) }
-    
-    val fileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris -> if (uris.isNotEmpty()) onAddAttachment(uris) }
-    
-    val imageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris -> if (uris.isNotEmpty()) onAddAttachment(uris) }
-    
-    Column(modifier = modifier) {
-        FileAttachmentBar(
-            attachments = attachments,
-            onAddAttachment = { showAttachmentMenu = true },
-            onRemoveAttachment = onRemoveAttachment
-        )
-        
-        Surface(
-            tonalElevation = 3.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box {
-                    IconButton(
-                        onClick = { showAttachmentMenu = true },
-                        enabled = enabled
-                    ) {
-                        Icon(Icons.Default.AttachFile, contentDescription = "Attach")
-                    }
-                    
-                    AttachmentMenu(
-                        expanded = showAttachmentMenu,
-                        onDismiss = { showAttachmentMenu = false },
-                        onSelectFiles = { fileLauncher.launch(arrayOf("*/*")) },
-                        onSelectImages = { imageLauncher.launch(arrayOf("image/*")) },
-                        onSelectFromProject = { /* TODO: Open project file picker */ }
-                    )
-                }
-                
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...") },
-                    enabled = enabled,
-                    maxLines = 5
-                )
-                
-                FilledIconButton(
-                    onClick = onSend,
-                    enabled = enabled && (value.isNotBlank() || attachments.isNotEmpty())
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(Icons.Default.Send, contentDescription = "Send")
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -304,7 +225,7 @@ fun AttachmentPreview(
             ) {
                 Icon(
                     getFileIcon(attachment.mimeType),
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_file_type),
                     modifier = Modifier.padding(12.dp),
                     tint = getFileColor(attachment.mimeType)
                 )
@@ -335,19 +256,10 @@ private fun getFileIcon(mimeType: String) = when {
     mimeType.contains("pdf") -> Icons.Default.PictureAsPdf
     mimeType.contains("zip") || mimeType.contains("tar") || mimeType.contains("rar") -> Icons.Default.FolderZip
     mimeType.contains("json") || mimeType.contains("xml") -> Icons.Default.DataObject
-    else -> Icons.Default.InsertDriveFile
+    else -> Icons.AutoMirrored.Filled.InsertDriveFile
 }
 
-private fun getFileColor(mimeType: String): Color = when {
-    mimeType.startsWith("image/") -> Color(0xFF66BB6A)
-    mimeType.startsWith("video/") -> Color(0xFFEF5350)
-    mimeType.startsWith("audio/") -> Color(0xFFAB47BC)
-    mimeType.startsWith("text/") -> Color(0xFF42A5F5)
-    mimeType.contains("pdf") -> Color(0xFFEF5350)
-    mimeType.contains("zip") -> Color(0xFFFFA726)
-    mimeType.contains("json") || mimeType.contains("xml") -> Color(0xFF26A69A)
-    else -> Color(0xFF78909C)
-}
+private fun getFileColor(mimeType: String): Color = SemanticColors.MimeType.forMimeType(mimeType)
 
 private fun getMimeTypeLabel(mimeType: String): String = when {
     mimeType.startsWith("image/") -> "Image"

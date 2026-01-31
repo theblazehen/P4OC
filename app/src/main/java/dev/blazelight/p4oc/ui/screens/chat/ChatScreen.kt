@@ -15,8 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageWithParts
@@ -44,12 +47,12 @@ fun ChatScreen(
     onOpenFiles: () -> Unit,
     onOpenGit: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val messages by viewModel.messages.collectAsState()
-    val connectionState by viewModel.connectionState.collectAsState()
-    val favoriteModels by viewModel.favoriteModels.collectAsState()
-    val recentModels by viewModel.recentModels.collectAsState()
-    val visualSettings by viewModel.visualSettings.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    val favoriteModels by viewModel.favoriteModels.collectAsStateWithLifecycle()
+    val recentModels by viewModel.recentModels.collectAsStateWithLifecycle()
+    val visualSettings by viewModel.visualSettings.collectAsStateWithLifecycle()
     
     // Convert setting string to ToolWidgetState
     val defaultToolWidgetState = remember(visualSettings.toolWidgetDefaultState) {
@@ -256,7 +259,7 @@ fun ChatScreen(
                         .padding(16.dp),
                     action = {
                         TextButton(onClick = viewModel::clearError) {
-                            Text("Dismiss")
+                            Text(stringResource(R.string.dismiss))
                         }
                     }
                 ) {
@@ -351,7 +354,7 @@ private fun ChatTopBar(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.cd_back),
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -375,7 +378,7 @@ private fun ChatTopBar(
                 ) {
                     Icon(
                         Icons.Default.Stop,
-                        contentDescription = "Stop",
+                        contentDescription = stringResource(R.string.cd_stop),
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(22.dp)
                     )
@@ -385,25 +388,25 @@ private fun ChatTopBar(
                 onClick = onCommands,
                 modifier = Modifier.size(40.dp)
             ) {
-                Icon(Icons.Default.Code, contentDescription = "Commands", modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Code, contentDescription = stringResource(R.string.cd_commands), modifier = Modifier.size(22.dp))
             }
             IconButton(
                 onClick = onTerminal,
                 modifier = Modifier.size(40.dp)
             ) {
-                Icon(Icons.Default.Terminal, contentDescription = "Terminal", modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.cd_terminal), modifier = Modifier.size(22.dp))
             }
             IconButton(
                 onClick = onFiles,
                 modifier = Modifier.size(40.dp)
             ) {
-                Icon(Icons.Default.Folder, contentDescription = "Files", modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_files), modifier = Modifier.size(22.dp))
             }
             IconButton(
                 onClick = onGit,
                 modifier = Modifier.size(40.dp)
             ) {
-                Icon(Icons.Default.AccountTree, contentDescription = "Git", modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.AccountTree, contentDescription = stringResource(R.string.cd_git), modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -458,18 +461,18 @@ private fun EmptyChatView(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Icon(
-            Icons.Default.Chat,
-            contentDescription = null,
+            Icons.Default.ChatBubbleOutline,
+            contentDescription = stringResource(R.string.chat_empty_title),
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.outline
         )
         Text(
-            text = "Start a conversation",
+            text = stringResource(R.string.chat_empty_title),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "Type a message below to begin",
+            text = stringResource(R.string.chat_empty_description),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

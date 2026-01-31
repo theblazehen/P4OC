@@ -42,6 +42,8 @@ sealed class ApiResult<out T> {
 suspend inline fun <T> safeApiCall(crossinline block: suspend () -> T): ApiResult<T> {
     return try {
         ApiResult.Success(block())
+    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+        throw e  // Re-throw to preserve structured concurrency
     } catch (e: Exception) {
         ApiResult.Error(message = e.message ?: "Unknown error", throwable = e)
     }

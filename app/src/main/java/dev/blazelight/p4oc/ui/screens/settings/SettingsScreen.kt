@@ -11,8 +11,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.blazelight.p4oc.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,7 +28,7 @@ fun SettingsScreen(
     onAgentsConfig: () -> Unit = {},
     onSkills: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDisconnectDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -47,12 +50,12 @@ fun SettingsScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Text(
-                        text = "Settings",
+                        text = stringResource(R.string.settings_title),
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
@@ -66,12 +69,12 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             ListItem(
-                headlineContent = { Text("Server") },
+                headlineContent = { Text(stringResource(R.string.server)) },
                 supportingContent = { Text(uiState.serverUrl) },
                 leadingContent = {
                     Icon(
                         if (uiState.isLocal) Icons.Default.PhoneAndroid else Icons.Default.Cloud,
-                        contentDescription = null
+                        contentDescription = stringResource(R.string.cd_connection_status)
                     )
                 }
             )
@@ -79,49 +82,49 @@ fun SettingsScreen(
             HorizontalDivider()
 
             ListItem(
-                headlineContent = { Text("Provider & Model") },
-                supportingContent = { Text("Configure AI providers and models") },
-                leadingContent = { Icon(Icons.Default.SmartToy, contentDescription = null) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.settings_provider_model)) },
+                supportingContent = { Text(stringResource(R.string.settings_provider_model_desc)) },
+                leadingContent = { Icon(Icons.Default.SmartToy, contentDescription = stringResource(R.string.settings_provider_model)) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
                 modifier = Modifier.clickable { onProviderConfig() }
             )
 
             HorizontalDivider()
 
             ListItem(
-                headlineContent = { Text("Agents") },
-                supportingContent = { Text("Configure AI agents") },
-                leadingContent = { Icon(Icons.Default.Groups, contentDescription = null) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.settings_agents)) },
+                supportingContent = { Text(stringResource(R.string.settings_agents_desc)) },
+                leadingContent = { Icon(Icons.Default.Groups, contentDescription = stringResource(R.string.settings_agents)) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
                 modifier = Modifier.clickable { onAgentsConfig() }
             )
 
             HorizontalDivider()
 
             ListItem(
-                headlineContent = { Text("Skills") },
-                supportingContent = { Text("Manage MCP servers and skills") },
-                leadingContent = { Icon(Icons.Default.Extension, contentDescription = null) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.settings_skills)) },
+                supportingContent = { Text(stringResource(R.string.settings_skills_desc)) },
+                leadingContent = { Icon(Icons.Default.Extension, contentDescription = stringResource(R.string.settings_skills)) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
                 modifier = Modifier.clickable { onSkills() }
             )
 
             HorizontalDivider()
 
             ListItem(
-                headlineContent = { Text("Visual Settings") },
-                supportingContent = { Text("Theme, font size, and display options") },
-                leadingContent = { Icon(Icons.Default.Palette, contentDescription = null) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.settings_visual)) },
+                supportingContent = { Text(stringResource(R.string.settings_visual_desc)) },
+                leadingContent = { Icon(Icons.Default.Palette, contentDescription = stringResource(R.string.settings_visual)) },
+                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
                 modifier = Modifier.clickable { onVisualSettings() }
             )
 
             HorizontalDivider()
 
             ListItem(
-                headlineContent = { Text("About") },
-                supportingContent = { Text("Pocket Code v0.1.0") },
-                leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
+                headlineContent = { Text(stringResource(R.string.settings_about)) },
+                supportingContent = { Text(stringResource(R.string.settings_version)) },
+                leadingContent = { Icon(Icons.Default.Info, contentDescription = stringResource(R.string.settings_about)) }
             )
 
             HorizontalDivider()
@@ -130,12 +133,12 @@ fun SettingsScreen(
 
             ListItem(
                 headlineContent = {
-                    Text("Disconnect", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.settings_disconnect), color = MaterialTheme.colorScheme.error)
                 },
                 leadingContent = {
                     Icon(
                         Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.settings_disconnect),
                         tint = MaterialTheme.colorScheme.error
                     )
                 },
@@ -147,8 +150,8 @@ fun SettingsScreen(
     if (showDisconnectDialog) {
         AlertDialog(
             onDismissRequest = { showDisconnectDialog = false },
-            title = { Text("Disconnect") },
-            text = { Text("Are you sure you want to disconnect from the server?") },
+            title = { Text(stringResource(R.string.settings_disconnect)) },
+            text = { Text(stringResource(R.string.settings_disconnect_confirm)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -160,12 +163,12 @@ fun SettingsScreen(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Disconnect")
+                    Text(stringResource(R.string.settings_disconnect))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDisconnectDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.button_cancel))
                 }
             }
         )

@@ -27,12 +27,13 @@ import javax.inject.Singleton
 @Singleton
 class PtyWebSocketClient @Inject constructor(
     private val connectionManager: ConnectionManager
-) {
+) : java.io.Closeable {
     companion object {
         private const val TAG = "PtyWebSocketClient"
     }
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val supervisorJob = SupervisorJob()
+    private val scope = CoroutineScope(supervisorJob + Dispatchers.IO)
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -42,6 +43,9 @@ class PtyWebSocketClient @Inject constructor(
 
     private var currentWebSocket: WebSocket? = null
     private var currentPtyId: String? = null
+    
+    // Lock to prevent race conditions in connect/disconnect
+    private val connectionLock = Any()
     
     // Dedicated OkHttpClient for WebSocket (long-lived connections)
     private val wsOkHttpClient: OkHttpClient by lazy {
@@ -61,77 +65,76 @@ class PtyWebSocketClient @Inject constructor(
     }
 
     fun connect(ptyId: String) {
-        // Disconnect from previous session if any
-        if (currentPtyId != null && currentPtyId != ptyId) {
-            disconnect()
-        }
+        synchronized(connectionLock) {
+            // Disconnect from previous session if any
+            if (currentPtyId != null && currentPtyId != ptyId) {
+                disconnect()
+            }
 
-        if (currentWebSocket != null && currentPtyId == ptyId) {
-            Log.d(TAG, "Already connected to $ptyId")
-            return
-        }
+            if (currentWebSocket != null && currentPtyId == ptyId) {
+                Log.d(TAG, "Already connected to $ptyId")
+                return
+            }
 
-        val connection = connectionManager.connection.value
-        if (connection == null) {
-            Log.e(TAG, "Cannot connect: No active connection")
-            _connectionState.value = ConnectionState.Error("Not connected to server")
-            return
-        }
+            val connection = connectionManager.connection.value
+            if (connection == null) {
+                Log.e(TAG, "Cannot connect: No active connection")
+                _connectionState.value = ConnectionState.Error("Not connected to server")
+                return
+            }
 
-        _connectionState.value = ConnectionState.Connecting
-        currentPtyId = ptyId
+            _connectionState.value = ConnectionState.Connecting
+            currentPtyId = ptyId
 
-        scope.launch {
-            try {
-                val baseUrl = connection.config.url
-                // Convert http(s):// to ws(s)://
-                val wsUrl = baseUrl
-                    .replace("http://", "ws://")
-                    .replace("https://", "wss://")
-                    .trimEnd('/') + "/pty/$ptyId/connect"
+            val baseUrl = connection.config.url
+            // Convert http(s):// to ws(s)://
+            val wsUrl = baseUrl
+                .replace("http://", "ws://")
+                .replace("https://", "wss://")
+                .trimEnd('/') + "/pty/$ptyId/connect"
 
-                Log.d(TAG, "Connecting to WebSocket: $wsUrl")
+            Log.d(TAG, "Connecting to WebSocket: $wsUrl")
 
-                val request = Request.Builder()
-                    .url(wsUrl)
-                    .build()
+            val request = Request.Builder()
+                .url(wsUrl)
+                .build()
 
-                currentWebSocket = wsOkHttpClient.newWebSocket(request, object : WebSocketListener() {
-                    override fun onOpen(webSocket: WebSocket, response: Response) {
-                        Log.d(TAG, "WebSocket connected to $ptyId")
-                        _connectionState.value = ConnectionState.Connected(ptyId)
+            currentWebSocket = wsOkHttpClient.newWebSocket(request, object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    Log.d(TAG, "WebSocket connected to $ptyId")
+                    _connectionState.value = ConnectionState.Connected(ptyId)
+                }
+
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    Log.v(TAG, "Received: ${text.take(100)}${if (text.length > 100) "..." else ""}")
+                    scope.launch {
+                        _output.emit(text)
                     }
+                }
 
-                    override fun onMessage(webSocket: WebSocket, text: String) {
-                        Log.v(TAG, "Received: ${text.take(100)}${if (text.length > 100) "..." else ""}")
-                        scope.launch {
-                            _output.emit(text)
-                        }
-                    }
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    Log.d(TAG, "WebSocket closing: $code $reason")
+                    webSocket.close(1000, null)
+                }
 
-                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                        Log.d(TAG, "WebSocket closing: $code $reason")
-                        webSocket.close(1000, null)
-                    }
-
-                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                        Log.d(TAG, "WebSocket closed: $code $reason")
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    Log.d(TAG, "WebSocket closed: $code $reason")
+                    synchronized(connectionLock) {
                         _connectionState.value = ConnectionState.Disconnected
                         currentWebSocket = null
                         currentPtyId = null
                     }
+                }
 
-                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                        Log.e(TAG, "WebSocket error: ${t.message}", t)
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    Log.e(TAG, "WebSocket error: ${t.message}", t)
+                    synchronized(connectionLock) {
                         _connectionState.value = ConnectionState.Error(t.message ?: "Unknown error")
                         currentWebSocket = null
                         currentPtyId = null
                     }
-                })
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to connect: ${e.message}", e)
-                _connectionState.value = ConnectionState.Error(e.message ?: "Connection failed")
-            }
+                }
+            })
         }
     }
 
@@ -146,15 +149,25 @@ class PtyWebSocketClient @Inject constructor(
     }
 
     fun disconnect() {
-        Log.d(TAG, "Disconnecting from $currentPtyId")
-        currentWebSocket?.close(1000, "User disconnected")
-        currentWebSocket = null
-        currentPtyId = null
-        _connectionState.value = ConnectionState.Disconnected
+        synchronized(connectionLock) {
+            Log.d(TAG, "Disconnecting from $currentPtyId")
+            currentWebSocket?.close(1000, "User disconnected")
+            currentWebSocket = null
+            currentPtyId = null
+            _connectionState.value = ConnectionState.Disconnected
+        }
     }
 
     fun isConnected(): Boolean = currentWebSocket != null && 
         _connectionState.value is ConnectionState.Connected
 
     fun getCurrentPtyId(): String? = currentPtyId
+
+    /**
+     * Cleanup resources. Called when the singleton is being destroyed.
+     */
+    override fun close() {
+        disconnect()
+        supervisorJob.cancel()
+    }
 }

@@ -11,14 +11,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -114,24 +118,37 @@ fun SkillsScreen(
     viewModel: SkillsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show error in snackbar
+    LaunchedEffect(state.error) {
+        state.error?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
     
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Skills") },
+                title = { Text(stringResource(R.string.skills_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.loadSkills() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         if (state.isLoading) {
             Box(
@@ -152,7 +169,7 @@ fun SkillsScreen(
             ) {
                 item {
                     Text(
-                        text = "Manage MCP servers and skills",
+                        text = stringResource(R.string.skills_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -165,7 +182,7 @@ fun SkillsScreen(
                 if (connectedSkills.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Connected",
+                            text = stringResource(R.string.skills_connected),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -184,7 +201,7 @@ fun SkillsScreen(
                     item {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Disconnected",
+                            text = stringResource(R.string.skills_disconnected),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -214,19 +231,6 @@ fun SkillsScreen(
             onDismiss = { viewModel.selectSkill(null) }
         )
     }
-    
-    state.error?.let { error ->
-        Snackbar(
-            modifier = Modifier.padding(16.dp),
-            action = {
-                TextButton(onClick = viewModel::clearError) {
-                    Text("Dismiss")
-                }
-            }
-        ) {
-            Text(error)
-        }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -255,16 +259,16 @@ private fun SkillCard(
                 Surface(
                     shape = MaterialTheme.shapes.small,
                     color = if (skill.isEnabled) 
-                        Color(0xFF4CAF50).copy(alpha = 0.2f) 
+                        SemanticColors.Status.successBackground 
                     else 
                         MaterialTheme.colorScheme.errorContainer
                 ) {
                     Icon(
                         Icons.Default.Extension,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_skill_icon),
                         modifier = Modifier.padding(8.dp),
                         tint = if (skill.isEnabled) 
-                            Color(0xFF4CAF50) 
+                            SemanticColors.Status.success 
                         else 
                             MaterialTheme.colorScheme.error
                     )
@@ -283,15 +287,15 @@ private fun SkillCard(
                         Surface(
                             shape = MaterialTheme.shapes.small,
                             color = if (skill.isEnabled) 
-                                Color(0xFF4CAF50).copy(alpha = 0.2f) 
+                                SemanticColors.Status.successBackground 
                             else 
                                 MaterialTheme.colorScheme.errorContainer
                         ) {
                             Text(
-                                text = if (skill.isEnabled) "Connected" else "Disconnected",
+                                text = if (skill.isEnabled) stringResource(R.string.skills_connected) else stringResource(R.string.skills_disconnected),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (skill.isEnabled) 
-                                    Color(0xFF4CAF50) 
+                                    SemanticColors.Status.success 
                                 else 
                                     MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -344,8 +348,8 @@ private fun SkillDetailDialog(
         icon = {
             Icon(
                 Icons.Default.Extension,
-                contentDescription = null,
-                tint = if (skill.isEnabled) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                contentDescription = stringResource(R.string.cd_skill_icon),
+                tint = if (skill.isEnabled) SemanticColors.Status.success else MaterialTheme.colorScheme.error
             )
         },
         title = { Text(skill.name) },
@@ -360,7 +364,7 @@ private fun SkillDetailDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Source:",
+                        text = stringResource(R.string.skills_source),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -372,7 +376,7 @@ private fun SkillDetailDialog(
                 
                 if (skill.tools.isNotEmpty()) {
                     Text(
-                        text = "Tools",
+                        text = stringResource(R.string.skills_tools),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -384,7 +388,7 @@ private fun SkillDetailDialog(
                             ) {
                                 Icon(
                                     Icons.Default.Build,
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.skills_tools),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -399,7 +403,7 @@ private fun SkillDetailDialog(
                 
                 if (skill.resources.isNotEmpty()) {
                     Text(
-                        text = "Resources",
+                        text = stringResource(R.string.skills_resources),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -411,7 +415,7 @@ private fun SkillDetailDialog(
                             ) {
                                 Icon(
                                     Icons.Default.Storage,
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.skills_resources),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -427,7 +431,7 @@ private fun SkillDetailDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.close))
             }
         }
     )
@@ -444,17 +448,17 @@ private fun EmptySkillsView() {
     ) {
         Icon(
             Icons.Default.Extension,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_skill_icon),
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.outline
         )
         Text(
-            text = "No skills configured",
+            text = stringResource(R.string.skills_no_skills),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "MCP servers will appear here once configured",
+            text = stringResource(R.string.skills_appear_here),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

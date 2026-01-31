@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Input
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,9 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
+import dev.blazelight.p4oc.ui.theme.SemanticColors
 
 @Composable
 fun RetryPartDisplay(
@@ -49,12 +53,12 @@ fun RetryPartDisplay(
                 ) {
                     Icon(
                         Icons.Default.Refresh,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_retry),
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.error
                     )
                     Text(
-                        text = "Retry Attempt $attempt",
+                        text = stringResource(R.string.retry_attempt, attempt),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.error
@@ -102,7 +106,7 @@ private fun RetryCountdown(targetTime: Long) {
             color = MaterialTheme.colorScheme.error
         ) {
             Text(
-                text = "Retry in ${remainingSeconds}s",
+                text = stringResource(R.string.retry_in_seconds, remainingSeconds),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onError,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -147,7 +151,7 @@ fun StepStartDisplay(
             )
             
             Text(
-                text = "Step started",
+                text = stringResource(R.string.step_started),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
@@ -155,7 +159,7 @@ fun StepStartDisplay(
             snapshot?.let {
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = "Snapshot: ${it.take(8)}...",
+                    text = stringResource(R.string.snapshot_preview, it.take(8)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
@@ -194,12 +198,12 @@ fun StepFinishDisplay(
                 ) {
                     Icon(
                         Icons.Default.CheckCircle,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_completed),
                         modifier = Modifier.size(20.dp),
-                        tint = Color(0xFF4CAF50)
+                        tint = SemanticColors.Status.success
                     )
                     Text(
-                        text = "Step completed",
+                        text = stringResource(R.string.step_completed),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
@@ -227,12 +231,12 @@ fun StepFinishDisplay(
                 StepStat(
                     label = "Input",
                     value = formatTokens(inputTokens),
-                    icon = Icons.Default.Input
+                    icon = Icons.AutoMirrored.Filled.Input
                 )
                 StepStat(
                     label = "Output",
                     value = formatTokens(outputTokens),
-                    icon = Icons.Default.Output
+                    icon = Icons.Default.Output // No AutoMirrored version available
                 )
                 duration?.let { d ->
                     StepStat(
@@ -265,7 +269,7 @@ private fun StepStat(
     ) {
         Icon(
             icon,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_step_status),
             modifier = Modifier.size(14.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -301,12 +305,12 @@ fun SnapshotPartDisplay(
         ) {
             Icon(
                 Icons.Default.CameraAlt,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_snapshot_icon),
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onTertiaryContainer
             )
             Text(
-                text = "Snapshot created",
+                text = stringResource(R.string.snapshot_created),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onTertiaryContainer
             )
@@ -339,7 +343,7 @@ fun CompactionPartDisplay(
         ) {
             Icon(
                 Icons.Default.Compress,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_decorative),
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSecondaryContainer
             )
@@ -352,13 +356,7 @@ fun CompactionPartDisplay(
     }
 }
 
-private fun getReasonColor(reason: String): Color = when (reason.lowercase()) {
-    "end_turn", "stop" -> Color(0xFF4CAF50)
-    "tool_use", "tool_calls" -> Color(0xFF2196F3)
-    "max_tokens" -> Color(0xFFFFA726)
-    "error" -> Color(0xFFF44336)
-    else -> Color(0xFF78909C)
-}
+private fun getReasonColor(reason: String): Color = SemanticColors.Reason.forReason(reason)
 
 private fun formatReason(reason: String): String = when (reason.lowercase()) {
     "end_turn" -> "End Turn"

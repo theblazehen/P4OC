@@ -962,7 +962,7 @@ data class PtyDto(
     val args: List<String>,
     val cwd: String,
     val status: String,
-    val pid: Int
+    val pid: Int? = null  // Server may return null for pid
 )
 
 @Serializable
@@ -1029,4 +1029,13 @@ data class ToolDto(
 data class ConfigProvidersDto(
     val providers: List<ProviderDto> = emptyList(),
     val default: Map<String, String> = emptyMap()
+)
+
+// ============================================================================
+// Model Active Request
+// ============================================================================
+
+@Serializable
+data class SetActiveModelRequest(
+    val model: ModelInput
 )

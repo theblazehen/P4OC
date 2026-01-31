@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 @HiltViewModel
@@ -50,7 +52,8 @@ class ChatViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
-    private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)!!
+    private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)
+        ?: throw IllegalArgumentException("sessionId is required for ChatViewModel")
     private val sessionDirectory: String? = savedStateHandle.get<String>(Screen.Chat.ARG_DIRECTORY)
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -67,6 +70,9 @@ class ChatViewModel @Inject constructor(
 
     private val pendingPermissions = ConcurrentLinkedQueue<Permission>()
     private val pendingQuestions = ConcurrentLinkedQueue<QuestionRequest>()
+    
+    // Mutex to protect message map updates from race conditions
+    private val messagesMutex = Mutex()
 
     val connectionState: StateFlow<ConnectionState> = connectionManager.connectionState
 
@@ -210,39 +216,47 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun upsertMessage(message: Message) {
-        val existing = _messagesMap[message.id]
-        _messagesMap[message.id] = if (existing != null) {
-            existing.copy(message = message)
-        } else {
-            MessageWithParts(message, emptyList())
+        viewModelScope.launch {
+            messagesMutex.withLock {
+                val existing = _messagesMap[message.id]
+                _messagesMap[message.id] = if (existing != null) {
+                    existing.copy(message = message)
+                } else {
+                    MessageWithParts(message, emptyList())
+                }
+                _messagesVersion.value = System.nanoTime()
+                Log.d(TAG, "upsertMessage: ${message.id}, exists=${existing != null}")
+            }
         }
-        _messagesVersion.value = System.nanoTime()
-        Log.d(TAG, "upsertMessage: ${message.id}, exists=${existing != null}")
     }
 
     private fun upsertPart(part: Part, delta: String?) {
-        val messageId = part.messageID
-        Log.d(TAG, "upsertPart: partId=${part.id}, messageId=$messageId, delta=${delta?.length ?: 0} chars")
-        
-        val existing = _messagesMap[messageId] ?: run {
-            val placeholder = createPlaceholderMessage(messageId)
-            _messagesMap[messageId] = placeholder
-            Log.d(TAG, "upsertPart: Created placeholder for message $messageId")
-            placeholder
-        }
-        
-        val partIndex = existing.parts.indexOfFirst { it.id == part.id }
-        val updatedParts = if (partIndex >= 0) {
-            existing.parts.toMutableList().apply {
-                this[partIndex] = applyDelta(this[partIndex], part, delta)
+        viewModelScope.launch {
+            messagesMutex.withLock {
+                val messageId = part.messageID
+                Log.d(TAG, "upsertPart: partId=${part.id}, messageId=$messageId, delta=${delta?.length ?: 0} chars")
+                
+                val existing = _messagesMap[messageId] ?: run {
+                    val placeholder = createPlaceholderMessage(messageId)
+                    _messagesMap[messageId] = placeholder
+                    Log.d(TAG, "upsertPart: Created placeholder for message $messageId")
+                    placeholder
+                }
+                
+                val partIndex = existing.parts.indexOfFirst { it.id == part.id }
+                val updatedParts = if (partIndex >= 0) {
+                    existing.parts.toMutableList().apply {
+                        this[partIndex] = applyDelta(this[partIndex], part, delta)
+                    }
+                } else {
+                    existing.parts + part
+                }
+                
+                _messagesMap[messageId] = existing.copy(parts = updatedParts)
+                _messagesVersion.value = System.nanoTime()
+                Log.d(TAG, "upsertPart: Updated, version=${_messagesVersion.value}, partCount=${updatedParts.size}")
             }
-        } else {
-            existing.parts + part
         }
-        
-        _messagesMap[messageId] = existing.copy(parts = updatedParts)
-        _messagesVersion.value = System.nanoTime()
-        Log.d(TAG, "upsertPart: Updated, version=${_messagesVersion.value}, partCount=${updatedParts.size}")
     }
 
     private fun applyDelta(existing: Part, incoming: Part, delta: String?): Part {

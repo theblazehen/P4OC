@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.WrapText
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.compose.ui.res.stringResource
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -148,22 +152,22 @@ fun VisualSettingsScreen(
     viewModel: VisualSettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val settings by viewModel.settings.collectAsState()
-    val themeName by viewModel.themeName.collectAsState()
-    val themeMode by viewModel.themeMode.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val themeName by viewModel.themeName.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Visual Settings") },
+                title = { Text(stringResource(R.string.visual_settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     TextButton(onClick = viewModel::resetToDefaults) {
-                        Text("Reset")
+                        Text(stringResource(R.string.visual_settings_reset))
                     }
                 }
             )
@@ -220,7 +224,7 @@ fun VisualSettingsScreen(
                     subtitle = "Wrap long lines in code blocks",
                     checked = settings.wordWrap,
                     onCheckedChange = { viewModel.toggleWordWrap() },
-                    icon = Icons.Default.WrapText
+                    icon = Icons.AutoMirrored.Filled.WrapText
                 )
             }
             
@@ -369,7 +373,7 @@ private fun ThemeSelector(
             value = selectedLabel,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Color Theme") },
+            label = { Text(stringResource(R.string.visual_settings_color_theme)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -411,11 +415,11 @@ private fun SettingsSwitch(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Icon(
+            icon,
+            contentDescription = stringResource(R.string.cd_decorative),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
             Column {
                 Text(title, style = MaterialTheme.typography.bodyMedium)
                 Text(
@@ -447,7 +451,7 @@ private fun PreviewCard(settings: VisualSettings) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Preview",
+                text = stringResource(R.string.visual_settings_preview),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -457,7 +461,7 @@ private fun PreviewCard(settings: VisualSettings) {
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text(
-                    text = "This is a sample message with your current settings.",
+                    text = stringResource(R.string.visual_settings_sample_message),
                     modifier = Modifier.padding(12.dp),
                     fontSize = settings.fontSize.sp
                 )
@@ -495,7 +499,7 @@ private fun ToolWidgetStateSelector(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Default display mode for tool calls",
+            text = stringResource(R.string.visual_settings_tool_mode_label),
             style = MaterialTheme.typography.bodyMedium
         )
         states.forEach { (id, label) ->
@@ -518,7 +522,7 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Preview",
+            text = stringResource(R.string.visual_settings_preview),
             style = MaterialTheme.typography.labelMedium,
             color = theme.textMuted
         )
@@ -549,7 +553,7 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
                                 .padding(6.dp)
                         )
                         Text(
-                            text = "Tap to expand",
+                            text = stringResource(R.string.visual_settings_tap_to_expand),
                             style = MaterialTheme.typography.labelSmall,
                             color = theme.textMuted
                         )
@@ -578,7 +582,7 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
                             CompactRowPreview("⟳", "./gradlew build", theme.warning, theme)
                         }
                         Text(
-                            text = "Shows file paths/commands",
+                            text = stringResource(R.string.visual_settings_shows_paths),
                             style = MaterialTheme.typography.labelSmall,
                             color = theme.textMuted
                         )
@@ -624,7 +628,7 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
                             )
                         }
                         Text(
-                            text = "Shows full output/diffs",
+                            text = stringResource(R.string.visual_settings_shows_full_output),
                             style = MaterialTheme.typography.labelSmall,
                             color = theme.textMuted
                         )

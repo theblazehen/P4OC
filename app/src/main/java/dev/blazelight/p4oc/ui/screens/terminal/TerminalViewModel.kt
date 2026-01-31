@@ -341,6 +341,9 @@ class TerminalViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         ptyWebSocket.disconnect()
+        terminalEmulators.clear()
+        terminalClient = null
+        terminalOutput = null
     }
 }
 

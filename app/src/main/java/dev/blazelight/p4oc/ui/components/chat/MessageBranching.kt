@@ -6,16 +6,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import dev.blazelight.p4oc.R
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 data class MessageBranch(
     val id: String,
@@ -58,7 +65,7 @@ fun MessageBranchIndicator(
         ) {
             Icon(
                 Icons.Default.ChevronLeft,
-                contentDescription = "Previous branch",
+                contentDescription = stringResource(R.string.cd_previous_branch),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -76,14 +83,14 @@ fun MessageBranchIndicator(
         ) {
             Icon(
                 Icons.Default.ChevronRight,
-                contentDescription = "Next branch",
+                contentDescription = stringResource(R.string.cd_next_branch),
                 modifier = Modifier.size(16.dp)
             )
         }
         
         Icon(
             Icons.Default.AccountTree,
-            contentDescription = "Show branches",
+            contentDescription = stringResource(R.string.cd_show_branches),
             modifier = Modifier.size(14.dp),
             tint = MaterialTheme.colorScheme.primary
         )
@@ -100,8 +107,8 @@ fun ForkMessageButton(
         modifier = modifier.size(32.dp)
     ) {
         Icon(
-            Icons.Default.CallSplit,
-            contentDescription = "Fork conversation from here",
+            Icons.AutoMirrored.Filled.CallSplit,
+            contentDescription = stringResource(R.string.cd_fork_conversation),
             modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -136,17 +143,17 @@ fun BranchSelectorDialog(
                 ) {
                     Column {
                         Text(
-                            text = "Conversation Branches",
+                            text = stringResource(R.string.conversation_branches),
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            text = "Select a branch to continue",
+                            text = stringResource(R.string.select_branch_to_continue),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
                     }
                 }
                 
@@ -162,7 +169,7 @@ fun BranchSelectorDialog(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Branch Point",
+                            text = stringResource(R.string.branch_point),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -202,11 +209,11 @@ fun BranchSelectorDialog(
                     Button(onClick = onCreateNewBranch) {
                         Icon(
                             Icons.Default.Add,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.branch_new),
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("New Branch")
+                        Text(stringResource(R.string.branch_new))
                     }
                 }
             }
@@ -248,7 +255,7 @@ private fun BranchCard(
             ) {
                 Icon(
                     if (branch.isActive) Icons.Default.CheckCircle else Icons.Default.AccountTree,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_branch_icon),
                     tint = if (branch.isActive) 
                         MaterialTheme.colorScheme.primary 
                     else 
@@ -265,7 +272,7 @@ private fun BranchCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "${branch.messageCount} messages",
+                            text = stringResource(R.string.branch_messages_count, branch.messageCount),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -290,7 +297,7 @@ private fun BranchCard(
                 ) {
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = "Delete branch",
+                        contentDescription = stringResource(R.string.cd_delete_branch),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.error
                     )
@@ -302,10 +309,10 @@ private fun BranchCard(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null) },
-            title = { Text("Delete Branch?") },
+            icon = { Icon(Icons.Default.Warning, contentDescription = stringResource(R.string.cd_warning_state)) },
+            title = { Text(stringResource(R.string.branch_delete_title)) },
             text = { 
-                Text("This will permanently delete the branch \"${branch.title}\" and all its messages. This cannot be undone.")
+                Text(stringResource(R.string.branch_delete_confirm, branch.title))
             },
             confirmButton = {
                 Button(
@@ -317,12 +324,12 @@ private fun BranchCard(
                         containerColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.button_cancel))
                 }
             }
         )
@@ -336,17 +343,18 @@ fun CreateBranchDialog(
     onDismiss: () -> Unit
 ) {
     var branchName by remember { mutableStateOf("") }
+    val context = LocalContext.current
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.CallSplit, contentDescription = null) },
-        title = { Text("Create New Branch") },
+        icon = { Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = stringResource(R.string.cd_branch_icon)) },
+        title = { Text(stringResource(R.string.branch_create_title)) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Fork the conversation from this message:",
+                    text = stringResource(R.string.fork_conversation_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -368,8 +376,8 @@ fun CreateBranchDialog(
                 OutlinedTextField(
                     value = branchName,
                     onValueChange = { branchName = it },
-                    label = { Text("Branch Name") },
-                    placeholder = { Text("e.g., Alternative approach") },
+                    label = { Text(stringResource(R.string.branch_name_label)) },
+                    placeholder = { Text(stringResource(R.string.branch_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -377,15 +385,15 @@ fun CreateBranchDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(branchName.ifBlank { "New Branch" }) },
+                onClick = { onConfirm(branchName.ifBlank { context.getString(R.string.new_branch_default) }) },
                 enabled = true
             ) {
-                Text("Create")
+                Text(stringResource(R.string.create))
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.button_cancel))
             }
         }
     )
@@ -408,7 +416,7 @@ fun BranchBadge(
         ) {
             Icon(
                 Icons.Default.AccountTree,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_branch_icon),
                 modifier = Modifier.size(12.dp),
                 tint = MaterialTheme.colorScheme.onTertiaryContainer
             )
@@ -430,6 +438,10 @@ private fun formatTimestamp(timestamp: Long): String {
         diff < 3600_000 -> "${diff / 60_000}m ago"
         diff < 86400_000 -> "${diff / 3600_000}h ago"
         diff < 604800_000 -> "${diff / 86400_000}d ago"
-        else -> java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
+        else -> {
+            val instant = Instant.fromEpochMilliseconds(timestamp)
+            val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+            "${localDateTime.month.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() }} ${localDateTime.dayOfMonth}"
+        }
     }
 }

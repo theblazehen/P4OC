@@ -19,7 +19,7 @@ import dev.blazelight.p4oc.core.database.entity.SessionEntity
         ServerConfigEntity::class
     ],
     version = 1,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class PocketCodeDatabase : RoomDatabase() {
