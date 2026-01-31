@@ -79,7 +79,7 @@ fun ChatInputBar(
                                     Icon(
                                         Icons.Default.Close,
                                         contentDescription = stringResource(R.string.cd_remove),
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(Sizing.iconXs)
                                     )
                                 }
                             }

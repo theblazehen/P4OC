@@ -38,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,7 +184,7 @@ private fun BreadcrumbNavigation(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.xl, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -197,7 +198,7 @@ private fun BreadcrumbNavigation(
                 contentDescription = stringResource(R.string.cd_root),
                 modifier = Modifier
                     .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .size(16.dp),
+                    .size(Sizing.iconXs),
                 tint = MaterialTheme.colorScheme.primary
             )
         }
@@ -207,7 +208,7 @@ private fun BreadcrumbNavigation(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = stringResource(R.string.cd_path_separator),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizing.iconXs),
                 tint = MaterialTheme.colorScheme.outline
             )
             

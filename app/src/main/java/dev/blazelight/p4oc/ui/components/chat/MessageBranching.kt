@@ -73,7 +73,7 @@ fun MessageBranchIndicator(
             Icon(
                 Icons.Default.ChevronLeft,
                 contentDescription = stringResource(R.string.cd_previous_branch),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(Sizing.iconXs)
             )
         }
         
@@ -91,7 +91,7 @@ fun MessageBranchIndicator(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = stringResource(R.string.cd_next_branch),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(Sizing.iconXs)
             )
         }
         
@@ -111,7 +111,7 @@ fun ForkMessageButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = modifier.size(32.dp)
+        modifier = modifier.size(Sizing.iconXl)
     ) {
         Icon(
             Icons.AutoMirrored.Filled.CallSplit,
@@ -300,7 +300,7 @@ private fun BranchCard(
             if (!branch.isActive) {
                 IconButton(
                     onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(Sizing.iconXl)
                 ) {
                     Icon(
                         Icons.Default.Delete,

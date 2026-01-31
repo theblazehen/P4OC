@@ -465,7 +465,7 @@ fun EnhancedToolPart(
                 when (state) {
                     is ToolState.Running -> {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(Sizing.iconXs),
                             strokeWidth = 2.dp
                         )
                     }

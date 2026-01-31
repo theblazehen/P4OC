@@ -306,7 +306,7 @@ private fun ProjectCard(
                         Icon(
                             Icons.Default.Code,
                             contentDescription = stringResource(R.string.cd_git),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(Sizing.iconXs)
                         )
                         Text(
                             text = project.vcs,

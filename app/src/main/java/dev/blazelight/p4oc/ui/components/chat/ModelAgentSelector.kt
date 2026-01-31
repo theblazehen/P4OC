@@ -113,7 +113,7 @@ fun ModelAgentSelectorBar(
 
             if (availableAgents.isNotEmpty() && availableModels.isNotEmpty()) {
                 VerticalDivider(
-                    modifier = Modifier.height(24.dp),
+                    modifier = Modifier.height(Sizing.iconLg),
                     color = MaterialTheme.colorScheme.outlineVariant
                 )
             }
@@ -253,7 +253,7 @@ fun ModelPickerDialog(
                 Row(
                     modifier = Modifier
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = Spacing.xl, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilterChip(
@@ -284,7 +284,7 @@ fun ModelPickerDialog(
                                 "Favorites",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = Spacing.xl, vertical = 8.dp)
                             )
                         }
                         items(favorites, key = { "${it.model.providerID}/${it.model.modelID}" }) { model ->
@@ -303,7 +303,7 @@ fun ModelPickerDialog(
                                 "Recent",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = Spacing.xl, vertical = 8.dp)
                             )
                         }
                         items(recents, key = { "${it.model.providerID}/${it.model.modelID}" }) { model ->
@@ -322,7 +322,7 @@ fun ModelPickerDialog(
                                 if (favorites.isEmpty() && recents.isEmpty()) "All Models" else "Other Models",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = Spacing.xl, vertical = 8.dp)
                             )
                         }
                         items(others, key = { "${it.model.providerID}/${it.model.modelID}" }) { model ->

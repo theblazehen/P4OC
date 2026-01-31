@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 data class ModelInfo(
     val id: String,
@@ -407,7 +408,7 @@ private fun ModelCard(
                             Icon(
                                 Icons.Default.Build,
                                 contentDescription = stringResource(R.string.models_tools),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(Sizing.iconXs)
                             )
                         }
                     )
@@ -420,7 +421,7 @@ private fun ModelCard(
                             Icon(
                                 Icons.Default.Psychology,
                                 contentDescription = stringResource(R.string.models_reasoning),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(Sizing.iconXs)
                             )
                         }
                     )

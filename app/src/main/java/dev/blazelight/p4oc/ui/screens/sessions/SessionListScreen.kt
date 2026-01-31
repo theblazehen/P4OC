@@ -532,7 +532,7 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
             Icon(
                 Icons.Default.CheckCircle,
                 contentDescription = stringResource(R.string.cd_ready),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizing.iconXs),
                 tint = MaterialTheme.colorScheme.outline
             )
         }

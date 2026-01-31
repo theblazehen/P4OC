@@ -31,6 +31,8 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 /**
  * Aggregated tool state for display purposes
@@ -169,7 +171,7 @@ fun ToolGroupWidget(
                 Icon(
                     imageVector = Icons.Default.ExpandLess,
                     contentDescription = stringResource(R.string.cd_expanded),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(Sizing.iconXs),
                     tint = theme.border
                 )
             }

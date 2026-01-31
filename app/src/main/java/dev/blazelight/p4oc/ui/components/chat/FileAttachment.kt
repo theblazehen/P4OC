@@ -74,7 +74,7 @@ fun FileAttachmentBar(
                 
                 IconButton(
                     onClick = onAddAttachment,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(Sizing.iconXl)
                 ) {
                     Icon(
                         Icons.Default.Add,
@@ -104,7 +104,7 @@ private fun AttachmentChip(
             Icon(
                 getFileIcon(attachment.mimeType),
                 contentDescription = stringResource(R.string.cd_file_type),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizing.iconXs),
                 tint = getFileColor(attachment.mimeType)
             )
             

@@ -308,7 +308,7 @@ fun SnapshotPartDisplay(
             Icon(
                 Icons.Default.CameraAlt,
                 contentDescription = stringResource(R.string.cd_snapshot_icon),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizing.iconXs),
                 tint = MaterialTheme.colorScheme.onTertiaryContainer
             )
             Text(
@@ -346,7 +346,7 @@ fun CompactionPartDisplay(
             Icon(
                 Icons.Default.Compress,
                 contentDescription = stringResource(R.string.cd_decorative),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizing.iconXs),
                 tint = MaterialTheme.colorScheme.onSecondaryContainer
             )
             Text(

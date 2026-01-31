@@ -21,6 +21,7 @@ import dev.blazelight.p4oc.ui.components.TermuxExtraKeysBar
 import dev.blazelight.p4oc.ui.components.TermuxTerminalView
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,13 +144,13 @@ private fun SessionTabRow(
                     Icon(
                         Icons.Default.Terminal,
                         contentDescription = stringResource(R.string.cd_terminal_tab),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(Sizing.iconXs)
                     )
                 },
                 trailingIcon = {
                     IconButton(
                         onClick = { onDeleteSession(pty.id) },
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(Sizing.iconXs)
                     ) {
                         Icon(
                             Icons.Default.Close,

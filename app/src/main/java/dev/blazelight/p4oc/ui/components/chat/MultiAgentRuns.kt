@@ -171,7 +171,7 @@ private fun AgentStatusIndicator(status: AgentRunStatus) {
             Icon(
                 icon,
                 contentDescription = stringResource(R.string.cd_agent_status),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizing.iconXs),
                 tint = color
             )
         }
@@ -211,7 +211,7 @@ fun AgentSwitchIndicator(
                     contentDescription = stringResource(R.string.cd_decorative),
                     modifier = Modifier
                         .padding(horizontal = 8.dp)
-                        .size(16.dp),
+                        .size(Sizing.iconXs),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             } else {
@@ -220,7 +220,7 @@ fun AgentSwitchIndicator(
                     contentDescription = stringResource(R.string.cd_agent_running),
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .size(16.dp),
+                        .size(Sizing.iconXs),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             }

@@ -225,7 +225,7 @@ fun InlineError(
         Icon(
             Icons.Default.ErrorOutline,
             contentDescription = stringResource(R.string.cd_error_state),
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(Sizing.iconXs),
             tint = MaterialTheme.colorScheme.error
         )
         Text(

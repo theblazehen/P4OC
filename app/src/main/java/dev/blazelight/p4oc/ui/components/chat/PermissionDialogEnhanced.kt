@@ -229,7 +229,7 @@ private fun CommandCard(command: String) {
                 Icon(
                     Icons.Default.Terminal,
                     contentDescription = stringResource(R.string.cd_command_icon),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(Sizing.iconXs),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer
                 )
                 Text(

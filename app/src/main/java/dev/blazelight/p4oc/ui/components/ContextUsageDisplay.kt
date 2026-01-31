@@ -235,7 +235,7 @@ private fun TokenStat(
         Icon(
             icon,
             contentDescription = stringResource(R.string.cd_token_stat),
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(Sizing.iconXs),
             tint = color
         )
         Text(
@@ -306,7 +306,7 @@ fun ContextUsageBar(
                 Icon(
                     Icons.Default.ExpandMore,
                     contentDescription = stringResource(R.string.cd_show_details),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(Sizing.iconXs),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

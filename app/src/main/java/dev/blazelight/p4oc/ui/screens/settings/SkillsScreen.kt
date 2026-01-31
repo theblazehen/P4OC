@@ -25,6 +25,7 @@ import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.ui.components.TuiAlertDialog
 import dev.blazelight.p4oc.ui.components.TuiTextButton
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Sizing
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -388,7 +389,7 @@ private fun SkillDetailDialog(
                         Icon(
                             Icons.Default.Build,
                             contentDescription = stringResource(R.string.skills_tools),
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(Sizing.iconXs),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
@@ -415,7 +416,7 @@ private fun SkillDetailDialog(
                         Icon(
                             Icons.Default.Storage,
                             contentDescription = stringResource(R.string.skills_resources),
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(Sizing.iconXs),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(

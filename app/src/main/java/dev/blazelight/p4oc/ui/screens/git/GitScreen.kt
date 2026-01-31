@@ -215,7 +215,7 @@ private fun EmptyChangesCard() {
                 Icons.Default.CheckCircle,
                 contentDescription = stringResource(R.string.git_working_tree_clean),
                 tint = SemanticColors.Git.added,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(Sizing.iconXl)
             )
             Column {
                 Text(
@@ -257,7 +257,7 @@ private fun FileStatusItem(
         ) {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(Sizing.iconXl)
                     .clip(CircleShape)
                     .background(statusColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center

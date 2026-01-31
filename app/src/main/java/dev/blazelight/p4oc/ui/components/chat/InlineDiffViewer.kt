@@ -250,7 +250,7 @@ fun PatchDiffViewer(
                             )
                             if (isLoading && isExpanded) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(Sizing.iconXs),
                                     strokeWidth = 2.dp
                                 )
                             } else {

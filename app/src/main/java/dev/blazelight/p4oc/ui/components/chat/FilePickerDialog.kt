@@ -222,7 +222,7 @@ private fun PickerBreadcrumb(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.xl, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -236,7 +236,7 @@ private fun PickerBreadcrumb(
                 contentDescription = stringResource(R.string.cd_root),
                 modifier = Modifier
                     .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .size(16.dp),
+                    .size(Sizing.iconXs),
                 tint = MaterialTheme.colorScheme.primary
             )
         }
@@ -246,7 +246,7 @@ private fun PickerBreadcrumb(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = stringResource(R.string.cd_path_separator),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(Sizing.iconXs),
                 tint = MaterialTheme.colorScheme.outline
             )
             
@@ -283,7 +283,7 @@ private fun SelectedFilesChips(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.xl, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         selectedFiles.forEach { file ->
@@ -301,7 +301,7 @@ private fun SelectedFilesChips(
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.cd_remove),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(Sizing.iconXs)
                     )
                 }
             )

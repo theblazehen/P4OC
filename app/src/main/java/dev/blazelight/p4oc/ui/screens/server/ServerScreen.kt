@@ -303,7 +303,7 @@ private fun LocalServerSection(
                             ) {
                                 if (isConnecting) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(Sizing.iconXs),
                                         strokeWidth = 2.dp
                                     )
                                 } else {
@@ -340,7 +340,7 @@ private fun LocalServerSection(
                         ) {
                             if (isConnecting) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(Sizing.iconXs),
                                     strokeWidth = 2.dp
                                 )
                                 Spacer(Modifier.width(8.dp))
@@ -425,7 +425,7 @@ private fun SetupProgressIndicator(status: TermuxStatusUi) {
                                     Icons.Default.Check,
                                     contentDescription = stringResource(R.string.cd_completed),
                                     tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(Sizing.iconXs)
                                 )
                             } else {
                                 Text(
@@ -571,7 +571,7 @@ private fun RemoteServerSection(
             ) {
                 if (isConnecting) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(Sizing.iconXs),
                         strokeWidth = 2.dp
                     )
                     Spacer(Modifier.width(8.dp))
@@ -650,12 +650,12 @@ private fun RecentServersSection(
                     }
                     IconButton(
                         onClick = { onRemoveServer(server) },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(Sizing.iconXl)
                     ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = stringResource(R.string.cd_remove),
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(Sizing.iconXs),
                             tint = MaterialTheme.colorScheme.outline
                         )
                     }
