@@ -45,8 +45,8 @@ fun TodoTrackerSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp)
+                .padding(horizontal = 8.dp)
+                .padding(bottom = 16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -63,7 +63,7 @@ fun TodoTrackerSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (totalCount > 0) {
                 ProgressCard(
@@ -71,7 +71,7 @@ fun TodoTrackerSheet(
                     total = totalCount,
                     progress = progress
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             when {
@@ -111,7 +111,7 @@ private fun ProgressCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -165,7 +165,7 @@ private fun EmptyTodosCard() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
@@ -174,7 +174,7 @@ private fun EmptyTodosCard() {
                 modifier = Modifier.size(48.dp),
                 tint = SemanticColors.Todo.completed
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.no_active_todos),
                 style = MaterialTheme.typography.titleSmall,

@@ -61,8 +61,8 @@ fun CommandPalette(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp)
+                .padding(horizontal = 8.dp)
+                .padding(bottom = 16.dp)
         ) {
             if (selectedCommand == null) {
                 CommandSearchView(
@@ -127,7 +127,7 @@ private fun CommandSearchView(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
     )
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
     when {
         isLoading -> {
@@ -344,7 +344,7 @@ private fun CommandArgumentsView(
         keyboardActions = KeyboardActions(onDone = { onExecute() })
     )
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
     Button(
         onClick = onExecute,

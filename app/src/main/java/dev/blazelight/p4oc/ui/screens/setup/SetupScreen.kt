@@ -23,7 +23,7 @@ fun SetupScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(32.dp),
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -44,7 +44,7 @@ fun SetupScreen(
 private fun WelcomeStep(onNext: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Icon(
             Icons.Default.Code,
@@ -66,7 +66,7 @@ private fun WelcomeStep(onNext: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(12.dp))
 
         Button(
             onClick = onNext,
@@ -81,7 +81,7 @@ private fun WelcomeStep(onNext: () -> Unit) {
 private fun TermuxInfoStep(onNext: () -> Unit, onSkip: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Icon(
             Icons.Default.Terminal,
@@ -109,8 +109,8 @@ private fun TermuxInfoStep(onNext: () -> Unit, onSkip: () -> Unit) {
             )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = stringResource(R.string.setup_requirements),
@@ -122,7 +122,7 @@ private fun TermuxInfoStep(onNext: () -> Unit, onSkip: () -> Unit) {
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
 
         Button(
             onClick = onNext,

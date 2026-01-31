@@ -196,7 +196,7 @@ fun SessionListScreen(
                 Snackbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(16.dp),
+                        .padding(8.dp),
                     action = {
                         TextButton(onClick = viewModel::clearError) {
                             Text(stringResource(R.string.sessions_dismiss))
@@ -554,9 +554,9 @@ private fun EmptySessionsView(
     onCreateSession: () -> Unit
 ) {
     Column(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Icon(
             Icons.Default.ChatBubbleOutline,

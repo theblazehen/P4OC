@@ -66,7 +66,10 @@ fun PocketCodeTheme(
         }
     }
 
-    CompositionLocalProvider(LocalOpenCodeTheme provides openCodeTheme) {
+    CompositionLocalProvider(
+        LocalOpenCodeTheme provides openCodeTheme,
+        LocalTuiSpacing provides TuiDefaults
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             shapes = TuiShapes,

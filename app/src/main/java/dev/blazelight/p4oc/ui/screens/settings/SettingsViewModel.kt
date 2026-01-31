@@ -42,11 +42,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun disconnect() {
+    suspend fun disconnect() {
         connectionManager.disconnect()
-        viewModelScope.launch {
-            settingsDataStore.clearLastConnection()
-        }
+        settingsDataStore.clearLastConnection()
     }
 }
 

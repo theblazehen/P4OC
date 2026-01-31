@@ -237,7 +237,7 @@ fun ModelPickerDialog(
                     onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 8.dp),
                     placeholder = { Text(stringResource(R.string.models_search_placeholder)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
@@ -338,7 +338,7 @@ fun ModelPickerDialog(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(32.dp),
+                                    .padding(12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(

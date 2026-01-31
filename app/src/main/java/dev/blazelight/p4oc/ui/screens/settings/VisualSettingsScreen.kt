@@ -260,11 +260,11 @@ fun VisualSettingsScreen(
                 ToolWidgetPreviewSection(selectedState = settings.toolWidgetDefaultState)
             }
             
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             
             PreviewCard(settings = settings)
             
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(12.dp))
         }
     }
 }
@@ -279,23 +279,23 @@ private fun SettingsSection(
             text = title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 8.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 content = content
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -441,7 +441,7 @@ private fun PreviewCard(settings: VisualSettings) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )

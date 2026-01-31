@@ -46,14 +46,14 @@ fun QuestionDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .padding(12.dp)
             ) {
                 if (questionData.questions.size > 1) {
                     LinearProgressIndicator(
                         progress = { (currentQuestionIndex + 1f) / questionData.questions.size },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.question_x_of_y, currentQuestionIndex + 1, questionData.questions.size),
                         style = MaterialTheme.typography.labelMedium,
@@ -76,7 +76,7 @@ fun QuestionDialog(
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     
                     QuestionOptions(
                         question = question,
@@ -88,7 +88,7 @@ fun QuestionDialog(
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -231,8 +231,8 @@ private fun QuestionOptionItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Top
         ) {
             if (isMultiple) {
