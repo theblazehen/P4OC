@@ -46,8 +46,11 @@ captures/
 
 # Temp files
 temp_opencode_analysis/
+# Images (except screenshots/ and app resources)
 *.png
 *.jpg
+!screenshots/*.png
+!app/src/main/res/**/*.png
 
 # Serena (AI tool config)
 .serena/

@@ -20,7 +20,11 @@ The release APK is around 2.9 MB.
 
 ## Screenshots
 
-<!-- TODO: Add screenshots -->
+<p align="center">
+  <img src="screenshots/screenshot_1.png" width="300" />
+  &nbsp;&nbsp;
+  <img src="screenshots/screenshot_2.png" width="300" />
+</p>
 
 ## Requirements
 
