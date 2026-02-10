@@ -6,16 +6,14 @@ import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.domain.model.FileNode
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class FilesViewModel @Inject constructor(
+
+class FilesViewModel constructor(
     private val connectionManager: ConnectionManager
 ) : ViewModel() {
 

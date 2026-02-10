@@ -6,6 +6,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,11 +17,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -55,12 +59,12 @@ fun BashWidgetExpanded(
         modifier = modifier
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(theme.backgroundPanel.copy(alpha = 0.5f))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         // Header: icon + command
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -72,7 +76,7 @@ fun BashWidgetExpanded(
                 text = command,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+                    fontSize = TuiCodeFontSize.lg
                 ),
                 color = theme.text,
                 maxLines = 2,
@@ -91,14 +95,14 @@ fun BashWidgetExpanded(
                     .fillMaxWidth()
                     .heightIn(max = 100.dp)
                     .background(theme.backgroundElement)
-                    .padding(6.dp)
+                    .padding(Spacing.sm)
             ) {
                 Text(
                     text = output,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp
+                        fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl
                     ),
                     color = if (state is ToolState.Error) theme.error else theme.textMuted,
                     modifier = Modifier
@@ -152,12 +156,12 @@ fun ReadWidgetExpanded(
         modifier = modifier
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(theme.backgroundPanel.copy(alpha = 0.5f))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         // Header: icon + file path
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -169,7 +173,7 @@ fun ReadWidgetExpanded(
                 text = stringResource(R.string.read_file, fileName),
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+                    fontSize = TuiCodeFontSize.lg
                 ),
                 color = theme.text
             )
@@ -184,7 +188,7 @@ fun ReadWidgetExpanded(
             text = filePath,
             style = MaterialTheme.typography.labelSmall.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp
+                fontSize = TuiCodeFontSize.sm
             ),
             color = theme.textMuted,
             maxLines = 1,
@@ -198,14 +202,14 @@ fun ReadWidgetExpanded(
                     .fillMaxWidth()
                     .heightIn(max = 100.dp)
                     .background(theme.backgroundElement)
-                    .padding(6.dp)
+                    .padding(Spacing.sm)
             ) {
                 Text(
                     text = content,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp
+                        fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl
                     ),
                     color = if (state is ToolState.Error) theme.error else theme.text,
                     modifier = Modifier
@@ -248,12 +252,12 @@ fun EditWidgetExpanded(
         modifier = modifier
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(theme.backgroundPanel.copy(alpha = 0.5f))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         // Header: icon + file name + diff stats
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -265,7 +269,7 @@ fun EditWidgetExpanded(
                 text = stringResource(R.string.edit_file, fileName),
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+                    fontSize = TuiCodeFontSize.lg
                 ),
                 color = theme.text
             )
@@ -287,7 +291,7 @@ fun EditWidgetExpanded(
             text = filePath,
             style = MaterialTheme.typography.labelSmall.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp
+                fontSize = TuiCodeFontSize.sm
             ),
             color = theme.textMuted,
             maxLines = 1,
@@ -308,14 +312,14 @@ fun EditWidgetExpanded(
                     .fillMaxWidth()
                     .heightIn(max = 80.dp)
                     .background(theme.backgroundElement)
-                    .padding(6.dp)
+                    .padding(Spacing.sm)
             ) {
                 Text(
                     text = previewContent,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp
+                        fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl
                     ),
                     color = theme.textMuted,
                     modifier = Modifier
@@ -355,12 +359,12 @@ fun DefaultWidgetExpanded(
         modifier = modifier
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(theme.backgroundPanel.copy(alpha = 0.5f))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         // Header
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -372,7 +376,7 @@ fun DefaultWidgetExpanded(
                 text = tool.toolName,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+                    fontSize = TuiCodeFontSize.lg
                 ),
                 color = theme.text
             )
@@ -391,7 +395,7 @@ fun DefaultWidgetExpanded(
                 text = inputPreview,
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp
+                    fontSize = TuiCodeFontSize.sm
                 ),
                 color = theme.textMuted,
                 maxLines = 2,
@@ -406,18 +410,153 @@ fun DefaultWidgetExpanded(
                     .fillMaxWidth()
                     .heightIn(max = 80.dp)
                     .background(theme.backgroundElement)
-                    .padding(6.dp)
+                    .padding(Spacing.sm)
             ) {
                 Text(
                     text = output,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp
+                        fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl
                     ),
                     color = if (state is ToolState.Error) theme.error else theme.text,
                     modifier = Modifier.verticalScroll(rememberScrollState())
                 )
+            }
+        }
+        
+        // Pending approval buttons
+        if (state is ToolState.Pending) {
+            PendingApprovalButtons(
+                onApprove = { onToolApprove(tool.callID) },
+                onDeny = { onToolDeny(tool.callID) }
+            )
+        }
+    }
+}
+
+/**
+ * Task widget expanded view
+ * Shows: description + sub-agent type + "Open in Tab" button
+ */
+@Composable
+fun TaskWidgetExpanded(
+    tool: Part.Tool,
+    onClick: (() -> Unit)?,
+    onToolApprove: (String) -> Unit,
+    onToolDeny: (String) -> Unit,
+    onOpenSubSession: ((String) -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val theme = LocalOpenCodeTheme.current
+    val state = tool.state
+    val (icon, color) = getStateIconColor(state, theme)
+    
+    // Extract task info from input
+    val description = extractJsonParam(state.input, "description") ?: "Sub-agent task"
+    val subagentType = extractJsonParam(state.input, "subagent_type") ?: "general"
+    val sessionId = extractJsonParam(state.input, "session_id")
+    
+    // Extract output/result
+    val output = when (state) {
+        is ToolState.Completed -> state.output.take(500)
+        is ToolState.Running -> state.title ?: "Running..."
+        is ToolState.Error -> state.error
+        else -> null
+    }
+    
+    Column(
+        modifier = modifier
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .background(theme.backgroundPanel.copy(alpha = 0.5f))
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+    ) {
+        // Header: icon + "Task" + agent type badge
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = icon,
+                style = MaterialTheme.typography.labelMedium,
+                color = color
+            )
+            Text(
+                text = "Task",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = TuiCodeFontSize.lg
+                ),
+                color = theme.text
+            )
+            Surface(
+                color = theme.secondary.copy(alpha = 0.2f),
+                shape = RectangleShape
+            ) {
+                Text(
+                    text = subagentType,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.secondary,
+                    modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            if (state is ToolState.Running) {
+                TuiLoadingIndicator()
+            }
+        }
+        
+        // Description
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = TuiCodeFontSize.md
+            ),
+            color = theme.text,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
+        )
+        
+        // Output preview (if completed or error)
+        if (!output.isNullOrBlank() && state !is ToolState.Running) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 60.dp)
+                    .background(theme.backgroundElement)
+                    .padding(Spacing.sm)
+            ) {
+                Text(
+                    text = output,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl
+                    ),
+                    color = if (state is ToolState.Error) theme.error else theme.textMuted,
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            }
+        }
+        
+        // Open in Tab button (if session_id available)
+        if (sessionId != null && onOpenSubSession != null) {
+            OutlinedButton(
+                onClick = { onOpenSubSession(sessionId) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp),
+                shape = RectangleShape,
+                contentPadding = PaddingValues(horizontal = Spacing.md)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.OpenInNew,
+                    contentDescription = null,
+                    modifier = Modifier.size(Sizing.iconSm)
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Text("Open Sub-Agent", style = MaterialTheme.typography.labelSmall)
             }
         }
         
@@ -440,7 +579,7 @@ private fun PendingApprovalButtons(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         OutlinedButton(
             onClick = onDeny,
@@ -448,7 +587,7 @@ private fun PendingApprovalButtons(
                 .weight(1f)
                 .height(32.dp),
             shape = RectangleShape,
-            contentPadding = PaddingValues(horizontal = 8.dp)
+            contentPadding = PaddingValues(horizontal = Spacing.md)
         ) {
             Text(stringResource(R.string.deny), style = MaterialTheme.typography.labelSmall)
         }
@@ -458,7 +597,7 @@ private fun PendingApprovalButtons(
                 .weight(1f)
                 .height(32.dp),
             shape = RectangleShape,
-            contentPadding = PaddingValues(horizontal = 8.dp)
+            contentPadding = PaddingValues(horizontal = Spacing.md)
         ) {
             Text(stringResource(R.string.allow), style = MaterialTheme.typography.labelSmall)
         }

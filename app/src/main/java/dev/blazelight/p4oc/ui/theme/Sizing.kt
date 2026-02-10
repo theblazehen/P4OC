@@ -13,12 +13,15 @@ import androidx.compose.ui.unit.dp
  */
 object Sizing {
     // Icons - TUI uses smaller icons
+    val iconXxs: Dp = 10.dp  // Tiny status indicators
     val iconXs: Dp = 14.dp   // Inline indicators, badges
     val iconSm: Dp = 18.dp   // List item secondary icons
     val iconMd: Dp = 20.dp   // Standard icons (default)
+    val iconAction: Dp = 22.dp // Action bar icons
     val iconLg: Dp = 24.dp   // Emphasis icons, action buttons
     val iconXl: Dp = 32.dp   // Section headers
-    val iconHero: Dp = 48.dp // Empty state icons
+    val iconHero: Dp = 64.dp // Empty state icons
+    val iconHeroLg: Dp = 96.dp // Large decorative icons
 
     // Touch targets - Android minimum is 48dp, we use 44dp for density
     val minTouchTarget: Dp = 44.dp

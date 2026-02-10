@@ -25,7 +25,7 @@ This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get sta
 
 ---
 
-## 🚨 AUTONOMOUS WORK MODE - CRITICAL 🚨
+## 🚨 AUTONOMOUS WORK MODE - CRITICAL - CURRENTLY DISABLED 🚨
 
 **THIS SECTION MUST SURVIVE COMPACTION - READ CAREFULLY**
 

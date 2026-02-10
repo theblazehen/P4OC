@@ -11,9 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
@@ -27,7 +27,7 @@ import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TerminalScreen(
-    viewModel: TerminalViewModel = hiltViewModel(),
+    viewModel: TerminalViewModel = koinViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -132,8 +132,8 @@ private fun SessionTabRow(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         items(sessions) { pty ->
             FilterChip(
@@ -155,7 +155,7 @@ private fun SessionTabRow(
                         Icon(
                             Icons.Default.Close,
                             contentDescription = stringResource(R.string.close),
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(Sizing.iconXs)
                         )
                     }
                 }
@@ -169,31 +169,32 @@ private fun EmptyTerminalState(
     onCreateTerminal: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     Column(
         modifier = modifier.padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         Icon(
             Icons.Default.Terminal,
             contentDescription = stringResource(R.string.cd_terminal),
-            modifier = Modifier.size(64.dp),
+            modifier = Modifier.size(Sizing.iconHero),
             tint = SemanticColors.Terminal.green
         )
         Text(
             text = stringResource(R.string.terminal_no_sessions),
-            color = Color.White,
+            color = theme.text,
             style = MaterialTheme.typography.titleMedium
         )
         Button(
             onClick = onCreateTerminal,
             colors = ButtonDefaults.buttonColors(
                 containerColor = SemanticColors.Terminal.green,
-                contentColor = Color.Black
+                contentColor = theme.background
             )
         ) {
             Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create))
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Spacing.md))
             Text(stringResource(R.string.terminal_create))
         }
     }

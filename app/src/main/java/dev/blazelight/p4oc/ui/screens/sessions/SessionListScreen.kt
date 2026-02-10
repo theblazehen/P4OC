@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +21,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
@@ -50,7 +51,7 @@ private data class SessionNode(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionListScreen(
-    viewModel: SessionListViewModel = hiltViewModel(),
+    viewModel: SessionListViewModel = koinViewModel(),
     filterProjectId: String? = null,
     onSessionClick: (sessionId: String, directory: String?) -> Unit,
     onNewSession: (sessionId: String, directory: String?) -> Unit,
@@ -93,14 +94,13 @@ fun SessionListScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (onNavigateBack != null) {
                         IconButton(
                             onClick = onNavigateBack,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(Sizing.iconButtonMd)
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
@@ -119,21 +119,21 @@ fun SessionListScreen(
                     // Always show folder icon for project navigation
                     IconButton(
                         onClick = onProjects,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(Sizing.iconButtonMd)
                     ) {
-                        Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_projects), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_projects), modifier = Modifier.size(Sizing.iconAction))
                     }
                     IconButton(
                         onClick = viewModel::refresh,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(Sizing.iconButtonMd)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh), modifier = Modifier.size(Sizing.iconAction))
                     }
                     IconButton(
                         onClick = onSettings,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(Sizing.iconButtonMd)
                     ) {
-                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings), modifier = Modifier.size(Sizing.iconAction))
                     }
                 }
             }
@@ -145,7 +145,7 @@ fun SessionListScreen(
                 containerColor = theme.backgroundElement,
                 contentColor = theme.text
             ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_new_session), modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_new_session), modifier = Modifier.size(Sizing.iconAction))
             }
         }
     ) { padding ->
@@ -175,14 +175,14 @@ fun SessionListScreen(
                     
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                     ) {
                         items(
                             items = sessionTree,
                             key = { it.sessionWithProject.session.id }
                         ) { node ->
-                            SessionTreeNode(
+                        SessionTreeNode(
                                 node = node,
                                 depth = 0,
                                 expandedSessions = expandedSessions,
@@ -204,7 +204,7 @@ fun SessionListScreen(
                 Snackbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(8.dp),
+                        .padding(Spacing.md),
                     action = {
                         TextButton(onClick = viewModel::clearError) {
                             Text(stringResource(R.string.sessions_dismiss))
@@ -234,7 +234,7 @@ fun SessionListScreen(
             onDismissRequest = { showDeleteDialog = null },
             onConfirm = { viewModel.deleteSession(session.id) },
             title = stringResource(R.string.sessions_delete_title),
-            message = stringResource(R.string.sessions_delete_confirm, session.title ?: ""),
+            message = stringResource(R.string.sessions_delete_confirm, session.title),
             confirmText = stringResource(R.string.sessions_delete),
             dismissText = stringResource(R.string.button_cancel),
             isDestructive = true
@@ -297,8 +297,8 @@ private fun SessionTreeNode(
             exit = shrinkVertically()
         ) {
             Column(
-                modifier = Modifier.padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(top = Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 node.children.forEach { child ->
                     SessionTreeNode(
@@ -334,100 +334,113 @@ private fun SessionCard(
     onExpandToggle: (() -> Unit)? = null,
     isSubAgent: Boolean = false
 ) {
+    val theme = LocalOpenCodeTheme.current
     val isBusy = status is SessionStatus.Busy
     val isRetrying = status is SessionStatus.Retry
     var showContextMenu by remember { mutableStateOf(false) }
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { showContextMenu = true }
             ),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isBusy -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                isRetrying -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                isSubAgent -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                else -> MaterialTheme.colorScheme.surfaceVariant
-            }
-        ),
+        color = when {
+            isBusy -> theme.accent.copy(alpha = 0.1f)
+            isRetrying -> theme.error.copy(alpha = 0.1f)
+            isSubAgent -> theme.backgroundElement.copy(alpha = 0.7f)
+            else -> theme.backgroundElement
+        },
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Selection indicator
+            Text(
+                text = if (isBusy) "▶" else if (isRetrying) "!" else ">",
+                style = MaterialTheme.typography.bodyMedium,
+                color = when {
+                    isBusy -> theme.accent
+                    isRetrying -> theme.error
+                    else -> theme.accent.copy(alpha = 0.3f)
+                }
+            )
+            
+            Spacer(Modifier.width(Spacing.sm))
+            
             // Expand/collapse or subagent indicator
             if (onExpandToggle != null) {
                 IconButton(
                     onClick = onExpandToggle,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(Sizing.chipHeight)
                 ) {
                     Icon(
                         if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (isExpanded) "Collapse" else "Expand",
-                        modifier = Modifier.size(Sizing.iconSm)
+                        modifier = Modifier.size(Sizing.iconSm),
+                        tint = theme.textMuted
                     )
                 }
             } else if (isSubAgent) {
-                Icon(
-                    Icons.Default.SubdirectoryArrowRight,
-                    contentDescription = stringResource(R.string.cd_sub_agent_session),
-                    modifier = Modifier.size(Sizing.iconSm),
-                    tint = MaterialTheme.colorScheme.outline
+                Text(
+                    text = "└",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.textMuted
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(Spacing.xs))
             }
             
             // Main content column
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
             ) {
                 // Title
                 Text(
-                    text = session.title ?: "Untitled",
+                    text = session.title,
                     style = MaterialTheme.typography.bodyMedium,
+                    color = theme.text,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 
                 // Metadata row
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (childCount > 0) {
                         Text(
-                            text = "$childCount sub",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            text = "[$childCount sub]",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = theme.info
                         )
                     }
                     SessionStatusIndicator(status = status)
                     Text(
                         text = formatDateTime(session.updatedAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.labelSmall,
+                        color = theme.textMuted
                     )
                     
                     session.summary?.let { summary ->
                         if (summary.additions > 0) {
                             Text(
                                 text = "+${summary.additions}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                style = MaterialTheme.typography.labelSmall,
+                                color = theme.success
                             )
                         }
                         if (summary.deletions > 0) {
                             Text(
                                 text = "-${summary.deletions}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
+                                style = MaterialTheme.typography.labelSmall,
+                                color = theme.error
                             )
                         }
                     }
@@ -451,13 +464,17 @@ private fun SessionCard(
         onDismissRequest = { showContextMenu = false }
     ) {
         DropdownMenuItem(
-            text = { Text(stringResource(R.string.sessions_delete)) },
+            text = { Text(stringResource(R.string.sessions_delete), color = theme.error) },
             onClick = {
                 showContextMenu = false
                 onDelete()
             },
             leadingIcon = {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.sessions_delete))
+                Icon(
+                    Icons.Default.Delete, 
+                    contentDescription = stringResource(R.string.sessions_delete),
+                    tint = theme.error
+                )
             }
         )
     }
@@ -474,12 +491,12 @@ private fun ProjectChip(
         shape = RectangleShape,
         color = ProjectColors.colorForProject(projectId),
         modifier = Modifier
-            .padding(start = 8.dp)
+            .padding(start = Spacing.md)
             .widthIn(max = 150.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.md)
         ) {
             Text(
                 text = projectName,
@@ -494,44 +511,44 @@ private fun ProjectChip(
 
 @Composable
 private fun SessionStatusIndicator(status: SessionStatus?) {
+    val theme = LocalOpenCodeTheme.current
     when (status) {
         is SessionStatus.Busy -> {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TuiLoadingIndicator()
                 Text(
                     text = stringResource(R.string.session_working),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = theme.accent
                 )
             }
         }
         is SessionStatus.Retry -> {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     Icons.Default.Refresh,
                     contentDescription = stringResource(R.string.retry),
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.error
+                    modifier = Modifier.size(Sizing.iconXs),
+                    tint = theme.error
                 )
                 Text(
                     text = stringResource(R.string.session_retry_format, status.attempt),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = theme.error
                 )
             }
         }
         is SessionStatus.Idle -> {
-            Icon(
-                Icons.Default.CheckCircle,
-                contentDescription = stringResource(R.string.cd_ready),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = MaterialTheme.colorScheme.outline
+            Text(
+                text = "●",
+                style = MaterialTheme.typography.labelSmall,
+                color = theme.success
             )
         }
         null -> {}
@@ -543,31 +560,29 @@ private fun EmptySessionsView(
     modifier: Modifier = Modifier,
     onCreateSession: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     Column(
         modifier = modifier.padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        Icon(
-            Icons.Default.ChatBubbleOutline,
-            contentDescription = stringResource(R.string.sessions_empty_title),
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.outline
+        Text(
+            text = "◇",
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.textMuted
         )
         Text(
             text = stringResource(R.string.sessions_empty_title),
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.text
         )
         Text(
             text = stringResource(R.string.sessions_empty_description),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.textMuted
         )
-        Button(onClick = onCreateSession) {
-            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.sessions_new))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.sessions_new))
+        TuiButton(onClick = onCreateSession) {
+            Text("+ ${stringResource(R.string.sessions_new)}")
         }
     }
 }
@@ -617,12 +632,13 @@ private fun NewSessionDialog(
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
             )
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
+                val theme = LocalOpenCodeTheme.current
                 // Global option first
                 DropdownMenuItem(
                     text = { 
@@ -631,7 +647,7 @@ private fun NewSessionDialog(
                             Text(
                                 stringResource(R.string.sessions_no_project_context),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = theme.textMuted
                             )
                         }
                     },
@@ -650,7 +666,7 @@ private fun NewSessionDialog(
                                 Text(
                                     project.worktree,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = theme.textMuted
                                 )
                             }
                         },

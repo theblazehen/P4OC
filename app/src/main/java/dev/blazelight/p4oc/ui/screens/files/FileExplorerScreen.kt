@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import androidx.compose.ui.graphics.vector.ImageVector
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -33,7 +34,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
@@ -44,10 +45,11 @@ import dev.blazelight.p4oc.ui.theme.Spacing
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileExplorerScreen(
-    viewModel: FilesViewModel = hiltViewModel(),
+    viewModel: FilesViewModel = koinViewModel(),
     onFileClick: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -63,6 +65,7 @@ fun FileExplorerScreen(
     }
 
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             Column {
                 TopAppBar(
@@ -71,19 +74,23 @@ fun FileExplorerScreen(
                             OutlinedTextField(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
-                                placeholder = { Text(stringResource(R.string.files_search_placeholder)) },
+                                placeholder = { Text(stringResource(R.string.files_search_placeholder), color = theme.textMuted) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
+                                    unfocusedBorderColor = Color.Transparent,
+                                    cursorColor = theme.accent,
+                                    focusedTextColor = theme.text,
+                                    unfocusedTextColor = theme.text
                                 )
                             )
                         } else {
                             Text(
                                 text = uiState.currentPath.substringAfterLast('/').ifBlank { "Files" },
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                color = theme.text
                             )
                         }
                     },
@@ -98,19 +105,26 @@ fun FileExplorerScreen(
                                 onNavigateBack()
                             }
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.cd_back),
+                                tint = theme.textMuted
+                            )
                         }
                     },
                     actions = {
                         if (!isSearchActive) {
                             IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search))
+                                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search), tint = theme.textMuted)
                             }
                         }
                         IconButton(onClick = viewModel::refresh) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh), tint = theme.textMuted)
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = theme.backgroundElement
+                    )
                 )
                 
                 if (uiState.currentPath.isNotBlank()) {
@@ -135,28 +149,27 @@ fun FileExplorerScreen(
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        Icon(
-                            if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.FolderOpen,
-                            contentDescription = if (searchQuery.isNotBlank()) "No matching files" else "Empty folder",
-                            modifier = Modifier.size(Sizing.iconHero),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "∅" else "□",
+                            style = MaterialTheme.typography.displayMedium,
+                            color = theme.textMuted
                         )
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No matching files" else "Empty folder",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = if (searchQuery.isNotBlank()) "-- no matching files --" else "-- empty folder --",
+                            color = theme.textMuted
                         )
                     }
                 }
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
                     ) {
                         items(filteredFiles, key = { it.path }) { file ->
-                            EnhancedFileItem(
+                            TuiFileItem(
                                 file = file,
                                 onClick = {
                                     if (file.isDirectory) {
@@ -179,38 +192,38 @@ private fun BreadcrumbNavigation(
     path: String,
     onNavigateTo: (String) -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val parts = path.split("/").filter { it.isNotEmpty() }
     
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(theme.backgroundElement)
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.xl, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Root indicator
         Surface(
             onClick = { onNavigateTo("") },
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = Color.Transparent,
             shape = RectangleShape
         ) {
-            Icon(
-                Icons.Default.Home,
-                contentDescription = stringResource(R.string.cd_root),
-                modifier = Modifier
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .size(Sizing.iconXs),
-                tint = MaterialTheme.colorScheme.primary
+            Text(
+                text = "~",
+                style = MaterialTheme.typography.labelMedium,
+                color = theme.accent,
+                modifier = Modifier.padding(horizontal = Spacing.xs)
             )
         }
         
         var currentPath = ""
         parts.forEachIndexed { index, part ->
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = stringResource(R.string.cd_path_separator),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = MaterialTheme.colorScheme.outline
+            Text(
+                text = "/",
+                style = MaterialTheme.typography.labelMedium,
+                color = theme.textMuted
             )
             
             currentPath = if (currentPath.isEmpty()) "/$part" else "$currentPath/$part"
@@ -218,18 +231,15 @@ private fun BreadcrumbNavigation(
             
             Surface(
                 onClick = { onNavigateTo(pathToNavigate) },
-                color = if (index == parts.lastIndex) 
-                    MaterialTheme.colorScheme.primaryContainer 
-                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = Color.Transparent,
                 shape = RectangleShape
             ) {
                 Text(
                     text = part,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (index == parts.lastIndex) 
-                        MaterialTheme.colorScheme.onPrimaryContainer 
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    color = if (index == parts.lastIndex) theme.text else theme.textMuted,
+                    fontWeight = if (index == parts.lastIndex) FontWeight.Medium else FontWeight.Normal,
+                    modifier = Modifier.padding(horizontal = Spacing.xs),
                     maxLines = 1
                 )
             }
@@ -239,10 +249,11 @@ private fun BreadcrumbNavigation(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun EnhancedFileItem(
+private fun TuiFileItem(
     file: FileNode,
     onClick: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val (icon, iconColor) = getFileIcon(file)
     val gitStatusColor = getGitStatusColor(file.gitStatus)
     val clipboardManager = LocalClipboardManager.current
@@ -250,72 +261,90 @@ private fun EnhancedFileItem(
     var showContextMenu by remember { mutableStateOf(false) }
     
     Box {
-        ListItem(
-            headlineContent = { 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = file.name,
-                        fontWeight = if (file.isDirectory) FontWeight.Medium else FontWeight.Normal,
-                        color = gitStatusColor ?: LocalContentColor.current
-                    )
-                    file.gitStatus?.let { status ->
-                        GitStatusBadge(status)
-                    }
-                }
-            },
-            leadingContent = {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = if (file.isDirectory) "Folder" else "File",
-                    tint = gitStatusColor ?: iconColor,
-                    modifier = Modifier.size(Sizing.iconLg)
-                )
-            },
-            trailingContent = {
-                if (file.isDirectory) {
-                    Icon(
-                        Icons.Default.ChevronRight, 
-                        contentDescription = stringResource(R.string.cd_open_folder),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
+        Surface(
             modifier = Modifier
-                .clip(RectangleShape)
+                .fillMaxWidth()
                 .combinedClickable(
                     onClick = onClick,
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         showContextMenu = true
                     }
+                ),
+            color = Color.Transparent,
+            shape = RectangleShape
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // File type indicator
+                Text(
+                    text = if (file.isDirectory) "▸" else " ",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.accent
                 )
-        )
+                
+                // Icon
+                Icon(
+                    imageVector = icon,
+                    contentDescription = if (file.isDirectory) "Folder" else "File",
+                    tint = gitStatusColor ?: iconColor,
+                    modifier = Modifier.size(Sizing.iconSm)
+                )
+                
+                // File name
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (file.isDirectory) FontWeight.Medium else FontWeight.Normal,
+                    color = gitStatusColor ?: theme.text,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                // Git status badge
+                file.gitStatus?.let { status ->
+                    TuiGitStatusBadge(status)
+                }
+                
+                // Directory indicator
+                if (file.isDirectory) {
+                    Text(
+                        text = ">",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = theme.textMuted
+                    )
+                }
+            }
+        }
         
         DropdownMenu(
             expanded = showContextMenu,
             onDismissRequest = { showContextMenu = false }
         ) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.files_copy_path)) },
+                text = { Text(stringResource(R.string.files_copy_path), color = theme.text) },
                 onClick = {
                     clipboardManager.setText(AnnotatedString(file.path))
                     showContextMenu = false
                 },
                 leadingIcon = {
-                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.files_copy_path))
+                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.files_copy_path), tint = theme.textMuted)
                 }
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.files_copy_name)) },
+                text = { Text(stringResource(R.string.files_copy_name), color = theme.text) },
                 onClick = {
                     clipboardManager.setText(AnnotatedString(file.name))
                     showContextMenu = false
                 },
                 leadingIcon = {
-                    Icon(Icons.Default.TextFields, contentDescription = stringResource(R.string.files_copy_name))
+                    Icon(Icons.Default.TextFields, contentDescription = stringResource(R.string.files_copy_name), tint = theme.textMuted)
                 }
             )
         }
@@ -323,42 +352,40 @@ private fun EnhancedFileItem(
 }
 
 @Composable
-private fun GitStatusBadge(status: String) {
+private fun TuiGitStatusBadge(status: String) {
+    val theme = LocalOpenCodeTheme.current
     val (text, color) = when (status) {
-        "added" -> "A" to SemanticColors.Git.added
-        "modified" -> "M" to SemanticColors.Git.modified
-        "deleted" -> "D" to SemanticColors.Git.deleted
-        else -> status.take(1).uppercase() to MaterialTheme.colorScheme.outline
+        "added" -> "A" to theme.success
+        "modified" -> "M" to theme.warning
+        "deleted" -> "D" to theme.error
+        else -> status.take(1).uppercase() to theme.textMuted
     }
     
-    Surface(
-        color = color.copy(alpha = 0.2f),
-        shape = RectangleShape
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
+    Text(
+        text = "[$text]",
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        fontWeight = FontWeight.Bold
+    )
 }
 
 @Composable
-private fun getGitStatusColor(status: String?): androidx.compose.ui.graphics.Color? {
+private fun getGitStatusColor(status: String?): Color? {
+    val theme = LocalOpenCodeTheme.current
     return when (status) {
-        "added" -> SemanticColors.Git.added
-        "modified" -> SemanticColors.Git.modified
-        "deleted" -> SemanticColors.Git.deleted
+        "added" -> theme.success
+        "modified" -> theme.warning
+        "deleted" -> theme.error
         else -> null
     }
 }
 
 @Composable
-private fun getFileIcon(file: FileNode): Pair<ImageVector, androidx.compose.ui.graphics.Color> {
+private fun getFileIcon(file: FileNode): Pair<ImageVector, Color> {
+    val theme = LocalOpenCodeTheme.current
+    
     if (file.isDirectory) {
-        return Icons.Default.Folder to MaterialTheme.colorScheme.primary
+        return Icons.Default.Folder to theme.accent
     }
     
     val extension = file.name.substringAfterLast('.', "").lowercase()
@@ -406,7 +433,7 @@ private fun getFileIcon(file: FileNode): Pair<ImageVector, androidx.compose.ui.g
         "sql", "db", "sqlite" ->
             Icons.Default.Storage to SemanticColors.FileType.database
         
-        else -> Icons.AutoMirrored.Filled.InsertDriveFile to MaterialTheme.colorScheme.onSurfaceVariant
+        else -> Icons.AutoMirrored.Filled.InsertDriveFile to theme.textMuted
     }
 }
 

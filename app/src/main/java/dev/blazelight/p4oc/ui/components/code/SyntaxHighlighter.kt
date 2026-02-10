@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Spacing
 import androidx.compose.ui.unit.sp
 
 /**
@@ -86,40 +88,25 @@ data class SyntaxColors(
 ) {
     companion object {
         @Composable
-        fun default(): SyntaxColors = SyntaxColors(
-            keyword = Color(0xFFCC7832),        // Orange
-            string = Color(0xFF6A8759),          // Green
-            number = Color(0xFF6897BB),          // Blue
-            comment = Color(0xFF808080),         // Gray
-            function = Color(0xFFFFC66D),        // Yellow
-            type = Color(0xFFA9B7C6),            // Light gray-blue
-            annotation = Color(0xFFBBB529),      // Yellow-green
-            operator = Color(0xFFA9B7C6),        // Light gray
-            property = Color(0xFF9876AA),        // Purple
-            variable = Color(0xFFA9B7C6),        // Light gray-blue
-            tag = Color(0xFFE8BF6A),             // Gold
-            attribute = Color(0xFFBABABA),       // Light gray
-            lineNumber = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            lineNumberBackground = MaterialTheme.colorScheme.surfaceVariant
-        )
-        
-        @Composable
-        fun light(): SyntaxColors = SyntaxColors(
-            keyword = Color(0xFF0000FF),         // Blue
-            string = Color(0xFF008000),          // Green
-            number = Color(0xFF098658),          // Teal
-            comment = Color(0xFF808080),         // Gray
-            function = Color(0xFF795E26),        // Brown
-            type = Color(0xFF267F99),            // Cyan
-            annotation = Color(0xFF808000),      // Olive
-            operator = Color(0xFF000000),        // Black
-            property = Color(0xFF001080),        // Dark blue
-            variable = Color(0xFF001080),        // Dark blue
-            tag = Color(0xFF800000),             // Maroon
-            attribute = Color(0xFFFF0000),       // Red
-            lineNumber = Color(0xFF999999),
-            lineNumberBackground = Color(0xFFF5F5F5)
-        )
+        fun default(): SyntaxColors {
+            val theme = LocalOpenCodeTheme.current
+            return SyntaxColors(
+                keyword = theme.syntaxKeyword,
+                string = theme.syntaxString,
+                number = theme.syntaxNumber,
+                comment = theme.syntaxComment,
+                function = theme.syntaxFunction,
+                type = theme.syntaxType,
+                annotation = theme.syntaxKeyword,
+                operator = theme.syntaxOperator,
+                property = theme.syntaxVariable,
+                variable = theme.syntaxVariable,
+                tag = theme.syntaxKeyword,
+                attribute = theme.syntaxVariable,
+                lineNumber = theme.textMuted,
+                lineNumberBackground = theme.backgroundElement
+            )
+        }
     }
 }
 
@@ -460,9 +447,10 @@ fun SyntaxHighlightedCode(
     val verticalScrollState = rememberScrollState()
     val horizontalScrollState = rememberScrollState()
     
+    val theme = LocalOpenCodeTheme.current
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = theme.backgroundElement,
         shape = MaterialTheme.shapes.medium
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -475,13 +463,13 @@ fun SyntaxHighlightedCode(
                         .verticalScroll(verticalScrollState),
                     color = colors.lineNumberBackground
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    Column(modifier = Modifier.padding(vertical = Spacing.md)) {
                         lines.forEachIndexed { index, _ ->
                             Text(
                                 text = "${index + 1}",
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 8.dp),
+                                    .padding(horizontal = Spacing.md),
                                 color = colors.lineNumber,
                                 fontSize = fontSize.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -498,7 +486,7 @@ fun SyntaxHighlightedCode(
                     .weight(1f)
                     .verticalScroll(verticalScrollState)
                     .horizontalScroll(horizontalScrollState)
-                    .padding(8.dp)
+                    .padding(Spacing.md)
             ) {
                 Text(
                     text = highlightedCode,
@@ -525,14 +513,15 @@ fun CodeSnippet(
     val highlighter = remember(language, colors) { SyntaxHighlighter(language, colors) }
     val highlightedCode = remember(code, highlighter) { highlighter.highlight(code) }
     
+    val theme = LocalOpenCodeTheme.current
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = theme.backgroundElement,
         shape = MaterialTheme.shapes.small
     ) {
         Text(
             text = highlightedCode,
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(Spacing.md),
             fontSize = fontSize.sp,
             fontFamily = FontFamily.Monospace
         )

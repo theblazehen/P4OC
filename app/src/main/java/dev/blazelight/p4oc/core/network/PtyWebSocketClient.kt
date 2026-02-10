@@ -17,15 +17,13 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * WebSocket client for PTY terminal I/O.
  * Connects to /pty/{id}/connect endpoint for real-time terminal communication.
  */
-@Singleton
-class PtyWebSocketClient @Inject constructor(
+
+class PtyWebSocketClient constructor(
     private val connectionManager: ConnectionManager
 ) : java.io.Closeable {
     companion object {

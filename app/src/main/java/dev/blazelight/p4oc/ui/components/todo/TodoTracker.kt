@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Todo
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -36,6 +37,7 @@ fun TodoTrackerSheet(
     onDismiss: () -> Unit,
     onRefresh: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val completedCount = todos.count { it.status == "completed" }
     val totalCount = todos.size
     val progress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
@@ -43,38 +45,93 @@ fun TodoTrackerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = theme.background,
+        shape = RectangleShape,
+        dragHandle = null
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp)
                 .padding(bottom = Spacing.xl)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // TUI Header
+            Surface(
+                color = theme.backgroundElement,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = stringResource(R.string.todo_tracker),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "[ ${stringResource(R.string.todo_tracker)} ]",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = theme.text
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (totalCount > 0) {
+                            Text(
+                                text = "$completedCount/$totalCount",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = theme.accent
+                            )
+                        }
+                        IconButton(
+                            onClick = onRefresh,
+                            modifier = Modifier.size(Sizing.iconButtonSm)
+                        ) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.cd_refresh),
+                                tint = theme.textMuted,
+                                modifier = Modifier.size(Sizing.iconSm)
+                            )
+                        }
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(Sizing.iconButtonSm)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.close),
+                                tint = theme.textMuted,
+                                modifier = Modifier.size(Sizing.iconSm)
+                            )
+                        }
+                    }
                 }
             }
+            
+            HorizontalDivider(color = theme.border)
 
-            Spacer(modifier = Modifier.height(Spacing.md))
-
+            // Progress bar
             if (totalCount > 0) {
-                ProgressCard(
-                    completed = completedCount,
-                    total = totalCount,
-                    progress = progress
-                )
-                Spacer(modifier = Modifier.height(Spacing.md))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.md)
+                ) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp),
+                        color = theme.accent,
+                        trackColor = theme.border
+                    )
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    Text(
+                        text = "${(progress * 100).toInt()}% complete",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = theme.textMuted
+                    )
+                }
             }
 
             when {
@@ -89,10 +146,10 @@ fun TodoTrackerSheet(
                     }
                 }
                 todos.isEmpty() -> {
-                    EmptyTodosCard()
+                    TuiEmptyTodosView()
                 }
                 else -> {
-                    TodoList(todos = todos)
+                    TuiTodoList(todos = todos)
                 }
             }
         }
@@ -100,100 +157,36 @@ fun TodoTrackerSheet(
 }
 
 @Composable
-private fun ProgressCard(
-    completed: Int,
-    total: Int,
-    progress: Float
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+private fun TuiEmptyTodosView() {
+    val theme = LocalOpenCodeTheme.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(Spacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.progress),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Text(
-                    text = stringResource(R.string.progress_count, completed, total),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            Spacer(modifier = Modifier.height(Spacing.md))
-
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RectangleShape),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
-            )
-
-            Spacer(modifier = Modifier.height(Spacing.md))
-
-            Text(
-                text = stringResource(R.string.percent_complete, (progress * 100).toInt()),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
-        }
+        Text(
+            text = "✓",
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.success
+        )
+        Text(
+            text = stringResource(R.string.no_active_todos),
+            style = MaterialTheme.typography.titleSmall,
+            color = theme.text
+        )
+        Text(
+            text = stringResource(R.string.agent_no_tasks),
+            style = MaterialTheme.typography.bodySmall,
+            color = theme.textMuted
+        )
     }
 }
 
 @Composable
-private fun EmptyTodosCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.lg),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.CheckCircle,
-                contentDescription = stringResource(R.string.cd_all_complete),
-                modifier = Modifier.size(Sizing.iconHero),
-                tint = SemanticColors.Todo.completed
-            )
-            Spacer(modifier = Modifier.height(Spacing.md))
-            Text(
-                text = stringResource(R.string.no_active_todos),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = stringResource(R.string.agent_no_tasks),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun TodoList(todos: List<Todo>) {
+private fun TuiTodoList(todos: List<Todo>) {
+    val theme = LocalOpenCodeTheme.current
     val groupedTodos = todos.groupBy { it.status }
     val inProgress = groupedTodos["in_progress"] ?: emptyList()
     val pending = groupedTodos["pending"] ?: emptyList()
@@ -201,78 +194,75 @@ private fun TodoList(todos: List<Todo>) {
     val cancelled = groupedTodos["cancelled"] ?: emptyList()
 
     LazyColumn(
-        modifier = Modifier.heightIn(max = 400.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .heightIn(max = 400.dp)
+            .padding(horizontal = Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         if (inProgress.isNotEmpty()) {
             item {
-                TodoSectionHeader(title = "In Progress", count = inProgress.size)
+                TuiTodoSectionHeader(title = "▶ in progress", count = inProgress.size, color = theme.accent)
             }
             items(inProgress, key = { it.id }) { todo ->
-                TodoItem(todo = todo)
+                TuiTodoItem(todo = todo)
             }
         }
 
         if (pending.isNotEmpty()) {
             item {
-                TodoSectionHeader(title = "Pending", count = pending.size)
+                TuiTodoSectionHeader(title = "○ pending", count = pending.size, color = theme.textMuted)
             }
             items(pending, key = { it.id }) { todo ->
-                TodoItem(todo = todo)
+                TuiTodoItem(todo = todo)
             }
         }
 
         if (completed.isNotEmpty()) {
             item {
-                TodoSectionHeader(title = "Completed", count = completed.size)
+                TuiTodoSectionHeader(title = "✓ completed", count = completed.size, color = theme.success)
             }
             items(completed, key = { it.id }) { todo ->
-                TodoItem(todo = todo)
+                TuiTodoItem(todo = todo)
             }
         }
 
         if (cancelled.isNotEmpty()) {
             item {
-                TodoSectionHeader(title = "Cancelled", count = cancelled.size)
+                TuiTodoSectionHeader(title = "✗ cancelled", count = cancelled.size, color = theme.error)
             }
             items(cancelled, key = { it.id }) { todo ->
-                TodoItem(todo = todo)
+                TuiTodoItem(todo = todo)
             }
         }
     }
 }
 
 @Composable
-private fun TodoSectionHeader(title: String, count: Int) {
+private fun TuiTodoSectionHeader(title: String, count: Int, color: Color) {
+    val theme = LocalOpenCodeTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary
+            style = MaterialTheme.typography.labelMedium,
+            color = color
         )
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RectangleShape
-        ) {
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
+        Text(
+            text = "[$count]",
+            style = MaterialTheme.typography.labelSmall,
+            color = theme.textMuted
+        )
     }
 }
 
 @Composable
-private fun TodoItem(todo: Todo) {
+private fun TuiTodoItem(todo: Todo) {
+    val theme = LocalOpenCodeTheme.current
     val (statusIcon, statusColor) = getStatusInfo(todo.status)
     val priorityColor = getPriorityColor(todo.priority)
     val isCompleted = todo.status == "completed"
@@ -280,55 +270,61 @@ private fun TodoItem(todo: Todo) {
 
     var expanded by remember { mutableStateOf(false) }
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize()
             .clickable { expanded = !expanded },
-        colors = CardDefaults.cardColors(
-            containerColor = if (isCompleted || isCancelled)
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            else
-                MaterialTheme.colorScheme.surfaceVariant
-        ),
+        color = if (isCompleted || isCancelled)
+            theme.backgroundElement.copy(alpha = 0.5f)
+        else
+            theme.backgroundElement,
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                .padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.Top
         ) {
-            Icon(
-                statusIcon,
-                contentDescription = todo.status,
-                tint = statusColor,
-                modifier = Modifier.size(Sizing.iconMd)
+            // Status indicator
+            Text(
+                text = when (todo.status) {
+                    "in_progress" -> "▶"
+                    "completed" -> "✓"
+                    "cancelled" -> "✗"
+                    else -> "○"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = statusColor
             )
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = todo.content,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     fontWeight = if (todo.status == "in_progress") FontWeight.Medium else FontWeight.Normal,
                     textDecoration = if (isCompleted || isCancelled) TextDecoration.LineThrough else null,
                     color = if (isCompleted || isCancelled)
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        theme.textMuted
                     else
-                        MaterialTheme.colorScheme.onSurface,
+                        theme.text,
                     maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(Spacing.xxs))
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    PriorityBadge(priority = todo.priority, color = priorityColor)
-                    StatusBadge(status = todo.status, color = statusColor)
+                    Text(
+                        text = "[${todo.priority.uppercase()}]",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = priorityColor
+                    )
                 }
             }
         }
@@ -336,36 +332,6 @@ private fun TodoItem(todo: Todo) {
 }
 
 @Composable
-private fun PriorityBadge(priority: String, color: Color) {
-    Surface(
-        color = color.copy(alpha = 0.15f),
-        shape = RectangleShape
-    ) {
-        Text(
-            text = priority.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
-}
-
-@Composable
-private fun StatusBadge(status: String, color: Color) {
-    Surface(
-        color = color.copy(alpha = 0.15f),
-        shape = RectangleShape
-    ) {
-        Text(
-            text = status.replace("_", " "),
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
-}
-
 private fun getStatusInfo(status: String): Pair<androidx.compose.ui.graphics.vector.ImageVector, Color> {
     return when (status) {
         "pending" -> Icons.Default.Schedule to SemanticColors.Todo.pending
@@ -376,39 +342,7 @@ private fun getStatusInfo(status: String): Pair<androidx.compose.ui.graphics.vec
     }
 }
 
+@Composable
 private fun getPriorityColor(priority: String): Color {
     return SemanticColors.Todo.forPriority(priority)
-}
-
-@Composable
-fun TodoTrackerFab(
-    todos: List<Todo>,
-    onClick: () -> Unit
-) {
-    val inProgressCount = todos.count { it.status == "in_progress" }
-    val pendingCount = todos.count { it.status == "pending" }
-    val activeCount = inProgressCount + pendingCount
-
-    if (activeCount > 0) {
-        FloatingActionButton(
-            onClick = onClick,
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            BadgedBox(
-                badge = {
-                    Badge(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Text(activeCount.toString())
-                    }
-                }
-            ) {
-                Icon(
-                    Icons.Default.Checklist,
-                    contentDescription = stringResource(R.string.cd_todos),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-        }
-    }
 }

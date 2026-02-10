@@ -14,11 +14,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class NotificationEventObserver @Inject constructor(
+
+class NotificationEventObserver constructor(
     private val connectionManager: ConnectionManager,
     private val notificationHelper: NotificationHelper
 ) : DefaultLifecycleObserver {

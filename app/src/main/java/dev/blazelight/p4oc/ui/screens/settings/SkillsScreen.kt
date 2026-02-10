@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,15 +24,14 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.ui.components.TuiAlertDialog
 import dev.blazelight.p4oc.ui.components.TuiTextButton
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Sizing
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
@@ -53,8 +52,8 @@ data class SkillsState(
     val selectedSkill: SkillInfo? = null
 )
 
-@HiltViewModel
-class SkillsViewModel @Inject constructor(
+
+class SkillsViewModel constructor(
     private val connectionManager: ConnectionManager
 ) : ViewModel() {
     
@@ -120,7 +119,7 @@ class SkillsViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SkillsScreen(
-    viewModel: SkillsViewModel = hiltViewModel(),
+    viewModel: SkillsViewModel = koinViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -164,15 +163,16 @@ fun SkillsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 item {
+                    val theme = LocalOpenCodeTheme.current
                     Text(
                         text = stringResource(R.string.skills_description),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        color = theme.textMuted,
+                        modifier = Modifier.padding(bottom = Spacing.md)
                     )
                 }
                 
@@ -181,10 +181,11 @@ fun SkillsScreen(
                 
                 if (connectedSkills.isNotEmpty()) {
                     item {
+                        val theme = LocalOpenCodeTheme.current
                         Text(
                             text = stringResource(R.string.skills_connected),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = theme.accent
                         )
                     }
                     
@@ -199,11 +200,12 @@ fun SkillsScreen(
                 
                 if (disconnectedSkills.isNotEmpty()) {
                     item {
+                        val theme = LocalOpenCodeTheme.current
                         Spacer(Modifier.height(Spacing.md))
                         Text(
                             text = stringResource(R.string.skills_disconnected),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.error
+                            color = theme.error
                         )
                     }
                     
@@ -240,6 +242,7 @@ private fun SkillCard(
     onToggle: () -> Unit,
     onClick: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick
@@ -247,7 +250,7 @@ private fun SkillCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(Spacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -259,25 +262,25 @@ private fun SkillCard(
                 Surface(
                     shape = MaterialTheme.shapes.small,
                     color = if (skill.isEnabled) 
-                        SemanticColors.Status.successBackground 
+                        theme.success.copy(alpha = 0.2f)
                     else 
-                        MaterialTheme.colorScheme.errorContainer
+                        theme.error.copy(alpha = 0.2f)
                 ) {
                     Icon(
                         Icons.Default.Extension,
                         contentDescription = stringResource(R.string.cd_skill_icon),
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(Spacing.md),
                         tint = if (skill.isEnabled) 
-                            SemanticColors.Status.success 
+                            theme.success
                         else 
-                            MaterialTheme.colorScheme.error
+                            theme.error
                     )
                 }
                 
                 Column {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
                         Text(
                             text = skill.name,
@@ -287,42 +290,42 @@ private fun SkillCard(
                         Surface(
                             shape = MaterialTheme.shapes.small,
                             color = if (skill.isEnabled) 
-                                SemanticColors.Status.successBackground 
+                                theme.success.copy(alpha = 0.2f)
                             else 
-                                MaterialTheme.colorScheme.errorContainer
+                                theme.error.copy(alpha = 0.2f)
                         ) {
                             Text(
                                 text = if (skill.isEnabled) stringResource(R.string.skills_connected) else stringResource(R.string.skills_disconnected),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (skill.isEnabled) 
-                                    SemanticColors.Status.success 
+                                    theme.success
                                 else 
-                                    MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    theme.error,
+                                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
                             )
                         }
                     }
                     Text(
                         text = skill.description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                     
                     if (skill.tools.isNotEmpty() || skill.resources.isNotEmpty()) {
-                        Spacer(Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Spacer(Modifier.height(Spacing.xs))
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                             if (skill.tools.isNotEmpty()) {
                                 Text(
                                     text = "${skill.tools.size} tools",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = theme.accent
                                 )
                             }
                             if (skill.resources.isNotEmpty()) {
                                 Text(
                                     text = "${skill.resources.size} resources",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    color = theme.secondary
                                 )
                             }
                         }
@@ -343,6 +346,7 @@ private fun SkillDetailDialog(
     skill: SkillInfo,
     onDismiss: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     TuiAlertDialog(
         onDismissRequest = onDismiss,
         icon = Icons.Default.Extension,
@@ -356,7 +360,7 @@ private fun SkillDetailDialog(
         Text(skill.description)
         
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -376,17 +380,17 @@ private fun SkillDetailDialog(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 skill.tools.forEach { tool ->
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Build,
                             contentDescription = stringResource(R.string.skills_tools),
                             modifier = Modifier.size(Sizing.iconXs),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = theme.textMuted
                         )
                         Text(
                             text = tool,
@@ -403,17 +407,17 @@ private fun SkillDetailDialog(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 skill.resources.forEach { resource ->
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Storage,
                             contentDescription = stringResource(R.string.skills_resources),
                             modifier = Modifier.size(Sizing.iconXs),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = theme.textMuted
                         )
                         Text(
                             text = resource,
@@ -428,28 +432,28 @@ private fun SkillDetailDialog(
 
 @Composable
 private fun EmptySkillsView() {
+    val theme = LocalOpenCodeTheme.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        Icon(
-            Icons.Default.Extension,
-            contentDescription = stringResource(R.string.cd_skill_icon),
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.outline
+        Text(
+            text = "◇",
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.textMuted
         )
         Text(
             text = stringResource(R.string.skills_no_skills),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.text
         )
         Text(
             text = stringResource(R.string.skills_appear_here),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.textMuted
         )
     }
 }

@@ -1,5 +1,10 @@
 # Add project specific ProGuard rules here.
 
+# === DEAD CODE ANALYSIS ===
+# Uncomment to generate dead code report during release build
+-printusage build/outputs/mapping/release/unused-code.txt
+-printseeds build/outputs/mapping/release/entry-points.txt
+
 # Keep Kotlin serialization
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
@@ -11,11 +16,12 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
--keep,includedescriptorclasses class com.pocketcode.**$$serializer { *; }
--keepclassmembers class com.pocketcode.** {
+# NOTE: Package was renamed from com.pocketcode to dev.blazelight.p4oc
+-keep,includedescriptorclasses class dev.blazelight.p4oc.**$$serializer { *; }
+-keepclassmembers class dev.blazelight.p4oc.** {
     *** Companion;
 }
--keepclasseswithmembers class com.pocketcode.** {
+-keepclasseswithmembers class dev.blazelight.p4oc.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 

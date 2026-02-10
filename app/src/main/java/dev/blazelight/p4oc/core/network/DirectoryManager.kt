@@ -4,11 +4,9 @@ import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class DirectoryManager @Inject constructor(
+
+class DirectoryManager constructor(
     private val settingsDataStore: SettingsDataStore
 ) {
     

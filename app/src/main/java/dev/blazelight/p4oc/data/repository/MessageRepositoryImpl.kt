@@ -25,11 +25,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class MessageRepositoryImpl @Inject constructor(
+
+class MessageRepositoryImpl constructor(
     private val connectionManager: ConnectionManager,
     private val messageDao: MessageDao,
     private val messageMapper: MessageMapper,

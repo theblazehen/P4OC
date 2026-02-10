@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ConnectionState
@@ -25,6 +25,7 @@ import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.Permission
+import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
 import dev.blazelight.p4oc.ui.components.chat.ChatMessage
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
@@ -33,29 +34,52 @@ import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
 import dev.blazelight.p4oc.ui.components.chat.PermissionDialogEnhanced
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
-import dev.blazelight.p4oc.ui.components.todo.TodoTrackerFab
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import kotlinx.coroutines.launch
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    viewModel: ChatViewModel = hiltViewModel(),
+    viewModel: ChatViewModel = koinViewModel(),
     onNavigateBack: () -> Unit,
     onOpenTerminal: () -> Unit,
     onOpenFiles: () -> Unit,
-    onOpenGit: () -> Unit = {}
+    onOpenSubSession: ((String) -> Unit)? = null,
+    onSessionLoaded: ((sessionId: String, sessionTitle: String) -> Unit)? = null,
+    onConnectionStateChanged: ((SessionConnectionState?) -> Unit)? = null,
+    isActiveTab: Boolean = true
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    val sessionConnectionState by viewModel.sessionConnectionState.collectAsStateWithLifecycle()
     val favoriteModels by viewModel.favoriteModels.collectAsStateWithLifecycle()
     val recentModels by viewModel.recentModels.collectAsStateWithLifecycle()
     val visualSettings by viewModel.visualSettings.collectAsStateWithLifecycle()
+    
+    // Notify parent when session is loaded
+    LaunchedEffect(uiState.session) {
+        uiState.session?.let { session ->
+            onSessionLoaded?.invoke(session.id, session.title)
+        }
+    }
+    
+    // Propagate connection state changes to parent (for tab indicator)
+    LaunchedEffect(sessionConnectionState) {
+        onConnectionStateChanged?.invoke(sessionConnectionState)
+    }
+    
+    // Mark as read when tab becomes active
+    LaunchedEffect(isActiveTab) {
+        if (isActiveTab) {
+            viewModel.markAsRead()
+        }
+    }
     
     // Convert setting string to ToolWidgetState
     val defaultToolWidgetState = remember(visualSettings.toolWidgetDefaultState) {
@@ -103,16 +127,16 @@ fun ChatScreen(
     }
 
     // Auto-scroll when new messages arrive or content changes during streaming
-    val lastMessageContent = remember(messages) {
-        messages.firstOrNull()?.parts?.sumOf { it.hashCode() } ?: 0
-    }
+    val messageCount = messages.size
+    val lastMessagePartCount = messages.lastOrNull()?.parts?.size ?: 0
+    val isBusy = uiState.isBusy
     
-    LaunchedEffect(messages.size, lastMessageContent) {
+    // Scroll on new messages or when parts are added to the last message
+    LaunchedEffect(messageCount, lastMessagePartCount, isBusy) {
         if (messages.isNotEmpty()) {
             if (!userScrolledAway) {
                 listState.scrollToItem(0)  // In reversed layout, 0 is bottom
             } else {
-                // Track that new content arrived while user was scrolled away
                 hasNewContentWhileAway = true
             }
         }
@@ -126,13 +150,17 @@ fun ChatScreen(
                 onBack = onNavigateBack,
                 onTerminal = onOpenTerminal,
                 onFiles = onOpenFiles,
-                onGit = onOpenGit,
                 onCommands = {
                     viewModel.loadCommands()
                     showCommandPalette = true
                 },
                 onAbort = viewModel::abortSession,
-                isBusy = uiState.isBusy
+                isBusy = uiState.isBusy,
+                todoCount = uiState.todos.count { it.status == "in_progress" || it.status == "pending" },
+                onTodos = {
+                    viewModel.loadTodos()
+                    showTodoTracker = true
+                }
             )
         },
         bottomBar = {
@@ -154,27 +182,30 @@ fun ChatScreen(
                 )
                 ChatInputBar(
                     value = uiState.inputText,
-                    onValueChange = viewModel::updateInput,
+                    onValueChange = { text ->
+                        viewModel.updateInput(text)
+                        // Load commands when user starts typing /
+                        if (text.startsWith("/") && uiState.commands.isEmpty()) {
+                            viewModel.loadCommands()
+                        }
+                    },
                     onSend = viewModel::sendMessage,
                     isLoading = uiState.isSending,
-                    enabled = connectionState is ConnectionState.Connected && !uiState.isSending,
+                    enabled = connectionState is ConnectionState.Connected,  // Keep input enabled while sending
+                    isBusy = uiState.isBusy,
+                    hasQueuedMessage = uiState.queuedMessage != null,
+                    onQueueMessage = viewModel::queueMessage,
                     attachedFiles = uiState.attachedFiles,
                     onAttachClick = {
                         viewModel.loadPickerFiles()
                         showFilePicker = true
                     },
-                    onRemoveAttachment = viewModel::detachFile
+                    onRemoveAttachment = viewModel::detachFile,
+                    commands = uiState.commands,
+                    onCommandSelected = { /* Command text is already updated via onValueChange */ },
+                    requestFocus = isActiveTab
                 )
             }
-        },
-        floatingActionButton = {
-            TodoTrackerFab(
-                todos = uiState.todos,
-                onClick = {
-                    viewModel.loadTodos()
-                    showTodoTracker = true
-                }
-            )
         }
     ) { padding ->
         Box(
@@ -182,11 +213,16 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (messages.isEmpty() && !uiState.isLoading) {
+            // Use isBusy as a proxy for "has content or is loading"
+            // We don't observe streamingState here to avoid recomposition
+            val hasContent = messages.isNotEmpty() || uiState.isBusy
+            
+            if (!hasContent && !uiState.isLoading) {
                 EmptyChatView(modifier = Modifier.align(Alignment.Center))
             } else {
                 // Group consecutive messages into blocks for display
                 // User messages are their own block, consecutive assistant messages merge into one block
+                // This only recomputes when the messages list changes (not during streaming)
                 val messageBlocks = remember(messages) {
                     groupMessagesIntoBlocks(messages)
                 }
@@ -195,7 +231,7 @@ fun ChatScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 2.dp, horizontal = 4.dp),
+                        contentPadding = PaddingValues(vertical = Spacing.xxs, horizontal = Spacing.xs),
                         verticalArrangement = Arrangement.spacedBy(1.dp),
                         reverseLayout = true
                     ) {
@@ -208,11 +244,12 @@ fun ChatScreen(
                                     onSubmit = { answers ->
                                         viewModel.respondToQuestion(questionRequest.id, answers)
                                     },
-                                    modifier = Modifier.padding(vertical = 4.dp)
+                                    modifier = Modifier.padding(vertical = Spacing.xs)
                                 )
                             }
                         }
                         
+                        // All messages - stable keys ensure only changed items recompose
                         items(
                             items = messageBlocks.asReversed(),
                             key = { block -> 
@@ -226,6 +263,7 @@ fun ChatScreen(
                                 block = block,
                                 onToolApprove = { viewModel.respondToPermission(it, "allow") },
                                 onToolDeny = { viewModel.respondToPermission(it, "deny") },
+                                onOpenSubSession = onOpenSubSession,
                                 defaultToolWidgetState = defaultToolWidgetState
                             )
                         }
@@ -259,7 +297,7 @@ fun ChatScreen(
                 Snackbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(8.dp),
+                        .padding(Spacing.md),
                     action = {
                         TextButton(onClick = viewModel::clearError) {
                             Text(stringResource(R.string.dismiss))
@@ -283,7 +321,7 @@ fun ChatScreen(
                 },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = Spacing.xl, bottom = 8.dp)
+                    .padding(end = Spacing.xl, bottom = Spacing.md)
             )
         }
     }
@@ -335,11 +373,13 @@ private fun ChatTopBar(
     onBack: () -> Unit,
     onTerminal: () -> Unit,
     onFiles: () -> Unit,
-    onGit: () -> Unit,
     onCommands: () -> Unit,
     onAbort: () -> Unit,
-    isBusy: Boolean
+    isBusy: Boolean,
+    todoCount: Int = 0,
+    onTodos: () -> Unit = {}
 ) {
+    val theme = LocalOpenCodeTheme.current
     Surface(
         tonalElevation = 2.dp,
         modifier = Modifier.fillMaxWidth()
@@ -347,13 +387,12 @@ private fun ChatTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = Spacing.md, vertical = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(Sizing.iconButtonMd)
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
@@ -372,44 +411,63 @@ private fun ChatTopBar(
             
             ConnectionIndicator(state = connectionState)
             
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Spacing.md))
             
             if (isBusy) {
                 IconButton(
                     onClick = onAbort,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(Sizing.iconButtonMd)
                 ) {
                     Icon(
                         Icons.Default.Stop,
                         contentDescription = stringResource(R.string.cd_stop),
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(22.dp)
+                        tint = theme.error,
+                        modifier = Modifier.size(Sizing.iconAction)
                     )
                 }
             }
+            
+            // Todo button with badge
+            if (todoCount > 0) {
+                IconButton(
+                    onClick = onTodos,
+                    modifier = Modifier.size(Sizing.iconButtonMd)
+                ) {
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                containerColor = theme.accent
+                            ) {
+                                Text(todoCount.toString())
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Checklist,
+                            contentDescription = stringResource(R.string.cd_todos),
+                            modifier = Modifier.size(Sizing.iconAction)
+                        )
+                    }
+                }
+            }
+            
             IconButton(
                 onClick = onCommands,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(Sizing.iconButtonMd)
             ) {
-                Icon(Icons.Default.Code, contentDescription = stringResource(R.string.cd_commands), modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Code, contentDescription = stringResource(R.string.cd_commands), modifier = Modifier.size(Sizing.iconAction))
             }
             IconButton(
                 onClick = onTerminal,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(Sizing.iconButtonMd)
             ) {
-                Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.cd_terminal), modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.cd_terminal), modifier = Modifier.size(Sizing.iconAction))
             }
             IconButton(
                 onClick = onFiles,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(Sizing.iconButtonMd)
             ) {
-                Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_files), modifier = Modifier.size(22.dp))
-            }
-            IconButton(
-                onClick = onGit,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(Icons.Default.AccountTree, contentDescription = stringResource(R.string.cd_git), modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_files), modifier = Modifier.size(Sizing.iconAction))
             }
         }
     }
@@ -417,18 +475,19 @@ private fun ChatTopBar(
 
 @Composable
 private fun ConnectionIndicator(state: ConnectionState) {
+    val theme = LocalOpenCodeTheme.current
     val (color, description) = when (state) {
-        ConnectionState.Connected -> MaterialTheme.colorScheme.primary to "Connected"
-        ConnectionState.Connecting -> MaterialTheme.colorScheme.tertiary to "Connecting"
-        ConnectionState.Disconnected -> MaterialTheme.colorScheme.outline to "Disconnected"
-        is ConnectionState.Error -> MaterialTheme.colorScheme.error to "Error"
+        ConnectionState.Connected -> theme.success to "Connected"
+        ConnectionState.Connecting -> theme.warning to "Connecting"
+        ConnectionState.Disconnected -> theme.textMuted to "Disconnected"
+        is ConnectionState.Error -> theme.error to "Error"
     }
 
     Icon(
         Icons.Default.Circle,
         contentDescription = description,
         tint = color,
-        modifier = Modifier.size(10.dp)
+        modifier = Modifier.size(Sizing.iconXxs)
     )
 }
 
@@ -437,10 +496,11 @@ private fun ConnectionBanner(
     state: ConnectionState,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     val (text, color) = when (state) {
-        ConnectionState.Connecting -> "Connecting..." to MaterialTheme.colorScheme.tertiaryContainer
-        ConnectionState.Disconnected -> "Disconnected" to MaterialTheme.colorScheme.errorContainer
-        is ConnectionState.Error -> "Connection error: ${state.message}" to MaterialTheme.colorScheme.errorContainer
+        ConnectionState.Connecting -> "Connecting..." to theme.warning.copy(alpha = 0.2f)
+        ConnectionState.Disconnected -> "Disconnected" to theme.error.copy(alpha = 0.2f)
+        is ConnectionState.Error -> "Connection error: ${state.message}" to theme.error.copy(alpha = 0.2f)
         ConnectionState.Connected -> return
     }
 
@@ -450,112 +510,37 @@ private fun ConnectionBanner(
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(8.dp),
-            style = MaterialTheme.typography.bodySmall
+            modifier = Modifier.padding(Spacing.md),
+            style = MaterialTheme.typography.bodySmall,
+            color = theme.text
         )
     }
 }
 
 @Composable
 private fun EmptyChatView(modifier: Modifier = Modifier) {
+    val theme = LocalOpenCodeTheme.current
     Column(
         modifier = modifier.padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        Icon(
-            Icons.Default.ChatBubbleOutline,
-            contentDescription = stringResource(R.string.chat_empty_title),
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.outline
+        Text(
+            text = "◇",
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.textMuted
         )
         Text(
             text = stringResource(R.string.chat_empty_title),
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.text
         )
         Text(
             text = stringResource(R.string.chat_empty_description),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.textMuted
         )
     }
 }
 
-/**
- * Sealed class representing a block of messages for display.
- * User messages are their own block. Consecutive assistant messages are merged.
- */
-private sealed class MessageBlock {
-    data class UserBlock(val message: MessageWithParts) : MessageBlock()
-    data class AssistantBlock(val messages: List<MessageWithParts>) : MessageBlock()
-}
-
-/**
- * Group messages into blocks: user messages standalone, consecutive assistant messages merged.
- */
-private fun groupMessagesIntoBlocks(messages: List<MessageWithParts>): List<MessageBlock> {
-    if (messages.isEmpty()) return emptyList()
-    
-    val blocks = mutableListOf<MessageBlock>()
-    var i = 0
-    
-    while (i < messages.size) {
-        val current = messages[i]
-        
-        if (current.message is Message.User) {
-            blocks.add(MessageBlock.UserBlock(current))
-            i++
-        } else {
-            // Collect consecutive assistant messages
-            val assistantMessages = mutableListOf<MessageWithParts>()
-            while (i < messages.size && messages[i].message is Message.Assistant) {
-                assistantMessages.add(messages[i])
-                i++
-            }
-            blocks.add(MessageBlock.AssistantBlock(assistantMessages))
-        }
-    }
-    
-    return blocks
-}
-
-/**
- * Render a message block (either user or merged assistant messages)
- */
-@Composable
-private fun MessageBlockView(
-    block: MessageBlock,
-    onToolApprove: (String) -> Unit,
-    onToolDeny: (String) -> Unit,
-    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT
-) {
-    when (block) {
-        is MessageBlock.UserBlock -> {
-            ChatMessage(
-                messageWithParts = block.message,
-                onToolApprove = onToolApprove,
-                onToolDeny = onToolDeny,
-                defaultToolWidgetState = defaultToolWidgetState
-            )
-        }
-        is MessageBlock.AssistantBlock -> {
-            // Merge all parts from all messages, preserving order
-            val allParts = block.messages.flatMap { it.parts }
-            
-            // Create a synthetic merged message for display
-            // Use the first message as the base
-            val mergedMessageWithParts = MessageWithParts(
-                message = block.messages.first().message,
-                parts = allParts
-            )
-            
-            ChatMessage(
-                messageWithParts = mergedMessageWithParts,
-                onToolApprove = onToolApprove,
-                onToolDeny = onToolDeny,
-                defaultToolWidgetState = defaultToolWidgetState
-            )
-        }
-    }
-}
+// MessageBlock, groupMessagesIntoBlocks, and MessageBlockView are now in MessageBlockUtils.kt

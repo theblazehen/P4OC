@@ -3,7 +3,7 @@ package dev.blazelight.p4oc.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.ripple
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 
@@ -248,19 +249,20 @@ fun TuiListItem(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     leadingIcon: ImageVector? = null,
-    leadingIconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    leadingIconTint: Color = LocalOpenCodeTheme.current.textMuted,
     leadingContent: @Composable (() -> Unit)? = null,
     supportingText: String? = null,
     overlineText: String? = null,
     trailingContent: @Composable (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
+    val theme = LocalOpenCodeTheme.current
     val clickableModifier = if (onClick != null && enabled) {
         modifier
             .fillMaxWidth()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(),
+                indication = ripple(),
                 role = Role.Button,
                 onClick = onClick
             )
@@ -296,19 +298,19 @@ fun TuiListItem(
                 Text(
                     text = it,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f)
+                    color = theme.textMuted.copy(alpha = if (enabled) 1f else 0.38f)
                 )
             }
             Text(
                 text = headlineText,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f)
+                color = theme.text.copy(alpha = if (enabled) 1f else 0.38f)
             )
             supportingText?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f)
+                    color = theme.textMuted.copy(alpha = if (enabled) 1f else 0.38f)
                 )
             }
         }
@@ -326,10 +328,11 @@ fun TuiIconRow(
     icon: ImageVector,
     text: String,
     modifier: Modifier = Modifier,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    iconTint: Color = LocalOpenCodeTheme.current.textMuted,
     secondaryText: String? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
+    val theme = LocalOpenCodeTheme.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -352,7 +355,7 @@ fun TuiIconRow(
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
             }
         }
@@ -370,7 +373,7 @@ fun TuiIconRow(
 @Composable
 fun TuiDivider(
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.outlineVariant
+    color: Color = LocalOpenCodeTheme.current.borderSubtle
 ) {
     HorizontalDivider(
         modifier = modifier,
@@ -428,9 +431,10 @@ fun TuiEmptyState(
     title: String,
     modifier: Modifier = Modifier,
     description: String? = null,
-    iconTint: Color = MaterialTheme.colorScheme.outline,
+    iconTint: Color = LocalOpenCodeTheme.current.border,
     action: (@Composable () -> Unit)? = null
 ) {
+    val theme = LocalOpenCodeTheme.current
     Column(
         modifier = modifier.padding(Spacing.emptyStatePadding),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -445,13 +449,13 @@ fun TuiEmptyState(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.textMuted
         )
         description?.let {
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = theme.textMuted
             )
         }
         action?.invoke()
@@ -569,8 +573,8 @@ fun TuiConfirmDialog(
                 },
                 colors = if (isDestructive) {
                     ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
+                        containerColor = LocalOpenCodeTheme.current.error,
+                        contentColor = LocalOpenCodeTheme.current.background
                     )
                 } else {
                     ButtonDefaults.buttonColors()
@@ -588,7 +592,7 @@ fun TuiConfirmDialog(
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = LocalOpenCodeTheme.current.textMuted
         )
     }
 }
@@ -697,7 +701,7 @@ fun TuiLoadingIndicator(
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = LocalOpenCodeTheme.current.textMuted
             )
         }
     }
@@ -730,8 +734,8 @@ fun TuiLoadingScreen(
 fun TuiBadge(
     text: String,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
-    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer
+    containerColor: Color = LocalOpenCodeTheme.current.backgroundPanel,
+    contentColor: Color = LocalOpenCodeTheme.current.secondary
 ) {
     Surface(
         modifier = modifier,

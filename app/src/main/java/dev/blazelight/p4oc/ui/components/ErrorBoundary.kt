@@ -1,5 +1,7 @@
 package dev.blazelight.p4oc.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -7,10 +9,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 
@@ -56,50 +61,59 @@ fun ErrorFallback(
     onRetry: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        Icon(
-            imageVector = getErrorIcon(errorState.errorType),
-            contentDescription = stringResource(R.string.cd_error_state),
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.error
+        Text(
+            text = "✗",
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.error,
+            fontFamily = FontFamily.Monospace
         )
         
         Text(
             text = getErrorTitle(errorState.errorType),
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.error
+            color = theme.error,
+            fontFamily = FontFamily.Monospace
         )
         
         Text(
             text = errorState.errorMessage ?: getErrorDescription(errorState.errorType),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            color = theme.textMuted,
+            textAlign = TextAlign.Center,
+            fontFamily = FontFamily.Monospace
         )
         
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             onDismiss?.let {
-                OutlinedButton(onClick = it) {
-                    Text(stringResource(R.string.dismiss))
+                OutlinedButton(
+                    onClick = it,
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = theme.textMuted)
+                ) {
+                    Text(stringResource(R.string.dismiss), fontFamily = FontFamily.Monospace)
                 }
             }
             onRetry?.let {
-                Button(onClick = it) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = stringResource(R.string.cd_retry),
-                        modifier = Modifier.size(Sizing.iconSm)
+                Button(
+                    onClick = it,
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = theme.accent,
+                        contentColor = theme.background
                     )
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.retry))
+                ) {
+                    Text("↻ ${stringResource(R.string.retry)}", fontFamily = FontFamily.Monospace)
                 }
             }
         }
@@ -114,54 +128,59 @@ fun ErrorCard(
     onRetry: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, theme.error.copy(alpha = 0.5f), RectangleShape),
+        color = theme.error.copy(alpha = 0.1f),
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = getErrorIcon(errorType),
-                contentDescription = stringResource(R.string.cd_error_state),
-                tint = MaterialTheme.colorScheme.error
+            Text(
+                text = "✗",
+                color = theme.error,
+                fontFamily = FontFamily.Monospace
             )
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = getErrorTitle(errorType),
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = theme.error,
+                    fontFamily = FontFamily.Monospace
                 )
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                    color = theme.error.copy(alpha = 0.8f),
+                    fontFamily = FontFamily.Monospace
                 )
             }
             
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 onRetry?.let {
                     IconButton(onClick = it) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.cd_retry),
-                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        Text(
+                            text = "↻",
+                            color = theme.error,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                 }
                 onDismiss?.let {
                     IconButton(onClick = it) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = stringResource(R.string.cd_dismiss),
-                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        Text(
+                            text = "×",
+                            color = theme.error,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                 }
@@ -178,33 +197,43 @@ fun ErrorSnackbar(
     errorType: ErrorType = ErrorType.UNKNOWN,
     onRetry: (() -> Unit)? = null
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Snackbar(
         modifier = modifier,
         action = {
             onRetry?.let {
                 TextButton(onClick = it) {
-                    Text(stringResource(R.string.retry))
+                    Text(
+                        stringResource(R.string.retry),
+                        color = theme.error,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
             }
         },
         dismissAction = {
             IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.dismiss))
+                Text(
+                    text = "×",
+                    color = theme.error,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         },
-        containerColor = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer
+        containerColor = theme.error.copy(alpha = 0.15f),
+        contentColor = theme.error,
+        shape = RectangleShape
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                getErrorIcon(errorType),
-                contentDescription = stringResource(R.string.cd_error_state),
-                modifier = Modifier.size(Sizing.iconMd)
+            Text(
+                text = "✗",
+                fontFamily = FontFamily.Monospace
             )
-            Text(message)
+            Text(message, fontFamily = FontFamily.Monospace)
         }
     }
 }
@@ -215,31 +244,38 @@ fun InlineError(
     modifier: Modifier = Modifier,
     onRetry: (() -> Unit)? = null
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            Icons.Default.ErrorOutline,
-            contentDescription = stringResource(R.string.cd_error_state),
-            modifier = Modifier.size(Sizing.iconXs),
-            tint = MaterialTheme.colorScheme.error
+        Text(
+            text = "!",
+            color = theme.error,
+            fontFamily = FontFamily.Monospace
         )
         Text(
             text = message,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+            color = theme.error,
+            fontFamily = FontFamily.Monospace,
             modifier = Modifier.weight(1f)
         )
         onRetry?.let {
             TextButton(
                 onClick = it,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.xs)
             ) {
-                Text(stringResource(R.string.retry), style = MaterialTheme.typography.labelSmall)
+                Text(
+                    "[${stringResource(R.string.retry)}]",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.accent,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }
@@ -251,36 +287,43 @@ fun NetworkErrorBanner(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     if (isVisible) {
         Surface(
             modifier = modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.errorContainer
+            color = theme.error.copy(alpha = 0.15f),
+            shape = RectangleShape
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.WifiOff,
-                        contentDescription = stringResource(R.string.no_network_connection),
-                        modifier = Modifier.size(Sizing.iconMd),
-                        tint = MaterialTheme.colorScheme.onErrorContainer
+                    Text(
+                        text = "⚠",
+                        color = theme.error,
+                        fontFamily = FontFamily.Monospace
                     )
                     Text(
                         text = stringResource(R.string.no_network_connection),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
+                        color = theme.error,
+                        fontFamily = FontFamily.Monospace
                     )
                 }
                 TextButton(onClick = onRetry) {
-                    Text(stringResource(R.string.retry))
+                    Text(
+                        "[${stringResource(R.string.retry)}]",
+                        color = theme.accent,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
             }
         }

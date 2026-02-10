@@ -10,6 +10,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -59,6 +60,11 @@ fun PocketCodeTheme(
         SideEffect {
             val activity = view.context as? Activity ?: return@SideEffect
             val window = activity.window
+            // Set navigation bar and status bar colors to match app background
+            @Suppress("DEPRECATION")
+            window.navigationBarColor = colorScheme.background.toArgb()
+            @Suppress("DEPRECATION")
+            window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme
                 isAppearanceLightNavigationBars = !darkTheme

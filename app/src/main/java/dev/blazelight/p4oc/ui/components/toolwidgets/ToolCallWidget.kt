@@ -14,10 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -98,15 +99,15 @@ fun ToolCallOneline(
         modifier = modifier
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(theme.backgroundPanel.copy(alpha = 0.3f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = icon,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp
+                fontSize = TuiCodeFontSize.lg
             ),
             color = color
         )
@@ -114,7 +115,7 @@ fun ToolCallOneline(
             text = tool.toolName,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp
+                fontSize = TuiCodeFontSize.lg
             ),
             color = theme.text,
             maxLines = 1,
@@ -148,15 +149,15 @@ fun ToolCallCompact(
         modifier = modifier
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(theme.backgroundPanel.copy(alpha = 0.4f))
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = icon,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp
+                fontSize = TuiCodeFontSize.xl
             ),
             color = color
         )
@@ -165,7 +166,7 @@ fun ToolCallCompact(
             text = description,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp
+                fontSize = TuiCodeFontSize.xl
             ),
             color = theme.text,
             maxLines = 1,
@@ -180,7 +181,7 @@ fun ToolCallCompact(
         
         // Diff stats for edit tools
         getDiffStats(tool)?.let { (added, removed) ->
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(
                     text = "+$added",
                     style = MaterialTheme.typography.labelSmall,
@@ -206,6 +207,7 @@ fun ToolCallExpanded(
     onClick: (() -> Unit)?,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    onOpenSubSession: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     when (tool.toolName.lowercase()) {
@@ -224,6 +226,14 @@ fun ToolCallExpanded(
         "edit", "write", "morph_edit_file", "serena_replace_content", "serena_create_text_file" -> EditWidgetExpanded(
             tool = tool,
             onClick = onClick,
+            modifier = modifier
+        )
+        "task" -> TaskWidgetExpanded(
+            tool = tool,
+            onClick = onClick,
+            onToolApprove = onToolApprove,
+            onToolDeny = onToolDeny,
+            onOpenSubSession = onOpenSubSession,
             modifier = modifier
         )
         else -> DefaultWidgetExpanded(

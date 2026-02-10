@@ -1,78 +1,98 @@
 package dev.blazelight.p4oc.ui.components.chat
 
-import android.content.Context
-import android.view.ViewGroup
-import androidx.appcompat.view.ContextThemeWrapper
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
-import com.fluid.afm.markdown.widget.PrinterMarkDownTextView
-import com.fluid.afm.styles.MarkdownStyles
+import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.model.rememberMarkdownState
+import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeBlock
+import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeFence
+import com.mikepenz.markdown.m3.Markdown
+import dev.blazelight.p4oc.ui.theme.opencode.rememberOpenCodeMarkdownColors
+import dev.blazelight.p4oc.ui.theme.opencode.rememberOpenCodeMarkdownTypography
+import dev.blazelight.p4oc.ui.theme.opencode.rememberTertiaryMarkdownColors
+import dev.snipme.highlights.Highlights
+import dev.snipme.highlights.model.SyntaxThemes
 
 /**
- * Compose wrapper for FluidMarkdown's PrinterMarkDownTextView.
- * Handles both static and streaming markdown content with proper height change callbacks.
+ * Compose wrapper for mikepenz's multiplatform-markdown-renderer.
+ * 
+ * The library (v0.39.2+) handles streaming natively with conflate support,
+ * preventing parse thrashing during rapid SSE updates.
  */
 @Composable
 fun StreamingMarkdown(
     text: String,
     modifier: Modifier = Modifier,
     isStreaming: Boolean = false,
-    styles: MarkdownStyles = rememberMarkdownStyles(),
-    onHeightChange: ((Int) -> Unit)? = null
+    useTertiaryColors: Boolean = false,
 ) {
-    val context = LocalContext.current
+    val isDarkTheme = isSystemInDarkTheme()
+
     
-    // Track the last text we've seen to detect new content
-    var lastText by remember { mutableStateOf("") }
+    // Syntax highlighting configuration
+    val highlightsBuilder = remember(isDarkTheme) {
+        Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
+    }
     
-    // Key on styles to recreate view when theme changes
-    val stylesKey = remember(styles) { System.identityHashCode(styles) }
+    // Theme mapping
+    val colors = if (useTertiaryColors) {
+        rememberTertiaryMarkdownColors()
+    } else {
+        rememberOpenCodeMarkdownColors()
+    }
+    val typography = rememberOpenCodeMarkdownTypography()
     
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            createMarkdownTextView(ctx, styles, onHeightChange)
-        },
-        update = { view ->
-            // Update styles if changed
-            view.setMarkdownStyles(styles)
-            
-            // Always use immediate rendering - no artificial delays
-            if (text != lastText) {
-                view.setMarkdownText(text)
-                // Ensure the hosting LazyColumn sees the new measured height.
-                view.requestLayout()
-                lastText = text
-            }
-        }
+    // Custom components with syntax highlighting
+    val components = remember(highlightsBuilder) {
+        markdownComponents(
+            codeBlock = {
+                MarkdownHighlightedCodeBlock(
+                    content = it.content,
+                    node = it.node,
+                    highlightsBuilder = highlightsBuilder,
+                    showHeader = false,  // TUI density - no header
+                )
+            },
+            codeFence = {
+                MarkdownHighlightedCodeFence(
+                    content = it.content,
+                    node = it.node,
+                    highlightsBuilder = highlightsBuilder,
+                    showHeader = true,  // Show language label for fenced blocks
+                )
+            },
+        )
+    }
+    
+    val markdownState = rememberMarkdownState(
+        content = text,
+        retainState = true
+    )
+
+    Markdown(
+        markdownState = markdownState,
+        colors = colors,
+        typography = typography,
+        components = components,
+        modifier = modifier.fillMaxWidth(),
     )
 }
 
-private fun createMarkdownTextView(
-    context: Context,
-    styles: MarkdownStyles,
-    onHeightChange: ((Int) -> Unit)?
-): PrinterMarkDownTextView {
-    // FluidMarkdown's view relies on AppCompat theme attributes; the app theme is a platform Material theme.
-    val themedContext = ContextThemeWrapper(context, androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar)
-
-    return PrinterMarkDownTextView(themedContext).apply {
-        layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        
-        // Initialize with styles
-        init(styles, null)
-        
-        // Set up height change listener for scroll coordination
-        onHeightChange?.let { callback ->
-            setSizeChangedListener { _, height ->
-                callback(height)
-            }
-        }
-        
-    }
+/**
+ * Convenience overload for tertiary-styled markdown (e.g., reasoning blocks).
+ */
+@Composable
+fun TertiaryStreamingMarkdown(
+    text: String,
+    modifier: Modifier = Modifier,
+    isStreaming: Boolean = false,
+) {
+    StreamingMarkdown(
+        text = text,
+        modifier = modifier,
+        isStreaming = isStreaming,
+        useTertiaryColors = true,
+    )
 }

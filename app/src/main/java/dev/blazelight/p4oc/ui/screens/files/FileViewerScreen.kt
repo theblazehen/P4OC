@@ -11,18 +11,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.code.Language
 import dev.blazelight.p4oc.ui.components.code.SyntaxHighlightedCode
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileViewerScreen(
     path: String,
-    viewModel: FilesViewModel = hiltViewModel(),
+    viewModel: FilesViewModel = koinViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -34,6 +36,7 @@ fun FileViewerScreen(
 
     val filename = path.substringAfterLast("/")
     val language = remember(filename) { Language.fromFilename(filename) }
+    val theme = LocalOpenCodeTheme.current
 
     Scaffold(
         topBar = {
@@ -44,7 +47,7 @@ fun FileViewerScreen(
                         Text(
                             text = if (language != Language.UNKNOWN) language.name.lowercase() else "plain text",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = theme.textMuted
                         )
                     }
                 },
@@ -85,7 +88,7 @@ fun FileViewerScreen(
                         filename = filename,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(8.dp),
+                            .padding(Spacing.md),
                         showLineNumbers = showLineNumbers
                     )
                 }
@@ -93,7 +96,7 @@ fun FileViewerScreen(
                     Text(
                         text = error,
                         modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.error
+                        color = theme.error
                     )
                 }
             }

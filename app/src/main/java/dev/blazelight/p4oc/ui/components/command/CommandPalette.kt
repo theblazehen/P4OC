@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.components.command
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,9 +25,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Command
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
+import dev.blazelight.p4oc.ui.components.TuiButton
+import dev.blazelight.p4oc.ui.components.TuiTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +40,7 @@ fun CommandPalette(
     onCommandSelected: (Command, String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedCommand by remember { mutableStateOf<Command?>(null) }
     var commandArgs by remember { mutableStateOf("") }
@@ -59,14 +64,48 @@ fun CommandPalette(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = theme.background,
+        shape = RectangleShape,
+        dragHandle = null
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp)
                 .padding(bottom = Spacing.xl)
         ) {
+            // TUI Header
+            Surface(
+                color = theme.backgroundElement,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "[ ${stringResource(R.string.command_palette)} ]",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = theme.text
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(Sizing.iconButtonSm)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.close),
+                            tint = theme.textMuted,
+                            modifier = Modifier.size(Sizing.iconSm)
+                        )
+                    }
+                }
+            }
+            
+            HorizontalDivider(color = theme.border)
+
             if (selectedCommand == null) {
                 CommandSearchView(
                     searchQuery = searchQuery,
@@ -103,34 +142,62 @@ private fun CommandSearchView(
     onCommandClick: (Command) -> Unit,
     focusRequester: FocusRequester
 ) {
-    Text(
-        text = stringResource(R.string.command_palette),
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(bottom = Spacing.xl)
-    )
-
-    OutlinedTextField(
-        value = searchQuery,
-        onValueChange = onSearchChange,
+    val theme = LocalOpenCodeTheme.current
+    
+    // Search field with / prefix (vim-style)
+    Surface(
+        color = theme.backgroundElement,
         modifier = Modifier
             .fillMaxWidth()
-            .focusRequester(focusRequester),
-        placeholder = { Text(stringResource(R.string.search_commands)) },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search)) },
-        trailingIcon = {
-            if (searchQuery.isNotEmpty()) {
-                IconButton(onClick = { onSearchChange("") }) {
-                    Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear))
-                }
-            }
-        },
-        singleLine = true,
-        shape = RectangleShape,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
-    )
-
-    Spacer(modifier = Modifier.height(Spacing.md))
+            .padding(Spacing.md)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "/",
+                style = MaterialTheme.typography.bodyLarge,
+                color = theme.accent,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(start = Spacing.md)
+            )
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester),
+                placeholder = { 
+                    Text(
+                        stringResource(R.string.search_commands),
+                        color = theme.textMuted
+                    ) 
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchChange("") }) {
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = stringResource(R.string.clear),
+                                tint = theme.textMuted
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RectangleShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = theme.accent,
+                    unfocusedBorderColor = theme.border,
+                    cursorColor = theme.accent,
+                    focusedTextColor = theme.text,
+                    unfocusedTextColor = theme.text
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
+            )
+        }
+    }
 
     when {
         isLoading -> {
@@ -151,89 +218,107 @@ private fun CommandSearchView(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.SearchOff,
-                        contentDescription = stringResource(R.string.no_matching_commands),
-                        modifier = Modifier.size(Sizing.iconHero),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    Text(
+                        text = "∅",
+                        style = MaterialTheme.typography.displayMedium,
+                        color = theme.textMuted
                     )
                     Spacer(modifier = Modifier.height(Spacing.md))
                     Text(
-                        text = if (searchQuery.isEmpty()) stringResource(R.string.no_commands_available) else stringResource(R.string.no_matching_commands),
+                        text = if (searchQuery.isEmpty()) 
+                            "-- ${stringResource(R.string.no_commands_available)} --" 
+                        else 
+                            "-- ${stringResource(R.string.no_matching_commands)} --",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
             }
         }
         else -> {
             LazyColumn(
-                modifier = Modifier.heightIn(max = 400.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier
+                    .heightIn(max = 400.dp)
+                    .padding(horizontal = Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
                 items(filteredCommands, key = { it.name }) { command ->
-                    CommandItem(
+                    TuiCommandItem(
                         command = command,
                         onClick = { onCommandClick(command) }
                     )
                 }
+            }
+            
+            // Footer with command count
+            Surface(
+                color = theme.backgroundElement,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "${filteredCommands.size} commands",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted,
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CommandItem(
+private fun TuiCommandItem(
     command: Command,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent,
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Selection indicator
+            Text(
+                text = ">",
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.accent.copy(alpha = 0.5f)
+            )
+            
+            // Command icon
             Icon(
                 Icons.Default.Terminal,
                 contentDescription = stringResource(R.string.cd_command_icon),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(Sizing.iconLg)
+                tint = theme.accent,
+                modifier = Modifier.size(Sizing.iconSm)
             )
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "/${command.name}",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.primary
+                        color = theme.accent
                     )
                     if (command.subtask) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = RectangleShape
-                        ) {
-                            Text(
-                                text = stringResource(R.string.subtask),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+                        Text(
+                            text = "[${stringResource(R.string.subtask)}]",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = theme.warning
+                        )
                     }
                 }
 
@@ -241,26 +326,26 @@ private fun CommandItem(
                     Text(
                         text = desc,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = theme.textMuted,
                         maxLines = 2
                     )
                 }
 
                 if (command.agent != null || command.model != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Spacer(modifier = Modifier.height(Spacing.xxs))
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         command.agent?.let { agent ->
-                            CommandBadge(
-                                icon = Icons.Default.SmartToy,
-                                text = agent,
-                                color = MaterialTheme.colorScheme.secondary
+                            Text(
+                                text = "@$agent",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = theme.info
                             )
                         }
                         command.model?.let { model ->
-                            CommandBadge(
-                                icon = Icons.Default.Memory,
-                                text = model.split("/").lastOrNull() ?: model,
-                                color = MaterialTheme.colorScheme.tertiary
+                            Text(
+                                text = "[${model.split("/").lastOrNull() ?: model}]",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = theme.textMuted
                             )
                         }
                     }
@@ -270,33 +355,10 @@ private fun CommandItem(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = stringResource(R.string.cd_select),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = theme.textMuted,
+                modifier = Modifier.size(Sizing.iconSm)
             )
         }
-    }
-}
-
-@Composable
-private fun CommandBadge(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String,
-    color: Color
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            icon,
-            contentDescription = stringResource(R.string.cd_decorative),
-            modifier = Modifier.size(12.dp),
-            tint = color
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = color
-        )
     }
 }
 
@@ -308,54 +370,61 @@ private fun CommandArgumentsView(
     onBack: () -> Unit,
     onExecute: () -> Unit
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = Spacing.xl)
+    val theme = LocalOpenCodeTheme.current
+    
+    Column(
+        modifier = Modifier.padding(Spacing.md)
     ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = Spacing.md)
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.size(Sizing.iconButtonSm)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = theme.textMuted,
+                    modifier = Modifier.size(Sizing.iconSm)
+                )
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = "/${command.name}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                color = theme.accent
+            )
         }
-        Text(
-            text = "/${command.name}",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.primary
+
+        command.description?.let { desc ->
+            Text(
+                text = desc,
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.textMuted,
+                modifier = Modifier.padding(bottom = Spacing.md)
+            )
+        }
+
+        TuiTextField(
+            value = arguments,
+            onValueChange = onArgumentsChange,
+            label = stringResource(R.string.arguments_optional),
+            placeholder = stringResource(R.string.enter_command_arguments),
+            singleLine = false,
+            modifier = Modifier.fillMaxWidth()
         )
-    }
 
-    command.description?.let { desc ->
-        Text(
-            text = desc,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = Spacing.xl)
-        )
-    }
+        Spacer(modifier = Modifier.height(Spacing.md))
 
-    OutlinedTextField(
-        value = arguments,
-        onValueChange = onArgumentsChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(R.string.arguments_optional)) },
-        placeholder = { Text(stringResource(R.string.enter_command_arguments)) },
-        singleLine = false,
-        minLines = 2,
-        maxLines = 4,
-        shape = RectangleShape,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onExecute() })
-    )
-
-    Spacer(modifier = Modifier.height(Spacing.md))
-
-    Button(
-        onClick = onExecute,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RectangleShape
-    ) {
-        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.cd_run_command))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(stringResource(R.string.execute_command))
+        TuiButton(
+            onClick = onExecute,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("▶ ${stringResource(R.string.execute_command)}")
+        }
     }
 }

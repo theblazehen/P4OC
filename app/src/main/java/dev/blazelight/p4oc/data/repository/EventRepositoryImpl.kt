@@ -7,11 +7,9 @@ import dev.blazelight.p4oc.domain.repository.EventRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class EventRepositoryImpl @Inject constructor(
+
+class EventRepositoryImpl constructor(
     private val connectionManager: ConnectionManager
 ) : EventRepository {
 

@@ -348,6 +348,7 @@
     <string name="cd_attach_files">Attach files</string>
     <string name="cd_attach_file">Attach file</string>
     <string name="cd_send">Send</string>
+    <string name="cd_queue_message">Queue message</string>
     <string name="cd_show_details">Show details</string>
     <string name="cd_todos">Todos</string>
     <string name="cd_retry">Retry</string>

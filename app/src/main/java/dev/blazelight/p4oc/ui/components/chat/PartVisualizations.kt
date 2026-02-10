@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -31,18 +32,16 @@ fun RetryPartDisplay(
     nextRetryTime: Long?,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-        ),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
-        )
+        color = theme.error.copy(alpha = 0.1f),
+        shape = RectangleShape
     ) {
         Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -50,20 +49,18 @@ fun RetryPartDisplay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = stringResource(R.string.cd_retry),
-                        modifier = Modifier.size(Sizing.iconMd),
-                        tint = MaterialTheme.colorScheme.error
+                    Text(
+                        text = "!",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = theme.error
                     )
                     Text(
                         text = stringResource(R.string.retry_attempt, attempt),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.error
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.error
                     )
                 }
                 
@@ -73,17 +70,12 @@ fun RetryPartDisplay(
             }
             
             errorMessage?.let { message ->
-                Surface(
-                    shape = RectangleShape,
-                    color = MaterialTheme.colorScheme.errorContainer
-                ) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted,
+                    modifier = Modifier.padding(start = Spacing.lg)
+                )
             }
         }
     }
@@ -91,6 +83,7 @@ fun RetryPartDisplay(
 
 @Composable
 private fun RetryCountdown(targetTime: Long) {
+    val theme = LocalOpenCodeTheme.current
     var remainingSeconds by remember { mutableIntStateOf(0) }
     
     LaunchedEffect(targetTime) {
@@ -103,17 +96,11 @@ private fun RetryCountdown(targetTime: Long) {
     }
     
     if (remainingSeconds > 0) {
-        Surface(
-            shape = RectangleShape,
-            color = MaterialTheme.colorScheme.error
-        ) {
-            Text(
-                text = stringResource(R.string.retry_in_seconds, remainingSeconds),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onError,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-        }
+        Text(
+            text = "[${stringResource(R.string.retry_in_seconds, remainingSeconds)}]",
+            style = MaterialTheme.typography.labelSmall,
+            color = theme.error
+        )
     }
 }
 
@@ -122,6 +109,7 @@ fun StepStartDisplay(
     snapshot: String?,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     val infiniteTransition = rememberInfiniteTransition(label = "step_progress")
     val dotAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
@@ -135,35 +123,34 @@ fun StepStartDisplay(
     
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+        color = theme.accent.copy(alpha = 0.1f),
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                .padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = dotAlpha))
+            Text(
+                text = "▶",
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.accent.copy(alpha = dotAlpha)
             )
             
             Text(
                 text = stringResource(R.string.step_started),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = theme.text
             )
             
             snapshot?.let {
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = stringResource(R.string.snapshot_preview, it.take(8)),
+                    text = "[${it.take(8)}]",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = theme.textMuted
                 )
             }
         }
@@ -179,15 +166,16 @@ fun StepFinishDisplay(
     duration: Long?,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        color = theme.backgroundElement,
+        shape = RectangleShape
     ) {
         Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -195,63 +183,57 @@ fun StepFinishDisplay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = stringResource(R.string.cd_completed),
-                        modifier = Modifier.size(Sizing.iconMd),
-                        tint = SemanticColors.Status.success
+                    Text(
+                        text = "✓",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.success
                     )
                     Text(
                         text = stringResource(R.string.step_completed),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.text
                     )
                 }
                 
                 reason?.let { r ->
-                    Surface(
-                        shape = RectangleShape,
-                        color = getReasonColor(r).copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            text = formatReason(r),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = getReasonColor(r),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                    Text(
+                        text = "[${formatReason(r)}]",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = getReasonColor(r)
+                    )
                 }
             }
             
+            // Stats row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                StepStat(
-                    label = "Input",
-                    value = formatTokens(inputTokens),
-                    icon = Icons.AutoMirrored.Filled.Input
+                Text(
+                    text = "in:${formatTokens(inputTokens)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted
                 )
-                StepStat(
-                    label = "Output",
-                    value = formatTokens(outputTokens),
-                    icon = Icons.Default.Output // No AutoMirrored version available
+                Text(
+                    text = "out:${formatTokens(outputTokens)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted
                 )
                 duration?.let { d ->
-                    StepStat(
-                        label = "Duration",
-                        value = formatDuration(d),
-                        icon = Icons.Default.Timer
+                    Text(
+                        text = formatDuration(d),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = theme.textMuted
                     )
                 }
                 cost?.let { c ->
-                    StepStat(
-                        label = "Cost",
-                        value = "$${String.format(java.util.Locale.US, "%.4f", c)}",
-                        icon = Icons.Default.AttachMoney
+                    Text(
+                        text = "$${String.format(java.util.Locale.US, "%.4f", c)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = theme.textMuted
                     )
                 }
             }
@@ -260,67 +242,39 @@ fun StepFinishDisplay(
 }
 
 @Composable
-private fun StepStat(
-    label: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Icon(
-            icon,
-            contentDescription = stringResource(R.string.cd_step_status),
-            modifier = Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
 fun SnapshotPartDisplay(
     snapshotId: String,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+        color = theme.info.copy(alpha = 0.1f),
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.CameraAlt,
-                contentDescription = stringResource(R.string.cd_snapshot_icon),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = MaterialTheme.colorScheme.onTertiaryContainer
+            Text(
+                text = "◆",
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.info
             )
             Text(
                 text = stringResource(R.string.snapshot_created),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer
+                color = theme.text
             )
             Spacer(Modifier.weight(1f))
             Text(
-                text = snapshotId.take(8),
+                text = "[${snapshotId.take(8)}]",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                color = theme.textMuted
             )
         }
     }
@@ -331,42 +285,44 @@ fun CompactionPartDisplay(
     isAuto: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+        color = theme.warning.copy(alpha = 0.1f),
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.Compress,
-                contentDescription = stringResource(R.string.cd_decorative),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            Text(
+                text = "⟨⟩",
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.warning
             )
             Text(
                 text = if (isAuto) "Auto-compacted" else "Manually compacted",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
+                color = theme.text
             )
         }
     }
 }
 
+@Composable
 private fun getReasonColor(reason: String): Color = SemanticColors.Reason.forReason(reason)
 
 private fun formatReason(reason: String): String = when (reason.lowercase()) {
-    "end_turn" -> "End Turn"
-    "stop" -> "Stopped"
-    "tool_use", "tool_calls" -> "Tool Use"
-    "max_tokens" -> "Max Tokens"
-    "error" -> "Error"
-    else -> reason.replaceFirstChar { it.uppercase() }
+    "end_turn" -> "end"
+    "stop" -> "stop"
+    "tool_use", "tool_calls" -> "tools"
+    "max_tokens" -> "max"
+    "error" -> "err"
+    else -> reason.take(6)
 }
 
 private fun formatTokens(tokens: Int): String = when {

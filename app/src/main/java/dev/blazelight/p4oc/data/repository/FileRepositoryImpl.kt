@@ -10,11 +10,9 @@ import dev.blazelight.p4oc.domain.model.SearchLine
 import dev.blazelight.p4oc.domain.model.SearchResult
 import dev.blazelight.p4oc.domain.model.Submatch
 import dev.blazelight.p4oc.domain.repository.FileRepository
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class FileRepositoryImpl @Inject constructor(
+
+class FileRepositoryImpl constructor(
     private val connectionManager: ConnectionManager
 ) : FileRepository {
 

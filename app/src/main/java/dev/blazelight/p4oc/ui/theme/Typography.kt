@@ -118,3 +118,16 @@ val TuiTypography = TextStyle(
     fontSize = 12.sp,
     lineHeight = 14.sp
 )
+
+/**
+ * TUI code font sizes for consistent typography across code displays.
+ * Use these instead of hardcoded `fontSize = X.sp` values.
+ */
+object TuiCodeFontSize {
+    val xs = 9.sp    // Tiny indicators, badges
+    val sm = 10.sp   // Compact code snippets
+    val md = 11.sp   // Standard code, terminal keys
+    val lg = 12.sp   // Emphasized code
+    val xl = 13.sp   // Large code blocks
+    val xxl = 14.sp  // Input fields, prominent code
+}

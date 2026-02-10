@@ -651,8 +651,9 @@ data class CommandDto(
     val description: String? = null,
     val agent: String? = null,
     val model: String? = null,
-    val template: String,
-    val subtask: Boolean? = null
+    val template: JsonElement? = null,  // Can be String or Object (MCP commands use {})
+    val subtask: Boolean? = null,
+    val mcp: Boolean? = null
 )
 
 @Serializable

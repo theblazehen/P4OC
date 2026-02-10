@@ -5,19 +5,16 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
-import javax.inject.Inject
-import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-@Singleton
-class SettingsDataStore @Inject constructor(
-    @ApplicationContext private val context: Context
+
+class SettingsDataStore constructor(
+    private val context: Context
 ) {
     companion object {
         private val KEY_SERVER_URL = stringPreferencesKey("server_url")
@@ -267,7 +264,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    suspend fun addRecentServer(url: String, name: String) {
+    suspend fun addRecentServer(url: String, name: String, username: String? = null, password: String? = null) {
         context.dataStore.edit { prefs ->
             val stored = prefs[KEY_RECENT_SERVERS] ?: ""
             val existingServers = if (stored.isBlank()) {
@@ -287,7 +284,7 @@ class SettingsDataStore @Inject constructor(
             }
             
             existingServers.removeAll { it.url == url }
-            existingServers.add(0, RecentServer(url, name))
+            existingServers.add(0, RecentServer(url, name, username, password))
             val trimmed = existingServers.take(MAX_RECENT_SERVERS)
             
             // Save as JSON array
@@ -435,9 +432,19 @@ private fun String.toModelInput(): ModelInput? {
 
 data class RecentServer(
     val url: String,
-    val name: String
+    val name: String,
+    val username: String? = null,
+    val password: String? = null
 ) {
-    fun toJson(): String = """{"url":"${url.replace("\"", "\\\"")}","name":"${name.replace("\"", "\\\"")}"}"""
+    fun toJson(): String {
+        val parts = mutableListOf(
+            """"url":"${url.replace("\"", "\\\"")}"""",
+            """"name":"${name.replace("\"", "\\\"")}""""
+        )
+        username?.let { parts.add(""""username":"${it.replace("\"", "\\\"")}"""") }
+        password?.let { parts.add(""""password":"${it.replace("\"", "\\\"")}"""") }
+        return "{${parts.joinToString(",")}}"
+    }
     
     companion object {
         fun fromJson(json: String): RecentServer? {
@@ -445,10 +452,14 @@ data class RecentServer(
                 // Simple JSON parsing without external library
                 val urlMatch = """"url"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
                 val nameMatch = """"name"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
+                val usernameMatch = """"username"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
+                val passwordMatch = """"password"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
                 if (urlMatch != null && nameMatch != null) {
                     RecentServer(
                         url = urlMatch.groupValues[1].replace("\\\"", "\""),
-                        name = nameMatch.groupValues[1].replace("\\\"", "\"")
+                        name = nameMatch.groupValues[1].replace("\\\"", "\""),
+                        username = usernameMatch?.groupValues?.get(1)?.replace("\\\"", "\""),
+                        password = passwordMatch?.groupValues?.get(1)?.replace("\\\"", "\"")
                     )
                 } else null
             } catch (e: Exception) {

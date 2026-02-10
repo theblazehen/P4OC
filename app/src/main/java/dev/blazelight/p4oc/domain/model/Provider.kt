@@ -111,8 +111,9 @@ data class Command(
     val description: String? = null,
     val agent: String? = null,
     val model: String? = null,
-    val template: String,
-    val subtask: Boolean = false
+    val template: String? = null,  // Can be null for MCP commands
+    val subtask: Boolean = false,
+    val mcp: Boolean = false
 )
 
 // ============================================================================

@@ -5,13 +5,11 @@ import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.data.remote.dto.ModelDto
 import dev.blazelight.p4oc.data.remote.dto.ProviderDto
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 data class ProviderConfigUiState(
     val isLoading: Boolean = true,
@@ -22,8 +20,8 @@ data class ProviderConfigUiState(
     val selectedProviderId: String? = null
 )
 
-@HiltViewModel
-class ProviderConfigViewModel @Inject constructor(
+
+class ProviderConfigViewModel constructor(
     private val connectionManager: ConnectionManager
 ) : ViewModel() {
 

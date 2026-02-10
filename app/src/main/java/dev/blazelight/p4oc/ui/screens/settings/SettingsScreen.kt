@@ -14,16 +14,18 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel(),
+    viewModel: SettingsViewModel = koinViewModel(),
     onNavigateBack: () -> Unit,
     onDisconnect: () -> Unit,
     onProviderConfig: () -> Unit = {},
@@ -44,13 +46,12 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = onNavigateBack,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(Sizing.iconButtonMd)
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
@@ -135,15 +136,16 @@ fun SettingsScreen(
 
             Spacer(Modifier.weight(1f))
 
+            val theme = LocalOpenCodeTheme.current
             ListItem(
                 headlineContent = {
-                    Text(stringResource(R.string.settings_disconnect), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.settings_disconnect), color = theme.error)
                 },
                 leadingContent = {
                     Icon(
                         Icons.AutoMirrored.Filled.Logout,
                         contentDescription = stringResource(R.string.settings_disconnect),
-                        tint = MaterialTheme.colorScheme.error
+                        tint = theme.error
                     )
                 },
                 modifier = Modifier.clickable { showDisconnectDialog = true }

@@ -38,11 +38,12 @@ object ProjectColors {
     @Composable
     fun textColorForProject(projectId: String): Color {
         val bgColor = colorForProject(projectId)
+        val theme = LocalOpenCodeTheme.current
         // Use luminance to pick contrasting text - dark text on bright bg, light text on dark bg
         return if (bgColor.luminance() > 0.4f) {
-            Color(0xFF11111b) // Very dark text for bright backgrounds (catppuccin crust)
+            theme.background // Dark text for bright backgrounds
         } else {
-            Color(0xFFcdd6f4) // Light text for dark backgrounds (catppuccin text)
+            theme.text // Light text for dark backgrounds
         }
     }
     

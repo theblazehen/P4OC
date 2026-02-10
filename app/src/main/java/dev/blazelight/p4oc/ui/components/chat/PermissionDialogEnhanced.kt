@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.components.chat
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,7 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -25,7 +26,10 @@ import androidx.compose.ui.window.Dialog
 import dev.blazelight.p4oc.R
 import androidx.compose.ui.window.DialogProperties
 import dev.blazelight.p4oc.domain.model.Permission
+import androidx.compose.ui.graphics.Color
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -41,6 +45,7 @@ fun PermissionDialogEnhanced(
     onDeny: () -> Unit,
     onAlways: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     var showFullPreview by remember { mutableStateOf(false) }
     
     val codePreview = remember(permission) { extractCodePreview(permission) }
@@ -51,33 +56,42 @@ fun PermissionDialogEnhanced(
         onDismissRequest = onDeny,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Card(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.8f),
-            shape = MaterialTheme.shapes.large
+                .fillMaxHeight(0.8f)
+                .border(1.dp, theme.border, RectangleShape),
+            shape = RectangleShape,
+            color = theme.background
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                TopAppBar(
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                getPermissionIcon(permission.type),
-                                contentDescription = stringResource(R.string.cd_permission_icon),
-                                tint = getPermissionColor(permission.type)
-                            )
-                            Text(stringResource(R.string.permission_required))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
+                // TUI Header
+                Surface(
+                    color = theme.backgroundElement,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
+                        Text(
+                            text = getPermissionSymbol(permission.type),
+                            color = getPermissionColor(permission.type),
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "[ ${stringResource(R.string.permission_required)} ]",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.text
+                        )
+                    }
+                }
                 
                 Column(
                     modifier = Modifier
@@ -88,7 +102,9 @@ fun PermissionDialogEnhanced(
                 ) {
                     Text(
                         text = permission.title,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.text
                     )
                     
                     PermissionTypeCard(permission.type)
@@ -110,7 +126,7 @@ fun PermissionDialogEnhanced(
                     }
                 }
                 
-                HorizontalDivider()
+                HorizontalDivider(color = theme.border)
                 
                 Row(
                     modifier = Modifier
@@ -120,25 +136,31 @@ fun PermissionDialogEnhanced(
                 ) {
                     OutlinedButton(
                         onClick = onDeny,
+                        shape = RectangleShape,
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
+                            contentColor = theme.error
                         )
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_deny_action), modifier = Modifier.size(Sizing.iconSm))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.deny))
+                        Text("✗ ${stringResource(R.string.deny)}", fontFamily = FontFamily.Monospace)
                     }
                     
                     TextButton(onClick = onAlways) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = stringResource(R.string.cd_approve_all), modifier = Modifier.size(Sizing.iconSm))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.always_allow))
+                        Text(
+                            "◎ ${stringResource(R.string.always_allow)}",
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.textMuted
+                        )
                     }
                     
-                    Button(onClick = onAllow) {
-                        Icon(Icons.Default.Check, contentDescription = stringResource(R.string.cd_approve_action), modifier = Modifier.size(Sizing.iconSm))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.allow))
+                    Button(
+                        onClick = onAllow,
+                        shape = RectangleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = theme.success,
+                            contentColor = theme.background
+                        )
+                    ) {
+                        Text("✓ ${stringResource(R.string.allow)}", fontFamily = FontFamily.Monospace)
                     }
                 }
             }
@@ -148,33 +170,37 @@ fun PermissionDialogEnhanced(
 
 @Composable
 private fun PermissionTypeCard(type: String) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = getPermissionColor(type).copy(alpha = 0.1f)
-        )
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
+        color = getPermissionColor(type).copy(alpha = 0.1f),
+        shape = RectangleShape,
+        modifier = Modifier.border(1.dp, getPermissionColor(type).copy(alpha = 0.3f), RectangleShape)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            Icon(
-                getPermissionIcon(type),
-                contentDescription = stringResource(R.string.cd_permission_icon),
-                tint = getPermissionColor(type)
+            Text(
+                text = getPermissionSymbol(type),
+                color = getPermissionColor(type),
+                fontFamily = FontFamily.Monospace
             )
             Column {
                 Text(
                     text = formatPermissionType(type),
                     style = MaterialTheme.typography.labelLarge,
+                    fontFamily = FontFamily.Monospace,
                     color = getPermissionColor(type)
                 )
                 Text(
                     text = getPermissionDescription(type),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.textMuted
                 )
             }
         }
@@ -183,27 +209,29 @@ private fun PermissionTypeCard(type: String) {
 
 @Composable
 private fun FilePathCard(path: String) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
+        color = theme.backgroundElement,
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            Icon(
-                Icons.AutoMirrored.Filled.InsertDriveFile,
-                contentDescription = stringResource(R.string.cd_file_type),
-                tint = MaterialTheme.colorScheme.primary
+            Text(
+                text = "≡",
+                color = theme.accent,
+                fontFamily = FontFamily.Monospace
             )
             Text(
                 text = path,
                 style = MaterialTheme.typography.bodyMedium,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
+                color = theme.text
             )
         }
     }
@@ -211,38 +239,40 @@ private fun FilePathCard(path: String) {
 
 @Composable
 private fun CommandCard(command: String) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-        )
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
+        color = theme.warning.copy(alpha = 0.1f),
+        shape = RectangleShape,
+        modifier = Modifier.border(1.dp, theme.warning.copy(alpha = 0.3f), RectangleShape)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                Icon(
-                    Icons.Default.Terminal,
-                    contentDescription = stringResource(R.string.cd_command_icon),
-                    modifier = Modifier.size(Sizing.iconXs),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                Text(
+                    text = "$",
+                    color = theme.warning,
+                    fontFamily = FontFamily.Monospace
                 )
                 Text(
                     text = stringResource(R.string.command_label),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.warning
                 )
             }
             Text(
                 text = command,
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onTertiaryContainer
+                color = theme.text
             )
         }
     }
@@ -254,33 +284,33 @@ private fun CodePreviewCard(
     isExpanded: Boolean,
     onToggleExpand: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val lines = code.lines()
     val displayLines = if (isExpanded) lines else lines.take(10)
     val hasMore = lines.size > 10
     
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = SemanticColors.Syntax.background
-        )
+    Surface(
+        color = theme.backgroundElement,
+        shape = RectangleShape
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.code_preview),
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = theme.text.copy(alpha = 0.7f)
                 )
                 if (hasMore) {
                     TextButton(
                         onClick = onToggleExpand,
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = Color.White.copy(alpha = 0.7f)
+                            contentColor = theme.text.copy(alpha = 0.7f)
                         )
                     ) {
                         Text(if (isExpanded) "Show Less" else "Show All (${lines.size} lines)")
@@ -288,7 +318,7 @@ private fun CodePreviewCard(
                 }
             }
             
-            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+            HorizontalDivider(color = theme.border.copy(alpha = 0.1f))
             
             Box(
                 modifier = Modifier
@@ -301,14 +331,14 @@ private fun CodePreviewCard(
                         Row {
                             Text(
                                 text = "${index + 1}".padStart(4),
-                                color = Color.White.copy(alpha = 0.4f),
-                                fontSize = 12.sp,
+                                color = theme.textMuted.copy(alpha = 0.6f),
+                                fontSize = TuiCodeFontSize.lg,
                                 fontFamily = FontFamily.Monospace
                             )
                             Spacer(Modifier.width(Spacing.xl))
                             Text(
                                 text = highlightCodeLine(line),
-                                fontSize = 12.sp,
+                                fontSize = TuiCodeFontSize.lg,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
@@ -318,8 +348,8 @@ private fun CodePreviewCard(
                         Spacer(Modifier.height(Spacing.md))
                         Text(
                             text = stringResource(R.string.more_lines, lines.size - 10),
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 12.sp,
+                            color = theme.textMuted.copy(alpha = 0.7f),
+                            fontSize = TuiCodeFontSize.lg,
                             fontFamily = FontFamily.Monospace
                         )
                     }
@@ -392,6 +422,14 @@ private fun highlightCodeLine(line: String): AnnotatedString = buildAnnotatedStr
     }
 }
 
+private fun getPermissionSymbol(type: String) = when (type.lowercase()) {
+    "file.write", "file.edit" -> "✎"
+    "file.read" -> "◎"
+    "bash", "shell", "command" -> "$"
+    "file.delete" -> "✗"
+    else -> "◈"
+}
+
 private fun getPermissionIcon(type: String) = when (type.lowercase()) {
     "file.write", "file.edit" -> Icons.Default.Edit
     "file.read" -> Icons.Default.Visibility
@@ -400,6 +438,7 @@ private fun getPermissionIcon(type: String) = when (type.lowercase()) {
     else -> Icons.Default.Security
 }
 
+@Composable
 private fun getPermissionColor(type: String): Color = SemanticColors.Permission.forType(type)
 
 private fun formatPermissionType(type: String): String = when (type.lowercase()) {

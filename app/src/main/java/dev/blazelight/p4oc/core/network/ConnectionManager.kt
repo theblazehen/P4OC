@@ -14,11 +14,9 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class ConnectionManager @Inject constructor(
+
+class ConnectionManager constructor(
     private val json: Json,
     private val eventMapper: EventMapper,
     private val directoryManager: DirectoryManager

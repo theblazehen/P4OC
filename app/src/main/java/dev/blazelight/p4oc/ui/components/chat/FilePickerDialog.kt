@@ -1,5 +1,7 @@
 package dev.blazelight.p4oc.ui.components.chat
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,6 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -51,6 +55,7 @@ fun FilePickerDialog(
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val theme = LocalOpenCodeTheme.current
 
     val filteredFiles = remember(files, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -69,57 +74,108 @@ fun FilePickerDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.85f),
-            shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 6.dp
+                .fillMaxHeight(0.85f)
+                .border(1.dp, theme.border, RectangleShape),
+            shape = RectangleShape,
+            color = theme.background
         ) {
             Column {
-                TopAppBar(
-                    title = { 
-                        Text(
-                            text = stringResource(R.string.attach_files),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, stringResource(R.string.close))
+                // TUI Header: [ Attach Files ]
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "×",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = theme.textMuted,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier
+                                    .clickable(onClick = onDismiss)
+                                    .padding(end = Spacing.md)
+                            )
+                            Text(
+                                text = "[ ${stringResource(R.string.attach_files)} ]",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = theme.text,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
-                    },
-                    actions = {
-                        if (selectedFiles.isNotEmpty()) {
-                            Badge(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ) {
-                                Text("${selectedFiles.size}")
-                            }
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        TextButton(
-                            onClick = onConfirm,
-                            enabled = selectedFiles.isNotEmpty()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                         ) {
-                            Text(stringResource(R.string.attach))
+                            if (selectedFiles.isNotEmpty()) {
+                                Text(
+                                    text = "[${selectedFiles.size}]",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = theme.accent,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            Text(
+                                text = if (selectedFiles.isNotEmpty()) "[${stringResource(R.string.attach)}]" else "",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (selectedFiles.isNotEmpty()) theme.accent else theme.textMuted,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.clickable(
+                                    enabled = selectedFiles.isNotEmpty(),
+                                    onClick = onConfirm
+                                )
+                            )
                         }
                     }
-                )
+                }
 
+                // Search field with TUI style
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = Spacing.xl),
-                    placeholder = { Text(stringResource(R.string.search_files)) },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                        .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                    placeholder = { 
+                        Text(
+                            "/ ${stringResource(R.string.search_files)}",
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.textMuted
+                        ) 
+                    },
+                    leadingIcon = { 
+                        Text(
+                            "/",
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.accent
+                        )
+                    },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
-                        { IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, stringResource(R.string.clear))
-                        }}
+                        { 
+                            Text(
+                                "×",
+                                fontFamily = FontFamily.Monospace,
+                                color = theme.textMuted,
+                                modifier = Modifier.clickable { searchQuery = "" }
+                            )
+                        }
                     } else null,
-                    singleLine = true
+                    singleLine = true,
+                    shape = RectangleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = theme.accent,
+                        unfocusedBorderColor = theme.border,
+                        focusedContainerColor = theme.background,
+                        unfocusedContainerColor = theme.background
+                    )
                 )
 
                 if (currentPath.isNotBlank()) {
@@ -136,7 +192,7 @@ fun FilePickerDialog(
                     )
                 }
 
-                HorizontalDivider()
+                HorizontalDivider(color = theme.border)
 
                 Box(modifier = Modifier.weight(1f)) {
                     when {
@@ -147,17 +203,18 @@ fun FilePickerDialog(
                             Column(
                                 modifier = Modifier.align(Alignment.Center),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md)
                             ) {
-                                Icon(
-                                    if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.FolderOpen,
-                                    contentDescription = stringResource(R.string.cd_folder_icon),
-                                    modifier = Modifier.size(Sizing.iconHero),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                Text(
+                                    text = if (searchQuery.isNotBlank()) "∅" else "◇",
+                                    style = MaterialTheme.typography.displaySmall,
+                                    color = theme.textMuted,
+                                    fontFamily = FontFamily.Monospace
                                 )
                                 Text(
                                     text = if (searchQuery.isNotBlank()) stringResource(R.string.no_matching_files) else stringResource(R.string.empty_folder),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = theme.textMuted,
+                                    fontFamily = FontFamily.Monospace
                                 )
                             }
                         }
@@ -165,23 +222,29 @@ fun FilePickerDialog(
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                                verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
                             ) {
                                 if (currentPath.isNotBlank()) {
                                     item(key = "..") {
-                                        ListItem(
-                                            headlineContent = { Text(stringResource(R.string.parent_directory)) },
-                                            leadingContent = {
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.ArrowBack,
-                                                contentDescription = stringResource(R.string.cd_navigate_up),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                            },
+                                        Row(
                                             modifier = Modifier
-                                                .clip(RectangleShape)
+                                                .fillMaxWidth()
                                                 .clickable(onClick = onNavigateUp)
-                                        )
+                                                .padding(Spacing.sm),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                        ) {
+                                            Text(
+                                                text = "←",
+                                                color = theme.accent,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                            Text(
+                                                text = "..",
+                                                color = theme.text,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
                                     }
                                 }
                                 
@@ -218,59 +281,46 @@ private fun PickerBreadcrumb(
     onNavigateTo: (String) -> Unit
 ) {
     val parts = path.split("/").filter { it.isNotEmpty() }
+    val theme = LocalOpenCodeTheme.current
     
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.xl, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            onClick = { onNavigateTo("") },
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = RectangleShape
-        ) {
-            Icon(
-                Icons.Default.Home,
-                contentDescription = stringResource(R.string.cd_root),
-                modifier = Modifier
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .size(Sizing.iconXs),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+        // Root indicator: ~
+        Text(
+            text = "~",
+            style = MaterialTheme.typography.labelMedium,
+            color = theme.accent,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.clickable { onNavigateTo("") }
+        )
         
         var currentPath = ""
         parts.forEachIndexed { index, part ->
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = stringResource(R.string.cd_path_separator),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = MaterialTheme.colorScheme.outline
+            Text(
+                text = "/",
+                style = MaterialTheme.typography.labelMedium,
+                color = theme.textMuted,
+                fontFamily = FontFamily.Monospace
             )
             
             currentPath = if (currentPath.isEmpty()) "/$part" else "$currentPath/$part"
             val pathToNavigate = currentPath
             
-            Surface(
-                onClick = { onNavigateTo(pathToNavigate) },
-                color = if (index == parts.lastIndex) 
-                    MaterialTheme.colorScheme.primaryContainer 
-                else MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RectangleShape
-            ) {
-                Text(
-                    text = part,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (index == parts.lastIndex) 
-                        MaterialTheme.colorScheme.onPrimaryContainer 
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    maxLines = 1
-                )
-            }
+            Text(
+                text = part,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (index == parts.lastIndex) theme.accent else theme.text,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = if (index == parts.lastIndex) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier.clickable { onNavigateTo(pathToNavigate) },
+                maxLines = 1
+            )
         }
     }
 }
@@ -280,32 +330,40 @@ private fun SelectedFilesChips(
     selectedFiles: List<SelectedFile>,
     onRemove: (String) -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.xl, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         selectedFiles.forEach { file ->
-            InputChip(
-                selected = true,
-                onClick = { onRemove(file.path) },
-                label = { 
-                    Text(
-                        file.name,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    ) 
-                },
-                trailingIcon = {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = stringResource(R.string.cd_remove),
-                        modifier = Modifier.size(Sizing.iconXs)
-                    )
-                }
-            )
+            Row(
+                modifier = Modifier
+                    .background(theme.backgroundElement)
+                    .border(1.dp, theme.border, RectangleShape)
+                    .clickable { onRemove(file.path) }
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+            ) {
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.text,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "×",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
     }
 }
@@ -316,53 +374,66 @@ private fun PickerFileItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val (icon, iconColor) = getPickerFileIcon(file)
     
-    ListItem(
-        headlineContent = { 
-            Text(
-                text = file.name,
-                fontWeight = if (file.isDirectory) FontWeight.Medium else FontWeight.Normal
-            ) 
-        },
-        leadingContent = {
-            Icon(
-                imageVector = icon,
-                contentDescription = stringResource(R.string.cd_file_type),
-                tint = iconColor,
-                modifier = Modifier.size(Sizing.iconLg)
-            )
-        },
-        trailingContent = {
-            if (file.isDirectory) {
-                Icon(
-                    Icons.Default.ChevronRight, 
-                    contentDescription = stringResource(R.string.cd_open_folder),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else if (isSelected) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = stringResource(R.string.cd_selected),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
+    Row(
         modifier = Modifier
-            .clip(RectangleShape)
-            .clickable(onClick = onClick),
-        colors = if (isSelected && !file.isDirectory) {
-            ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-        } else {
-            ListItemDefaults.colors()
+            .fillMaxWidth()
+            .background(
+                if (isSelected && !file.isDirectory) theme.accent.copy(alpha = 0.1f)
+                else Color.Transparent
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+    ) {
+        // Selection/folder indicator
+        Text(
+            text = when {
+                isSelected && !file.isDirectory -> "✓"
+                file.isDirectory -> "▸"
+                else -> " "
+            },
+            color = when {
+                isSelected -> theme.success
+                file.isDirectory -> theme.accent
+                else -> theme.textMuted
+            },
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodyMedium
+        )
+        
+        // File name
+        Text(
+            text = file.name + if (file.isDirectory) "/" else "",
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (file.isDirectory) theme.accent else theme.text,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = if (file.isDirectory) FontWeight.Medium else FontWeight.Normal,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        
+        // Trailing indicator
+        if (file.isDirectory) {
+            Text(
+                text = "→",
+                color = theme.textMuted,
+                fontFamily = FontFamily.Monospace
+            )
         }
-    )
+    }
 }
 
 @Composable
 private fun getPickerFileIcon(file: FileNode): Pair<ImageVector, Color> {
+    val theme = LocalOpenCodeTheme.current
+    
     if (file.isDirectory) {
-        return Icons.Default.Folder to MaterialTheme.colorScheme.primary
+        return Icons.Default.Folder to theme.accent
     }
     
     val extension = file.name.substringAfterLast('.', "").lowercase()
@@ -376,6 +447,6 @@ private fun getPickerFileIcon(file: FileNode): Pair<ImageVector, Color> {
             Icons.Default.Description to SemanticColors.Reason.info
         "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp" ->
             Icons.Default.Image to SemanticColors.MimeType.video
-        else -> Icons.AutoMirrored.Filled.InsertDriveFile to MaterialTheme.colorScheme.onSurfaceVariant
+        else -> Icons.AutoMirrored.Filled.InsertDriveFile to theme.textMuted
     }
 }

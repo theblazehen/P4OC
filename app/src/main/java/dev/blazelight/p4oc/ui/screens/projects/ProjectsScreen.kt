@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,7 +25,6 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import javax.inject.Inject
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
@@ -45,8 +44,8 @@ data class ProjectsUiState(
     val error: String? = null
 )
 
-@HiltViewModel
-class ProjectsViewModel @Inject constructor(
+
+class ProjectsViewModel constructor(
     private val connectionManager: ConnectionManager,
     private val directoryManager: DirectoryManager
 ) : ViewModel() {
@@ -95,10 +94,9 @@ class ProjectsViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectsScreen(
-    viewModel: ProjectsViewModel = hiltViewModel(),
+    viewModel: ProjectsViewModel = koinViewModel(),
     onNavigateBack: (() -> Unit)? = null,
-    onProjectClick: (projectId: String, worktree: String) -> Unit = { _, _ -> },
-    onGitClick: (String) -> Unit = {}
+    onProjectClick: (projectId: String, worktree: String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -111,14 +109,13 @@ fun ProjectsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (onNavigateBack != null) {
                         IconButton(
                             onClick = onNavigateBack,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(Sizing.iconButtonMd)
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
@@ -136,9 +133,9 @@ fun ProjectsScreen(
                     
                     IconButton(
                         onClick = { viewModel.loadProjects() },
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(Sizing.iconButtonMd)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), modifier = Modifier.size(Sizing.iconAction))
                     }
                 }
             }
@@ -151,6 +148,7 @@ fun ProjectsScreen(
                 )
             }
             uiState.error != null -> {
+                val theme = LocalOpenCodeTheme.current
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -159,17 +157,16 @@ fun ProjectsScreen(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        Icon(
-                            Icons.Default.Error,
-                            contentDescription = stringResource(R.string.cd_error_state),
-                            modifier = Modifier.size(Sizing.iconHero),
-                            tint = MaterialTheme.colorScheme.error
+                        Text(
+                            text = "✗",
+                            style = MaterialTheme.typography.displayMedium,
+                            color = theme.error
                         )
                         Text(
                             text = uiState.error ?: "Unknown error",
-                            color = MaterialTheme.colorScheme.error
+                            color = theme.error
                         )
                         Button(onClick = { viewModel.loadProjects() }) {
                             Text(stringResource(R.string.retry))
@@ -178,6 +175,7 @@ fun ProjectsScreen(
                 }
             }
             uiState.projects.isEmpty() -> {
+                val theme = LocalOpenCodeTheme.current
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -186,23 +184,22 @@ fun ProjectsScreen(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        Icon(
-                            Icons.Default.FolderOpen,
-                            contentDescription = stringResource(R.string.cd_folder_icon),
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        Text(
+                            text = "◇",
+                            style = MaterialTheme.typography.displayMedium,
+                            color = theme.textMuted
                         )
                         Text(
                             text = stringResource(R.string.projects_no_projects),
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = theme.text
                         )
                         Text(
                             text = stringResource(R.string.projects_appear_here),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outline
+                            color = theme.textMuted
                         )
                     }
                 }
@@ -213,7 +210,7 @@ fun ProjectsScreen(
                         .fillMaxSize()
                         .padding(padding),
                     contentPadding = PaddingValues(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
                     items(uiState.projects, key = { it.id }) { project ->
                         ProjectCard(
@@ -221,8 +218,7 @@ fun ProjectsScreen(
                             onClick = { 
                                 viewModel.selectProject(project.worktree)
                                 onProjectClick(project.id, project.worktree) 
-                            },
-                            onGitClick = { onGitClick(project.id) }
+                            }
                         )
                     }
                 }
@@ -234,9 +230,9 @@ fun ProjectsScreen(
 @Composable
 private fun ProjectCard(
     project: ProjectDto,
-    onClick: () -> Unit,
-    onGitClick: () -> Unit = {}
+    onClick: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val projectName = project.worktree.substringAfterLast("/")
     val projectPath = project.worktree
     val createdDate = remember(project.time.created) {
@@ -251,21 +247,21 @@ private fun ProjectCard(
             .clickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
-            Icon(
-                Icons.Default.Folder,
-                contentDescription = stringResource(R.string.cd_project_folder),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(Sizing.iconLg)
+            Text(
+                text = "▤",
+                style = MaterialTheme.typography.titleLarge,
+                color = theme.accent
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = projectName,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
+                    color = theme.text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -275,7 +271,7 @@ private fun ProjectCard(
                     Text(
                         text = projectPath,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = theme.textMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -283,34 +279,15 @@ private fun ProjectCard(
                     Text(
                         text = createdDate,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = theme.textMuted
                     )
                 }
             }
-            if (project.vcs != null) {
-                Surface(
-                    onClick = onGitClick,
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Code,
-                            contentDescription = stringResource(R.string.cd_git),
-                            modifier = Modifier.size(Sizing.iconXs)
-                        )
-                        Text(
-                            text = project.vcs,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                }
-            }
+            Text(
+                text = "→",
+                style = MaterialTheme.typography.titleMedium,
+                color = theme.textMuted
+            )
         }
     }
 }

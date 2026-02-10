@@ -1,0 +1,39 @@
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+style:
+  UnusedPrivateMember:
+    active: true
+    allowedNames: '(_|ignored|expected|serialVersionUID)'
+    ignoreAnnotated: ['Preview', 'Composable']
+  UnusedPrivateClass:
+    active: true
+  FunctionOnlyReturningConstant:
+    active: true
+    ignoreAnnotated: ['Composable']
+
+formatting:
+  active: true
+  NoUnusedImports:
+    active: true
+
+potential-bugs:
+  UnreachableCode:
+    active: true
+
+complexity:
+  ComplexMethod:
+    active: true
+    threshold: 15
+  LongMethod:
+    active: true
+    threshold: 60
+  LongParameterList:
+    active: true
+    functionThreshold: 6
+    constructorThreshold: 7
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 25
+    thresholdInClasses: 25

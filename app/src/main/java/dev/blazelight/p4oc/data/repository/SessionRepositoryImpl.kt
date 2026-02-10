@@ -16,11 +16,9 @@ import dev.blazelight.p4oc.domain.model.SessionSummary
 import dev.blazelight.p4oc.domain.repository.SessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class SessionRepositoryImpl @Inject constructor(
+
+class SessionRepositoryImpl constructor(
     private val connectionManager: ConnectionManager,
     private val directoryManager: DirectoryManager,
     private val sessionDao: SessionDao,

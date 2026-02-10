@@ -1,15 +1,19 @@
 package dev.blazelight.p4oc.ui.components.chat
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 
 /**
@@ -23,6 +27,8 @@ fun JumpToBottomButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn() + slideInVertically { it },
@@ -32,20 +38,21 @@ fun JumpToBottomButton(
         SmallFloatingActionButton(
             onClick = onClick,
             containerColor = if (hasNewContent) {
-                MaterialTheme.colorScheme.primary
+                theme.accent
             } else {
-                MaterialTheme.colorScheme.surfaceVariant
+                theme.backgroundElement
             },
             contentColor = if (hasNewContent) {
-                MaterialTheme.colorScheme.onPrimary
+                theme.background
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            }
+                theme.textMuted
+            },
+            shape = RectangleShape
         ) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = stringResource(R.string.cd_jump_to_bottom),
-                modifier = Modifier.size(Sizing.iconLg)
+            Text(
+                text = "↓",
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.titleMedium
             )
         }
     }

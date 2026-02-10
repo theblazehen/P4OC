@@ -10,13 +10,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import dev.blazelight.p4oc.MainActivity
 import dev.blazelight.p4oc.R
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class NotificationHelper @Inject constructor(
-    @ApplicationContext private val context: Context
+
+class NotificationHelper constructor(
+    private val context: Context
 ) {
     companion object {
         const val CHANNEL_ID = "user_input_required"

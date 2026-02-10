@@ -22,12 +22,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.data.remote.dto.ModelDto
 import dev.blazelight.p4oc.data.remote.dto.ProviderDto
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
@@ -35,7 +36,7 @@ import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProviderConfigScreen(
-    viewModel: ProviderConfigViewModel = hiltViewModel(),
+    viewModel: ProviderConfigViewModel = koinViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -64,6 +65,7 @@ fun ProviderConfigScreen(
                 )
             }
             uiState.error != null -> {
+                val theme = LocalOpenCodeTheme.current
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -72,17 +74,16 @@ fun ProviderConfigScreen(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
-                        Icon(
-                            Icons.Default.Error,
-                            contentDescription = stringResource(R.string.cd_error_state),
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(Sizing.iconHero)
+                        Text(
+                            text = "✗",
+                            style = MaterialTheme.typography.displayMedium,
+                            color = theme.error
                         )
                         Text(
                             text = uiState.error ?: "Unknown error",
-                            color = MaterialTheme.colorScheme.error
+                            color = theme.error
                         )
                         Button(onClick = { viewModel.loadProviders() }) {
                             Text(stringResource(R.string.retry))
@@ -95,8 +96,8 @@ fun ProviderConfigScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     item {
                         CurrentModelCard(
@@ -117,7 +118,7 @@ fun ProviderConfigScreen(
                             text = stringResource(R.string.provider_available),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.xs)
                         )
                     }
 
@@ -133,12 +134,13 @@ fun ProviderConfigScreen(
 
                     if (disconnectedProviders.isNotEmpty()) {
                         item {
+                            val theme = LocalOpenCodeTheme.current
                             Text(
                                 text = stringResource(R.string.provider_disconnected),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+                                color = theme.textMuted,
+                                modifier = Modifier.padding(top = Spacing.xl, bottom = Spacing.xs)
                             )
                         }
 
@@ -157,36 +159,36 @@ private fun CurrentModelCard(
     currentModel: String?,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = theme.accent.copy(alpha = 0.2f)
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.SmartToy,
-                contentDescription = stringResource(R.string.cd_model_icon),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(Sizing.iconLg)
+            Text(
+                text = "◎",
+                style = MaterialTheme.typography.titleLarge,
+                color = theme.accent
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.provider_current_model),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = theme.textMuted
                 )
                 Text(
                     text = currentModel ?: stringResource(R.string.provider_not_configured),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = theme.text
                 )
             }
         }
@@ -201,6 +203,7 @@ private fun ProviderCard(
     onToggle: () -> Unit,
     onSelectModel: (String) -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val currentProviderId = currentModel?.substringBefore("/")
     val currentModelId = currentModel?.substringAfter("/")
     val isActiveProvider = currentProviderId == provider.id
@@ -209,8 +212,8 @@ private fun ProviderCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (isActiveProvider) 
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-            else MaterialTheme.colorScheme.surfaceVariant
+                theme.accent.copy(alpha = 0.1f)
+            else theme.backgroundElement
         )
     ) {
         Column {
@@ -233,22 +236,22 @@ private fun ProviderCard(
                     Text(
                         text = "${provider.models.size} model${if (provider.models.size != 1) "s" else ""}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
 
                 if (isActiveProvider) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = stringResource(R.string.cd_active),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(Sizing.iconMd)
+                    Text(
+                        text = "✓",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = theme.accent
                     )
                 }
 
-                Icon(
-                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (isExpanded) stringResource(R.string.collapse) else stringResource(R.string.expand)
+                Text(
+                    text = if (isExpanded) "▴" else "▾",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = theme.textMuted
                 )
             }
 
@@ -261,7 +264,7 @@ private fun ProviderCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xl),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     HorizontalDivider()
                     
@@ -284,12 +287,13 @@ private fun ModelItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RectangleShape)
             .background(
-                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                if (isSelected) theme.accent.copy(alpha = 0.1f)
                 else Color.Transparent
             )
             .clickable(onClick = onClick)
@@ -310,7 +314,7 @@ private fun ModelItem(
             )
             
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 model.capabilities?.let { caps ->
                     if (caps.reasoning) {
@@ -335,12 +339,12 @@ private fun ModelItem(
                     Text(
                         text = "$${String.format(java.util.Locale.US, "%.2f", cost.input)}/M in",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                     Text(
                         text = "$${String.format(java.util.Locale.US, "%.2f", cost.output)}/M out",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
             }
@@ -350,32 +354,34 @@ private fun ModelItem(
 
 @Composable
 private fun CapabilityChip(text: String) {
+    val theme = LocalOpenCodeTheme.current
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = theme.backgroundPanel,
         shape = RectangleShape
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            color = theme.textMuted,
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
         )
     }
 }
 
 @Composable
 private fun DisabledProviderCard(provider: ProviderDto) {
+    val theme = LocalOpenCodeTheme.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = theme.backgroundElement.copy(alpha = 0.5f)
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ProviderIcon(provider.name, alpha = 0.5f)
@@ -384,20 +390,19 @@ private fun DisabledProviderCard(provider: ProviderDto) {
                 Text(
                     text = provider.name,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
                 Text(
                     text = stringResource(R.string.provider_not_configured),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = theme.textMuted.copy(alpha = 0.7f)
                 )
             }
 
-            Icon(
-                Icons.Default.Lock,
-                contentDescription = stringResource(R.string.provider_requires_api_key),
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(Sizing.iconMd)
+            Text(
+                text = "⊘",
+                style = MaterialTheme.typography.titleMedium,
+                color = theme.textMuted
             )
         }
     }
@@ -406,10 +411,11 @@ private fun DisabledProviderCard(provider: ProviderDto) {
 @Composable
 private fun ProviderIcon(providerName: String, alpha: Float = 1f) {
     val (bgColor, iconChar) = SemanticColors.Provider.forName(providerName)
+    val theme = LocalOpenCodeTheme.current
 
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(Sizing.iconButtonMd)
             .clip(CircleShape)
             .background(bgColor.copy(alpha = alpha)),
         contentAlignment = Alignment.Center
@@ -418,7 +424,7 @@ private fun ProviderIcon(providerName: String, alpha: Float = 1f) {
             text = iconChar,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = alpha)
+            color = theme.text.copy(alpha = alpha)
         )
     }
 }

@@ -38,8 +38,11 @@ import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import kotlinx.serialization.json.*
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import androidx.compose.foundation.BorderStroke
 
 @Composable
 fun getToolIcon(toolName: String): ImageVector {
@@ -196,6 +199,7 @@ fun DiffPreview(
     modifier: Modifier = Modifier
 ) {
     val hunks = remember(diffContent) { parseDiffToHunks(diffContent) }
+    val theme = LocalOpenCodeTheme.current
     val addedBgColor = SemanticColors.Diff.addedBackground
     val removedBgColor = SemanticColors.Diff.removedBackground
     val addedTextColor = SemanticColors.Diff.addedText
@@ -205,18 +209,19 @@ fun DiffPreview(
         modifier = modifier
             .fillMaxWidth()
             .clip(RectangleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .background(theme.background)
     ) {
         hunks.forEach { hunk ->
             if (hunk.file.isNotEmpty()) {
                 Text(
                     text = "${hunk.file} (line ${hunk.startLine})",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = theme.textMuted,
+                    fontFamily = FontFamily.Monospace,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xs)
                 )
             }
             
@@ -232,15 +237,15 @@ fun DiffPreview(
                                     else -> Color.Transparent
                                 }
                             )
-                            .padding(horizontal = 8.dp, vertical = 1.dp)
+                            .padding(horizontal = Spacing.md, vertical = 1.dp)
                     ) {
                         Text(
                             text = line.lineNumber?.toString() ?: "",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp
+                                fontSize = TuiCodeFontSize.sm
                             ),
-                            color = MaterialTheme.colorScheme.outline,
+                            color = theme.textMuted,
                             modifier = Modifier.width(32.dp)
                         )
                         
@@ -251,7 +256,7 @@ fun DiffPreview(
                                         color = when (line.type) {
                                             DiffLineType.ADDED -> addedTextColor
                                             DiffLineType.REMOVED -> removedTextColor
-                                            else -> MaterialTheme.colorScheme.onSurface
+                                            else -> theme.text
                                         }
                                     )
                                 ) {
@@ -265,7 +270,7 @@ fun DiffPreview(
                             },
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp
+                                fontSize = TuiCodeFontSize.md
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -278,8 +283,9 @@ fun DiffPreview(
                 Text(
                     text = "... ${totalLines - 20} more lines",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(8.dp)
+                    color = theme.textMuted,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(Spacing.md)
                 )
             }
         }
@@ -293,6 +299,7 @@ fun ToolOutputDialog(
     metadata: JsonObject?,
     onDismiss: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     val diffContent = metadata?.get("diff")?.jsonPrimitive?.contentOrNull
     val hasDiff = diffContent != null && (toolName.lowercase() in listOf("edit", "multiedit", "str_replace"))
     
@@ -309,44 +316,60 @@ fun ToolOutputDialog(
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.85f),
             shape = RectangleShape,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            color = theme.background,
+            border = BorderStroke(1.dp, theme.border)
         ) {
             Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(Spacing.xl),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // TUI Header
+                Surface(
+                    color = theme.backgroundElement,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            getToolIcon(toolName),
-                            contentDescription = stringResource(R.string.cd_tool_status),
-                            modifier = Modifier.size(Sizing.iconMd)
-                        )
-                        Text(
-                            text = toolName,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                getToolIcon(toolName),
+                                contentDescription = stringResource(R.string.cd_tool_status),
+                                modifier = Modifier.size(Sizing.iconSm),
+                                tint = theme.accent
+                            )
+                            Text(
+                                text = "[ $toolName ]",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = theme.text
+                            )
+                        }
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(Sizing.iconButtonSm)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.close),
+                                tint = theme.textMuted,
+                                modifier = Modifier.size(Sizing.iconSm)
+                            )
+                        }
                     }
                 }
                 
-                HorizontalDivider()
+                HorizontalDivider(color = theme.border)
                 
                 if (hasDiff && diffContent != null) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
                             .verticalScroll(rememberScrollState())
-                            .padding(8.dp)
+                            .padding(Spacing.md)
                     ) {
                         DiffPreview(
                             diffContent = diffContent,
@@ -359,17 +382,30 @@ fun ToolOutputDialog(
                             .weight(1f)
                             .horizontalScroll(rememberScrollState())
                             .verticalScroll(rememberScrollState())
-                            .padding(Spacing.lg)
+                            .padding(Spacing.md)
                     ) {
                         Text(
                             text = output,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp
+                                fontSize = TuiCodeFontSize.lg
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = theme.text
                         )
                     }
+                }
+                
+                // Footer with output stats
+                Surface(
+                    color = theme.backgroundElement,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "${output.lines().size} lines",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = theme.textMuted,
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                    )
                 }
             }
         }
@@ -383,6 +419,7 @@ fun EnhancedToolPart(
     onDeny: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     val state = part.state
     var isExpanded by remember { mutableStateOf(false) }
     var showFullOutput by remember { mutableStateOf(false) }
@@ -400,14 +437,15 @@ fun EnhancedToolPart(
     val hasDiff = metadata?.get("diff")?.jsonPrimitive?.contentOrNull != null
     
     val (containerColor, isError) = when (state) {
-        is ToolState.Pending -> MaterialTheme.colorScheme.secondaryContainer to false
-        is ToolState.Running -> MaterialTheme.colorScheme.primaryContainer to false
-        is ToolState.Completed -> MaterialTheme.colorScheme.surfaceVariant to false
-        is ToolState.Error -> MaterialTheme.colorScheme.errorContainer to true
+        is ToolState.Pending -> theme.warning.copy(alpha = 0.15f) to false
+        is ToolState.Running -> theme.accent.copy(alpha = 0.15f) to false
+        is ToolState.Completed -> theme.backgroundElement to false
+        is ToolState.Error -> theme.error.copy(alpha = 0.15f) to true
     }
     
-    Card(
-        colors = CardDefaults.cardColors(containerColor = containerColor),
+    Surface(
+        color = containerColor,
+        shape = RectangleShape,
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(Spacing.lg)) {
@@ -416,29 +454,29 @@ fun EnhancedToolPart(
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 Icon(
                     toolIcon,
                     contentDescription = stringResource(R.string.cd_tool_status),
                     modifier = Modifier.size(Sizing.iconSm),
-                    tint = if (isError) MaterialTheme.colorScheme.error 
-                           else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (isError) theme.error else theme.textMuted
                 )
                 
                 Column(modifier = Modifier.weight(1f)) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = part.toolName,
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = theme.text
                         )
                         
                         if (diffStats != null) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                                 Text(
                                     text = "+${diffStats.added}",
                                     style = MaterialTheme.typography.labelSmall,
@@ -457,7 +495,7 @@ fun EnhancedToolPart(
                         Text(
                             text = description,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = theme.textMuted,
                             maxLines = 1
                         )
                     }
@@ -468,10 +506,10 @@ fun EnhancedToolPart(
                         TuiLoadingIndicator()
                     }
                     is ToolState.Completed, is ToolState.Error -> {
-                        Icon(
-                            if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (isExpanded) "Collapse" else "Expand",
-                            modifier = Modifier.size(Sizing.iconMd)
+                        Text(
+                            text = if (isExpanded) "▴" else "▾",
+                            color = theme.textMuted,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                     else -> {}
@@ -480,16 +518,25 @@ fun EnhancedToolPart(
             
             if (state is ToolState.Pending) {
                 Spacer(Modifier.height(Spacing.md))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     OutlinedButton(
                         onClick = { onDeny(part.callID) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RectangleShape,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = theme.error
+                        )
                     ) {
                         Text(stringResource(R.string.deny))
                     }
                     Button(
                         onClick = { onApprove(part.callID) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RectangleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = theme.success,
+                            contentColor = theme.background
+                        )
                     ) {
                         Text(stringResource(R.string.allow))
                     }
@@ -502,8 +549,8 @@ fun EnhancedToolPart(
                 exit = shrinkVertically()
             ) {
                 Column(
-                    modifier = Modifier.padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(top = Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     if (hasDiff && state is ToolState.Completed) {
                         val diffContent = metadata?.get("diff")?.jsonPrimitive?.contentOrNull
@@ -519,7 +566,7 @@ fun EnhancedToolPart(
                         is ToolState.Completed -> {
                             if (state.output.isNotBlank() && !hasDiff) {
                                 Surface(
-                                    color = MaterialTheme.colorScheme.surface,
+                                    color = theme.background,
                                     shape = RectangleShape,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -529,7 +576,8 @@ fun EnhancedToolPart(
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             fontFamily = FontFamily.Monospace
                                         ),
-                                        modifier = Modifier.padding(8.dp)
+                                        color = theme.text,
+                                        modifier = Modifier.padding(Spacing.md)
                                     )
                                 }
                             }
@@ -539,27 +587,26 @@ fun EnhancedToolPart(
                                     onClick = { showFullOutput = true },
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Default.OpenInFull,
-                                        contentDescription = stringResource(R.string.view_full_output),
-                                        modifier = Modifier.size(14.dp)
+                                    Text(
+                                        text = "[${stringResource(R.string.view_full_output)}]",
+                                        color = theme.accent,
+                                        fontFamily = FontFamily.Monospace
                                     )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(R.string.view_full_output))
                                 }
                             }
                         }
                         is ToolState.Error -> {
                             Surface(
-                                color = MaterialTheme.colorScheme.errorContainer,
+                                color = theme.error.copy(alpha = 0.1f),
                                 shape = RectangleShape,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     text = state.error,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.padding(8.dp)
+                                    color = theme.error,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(Spacing.md)
                                 )
                             }
                         }

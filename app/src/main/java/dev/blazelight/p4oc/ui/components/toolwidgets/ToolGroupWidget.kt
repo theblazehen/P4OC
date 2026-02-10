@@ -26,13 +26,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
-import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
+import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.R
 
 /**
  * Aggregated tool state for display purposes
@@ -68,6 +68,7 @@ fun ToolGroupWidget(
     defaultState: ToolWidgetState,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    onOpenSubSession: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -143,57 +144,48 @@ fun ToolGroupWidget(
     }
     
     Column(modifier = modifier.fillMaxWidth()) {
-        // HUD summary row - always visible, click to cycle state
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(theme.backgroundPanel.copy(alpha = 0.5f))
-                .clickable { currentState = currentState.next() }
-                .padding(horizontal = 6.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = hudText,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
-                    lineHeight = 18.sp
-                ),
+        // HUD summary row - only visible in ONELINE mode
+        if (currentState == ToolWidgetState.ONELINE) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                maxLines = 1
-            )
-            
-            // Show expand/collapse icon only in Compact/Expanded states
-            if (currentState != ToolWidgetState.ONELINE) {
-                Icon(
-                    imageVector = Icons.Default.ExpandLess,
-                    contentDescription = stringResource(R.string.cd_expanded),
-                    modifier = Modifier.size(Sizing.iconXs),
-                    tint = theme.border
+                    .fillMaxWidth()
+                    .background(theme.backgroundPanel.copy(alpha = 0.5f))
+                    .clickable { currentState = currentState.next() }
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = hudText,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.xxl,
+                        lineHeight = TuiCodeFontSize.xxl * 1.3f
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    maxLines = 1
                 )
             }
         }
         
-        // Expanded details - show individual widgets based on state
+        // Compact/Expanded details - show individual widgets
         AnimatedVisibility(
             visible = currentState != ToolWidgetState.ONELINE,
             enter = expandVertically(),
             exit = shrinkVertically()
         ) {
             Column(
-                modifier = Modifier.padding(top = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
+                verticalArrangement = Arrangement.spacedBy(1.dp)  // 1.dp = minimal spacing, no token
             ) {
                 tools.forEach { tool ->
                     when (currentState) {
                         ToolWidgetState.COMPACT -> {
-                            // Show compact row (like old CompactToolRow)
+                            // Show compact row - click to cycle state
                             ToolCallCompact(
                                 tool = tool,
-                                onClick = null, // Don't allow individual cycling in group
+                                onClick = { currentState = currentState.next() },
                                 modifier = Modifier.fillMaxWidth()
                             )
                             
@@ -209,9 +201,10 @@ fun ToolGroupWidget(
                             // Show full expanded widget
                             ToolCallExpanded(
                                 tool = tool,
-                                onClick = null, // Don't allow individual cycling in group
+                                onClick = { currentState = currentState.next() },
                                 onToolApprove = onToolApprove,
                                 onToolDeny = onToolDeny,
+                                onOpenSubSession = onOpenSubSession,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -232,16 +225,16 @@ private fun PendingApprovalButtonsInline(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .background(theme.secondary.copy(alpha = 0.2f))
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         OutlinedButton(
             onClick = onDeny,
             modifier = Modifier
                 .weight(1f)
                 .height(28.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.none),
             shape = RectangleShape
         ) {
             Text(stringResource(R.string.deny), style = MaterialTheme.typography.labelSmall)
@@ -251,7 +244,7 @@ private fun PendingApprovalButtonsInline(
             modifier = Modifier
                 .weight(1f)
                 .height(28.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.none),
             shape = RectangleShape
         ) {
             Text(stringResource(R.string.allow), style = MaterialTheme.typography.labelSmall)

@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.ui.components.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,10 +11,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -22,7 +27,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.domain.model.Command
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 data class ModelOption(
@@ -38,127 +47,202 @@ fun ChatInputBar(
     isLoading: Boolean,
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    isBusy: Boolean = false,
+    hasQueuedMessage: Boolean = false,
+    onQueueMessage: () -> Unit = {},
     attachedFiles: List<SelectedFile> = emptyList(),
     onAttachClick: () -> Unit = {},
-    onRemoveAttachment: (String) -> Unit = {}
+    onRemoveAttachment: (String) -> Unit = {},
+    commands: List<Command> = emptyList(),
+    onCommandSelected: (Command) -> Unit = {},
+    requestFocus: Boolean = false
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        tonalElevation = 2.dp
-    ) {
-        Column {
-            if (attachedFiles.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    attachedFiles.forEach { file ->
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+    val theme = LocalOpenCodeTheme.current
+    val focusRequester = remember { FocusRequester() }
+    
+    // Request focus when triggered
+    LaunchedEffect(requestFocus) {
+        if (requestFocus) {
+            try {
+                focusRequester.requestFocus()
+            } catch (e: Exception) {
+                // Focus request can fail if not attached yet
+            }
+        }
+    }
+    
+    // Determine button state
+    val hasContent = value.isNotBlank() || attachedFiles.isNotEmpty()
+    val canSend = hasContent && enabled && !isLoading && !isBusy
+    val canQueue = hasContent && isBusy && !hasQueuedMessage
+    
+    // Show slash commands popup when input starts with "/"
+    val showSlashCommands = value.startsWith("/") && !value.contains(" ") && commands.isNotEmpty()
+    
+    Box(modifier = modifier.fillMaxWidth()) {
+        // Slash commands popup - positioned above the input bar
+        if (showSlashCommands) {
+            SlashCommandsPopup(
+                commands = commands,
+                filter = value,
+                onCommandSelected = { command ->
+                    // Replace the current text with the command
+                    onValueChange("/${command.name} ")
+                    onCommandSelected(command)
+                },
+                onDismiss = { /* Keep popup open while typing */ },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(y = (-4).dp)
+            )
+        }
+        
+        Surface(
+            color = theme.backgroundElement,
+            shape = RectangleShape
+        ) {
+            Column {
+                if (attachedFiles.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
+                        attachedFiles.forEach { file ->
+                            Surface(
+                                shape = RectangleShape,
+                                color = theme.accent.copy(alpha = 0.1f),
+                                modifier = Modifier
+                                    .height(32.dp)
+                                    .border(1.dp, theme.border, RectangleShape)
                             ) {
-                                Text(
-                                    file.name,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.widthIn(max = 120.dp)
-                                )
-                                IconButton(
-                                    onClick = { onRemoveAttachment(file.path) },
-                                    modifier = Modifier.size(Sizing.iconLg)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = Spacing.mdLg),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                                 ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = stringResource(R.string.cd_remove),
-                                        modifier = Modifier.size(Sizing.iconXs)
+                                    Text(
+                                        file.name,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = theme.text,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.widthIn(max = 120.dp)
+                                    )
+                                    Text(
+                                        text = "×",
+                                        color = theme.textMuted,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier.clickable { onRemoveAttachment(file.path) }
                                     )
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                IconButton(
-                    onClick = onAttachClick,
-                    enabled = enabled,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        Icons.Default.AttachFile,
-                        contentDescription = stringResource(R.string.cd_attach_file),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                Box(
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 40.dp)
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                            shape = MaterialTheme.shapes.small
-                        )
-                        .background(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.shapes.small
-                        )
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.CenterStart
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
-                    if (value.isEmpty()) {
+                    IconButton(
+                        onClick = onAttachClick,
+                        enabled = enabled,
+                        modifier = Modifier.size(Sizing.iconButtonMd)
+                    ) {
                         Text(
-                            "Message...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            text = "+",
+                            color = if (enabled) theme.accent else theme.textMuted,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
-                    BasicTextField(
-                        value = value,
-                        onValueChange = onValueChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = enabled,
-                        textStyle = TextStyle(
-                            fontFamily = FontFamily.SansSerif,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        maxLines = 4
-                    )
-                }
 
-                IconButton(
-                    onClick = onSend,
-                    enabled = (value.isNotBlank() || attachedFiles.isNotEmpty()) && enabled && !isLoading,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    if (isLoading) {
-                        TuiLoadingIndicator()
-                    } else {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = stringResource(R.string.cd_send),
-                            modifier = Modifier.size(22.dp)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 40.dp)
+                            .border(
+                                width = 1.dp,
+                                color = theme.border,
+                                shape = RectangleShape
+                            )
+                            .background(
+                                theme.background,
+                                RectangleShape
+                            )
+                            .padding(horizontal = Spacing.lg, vertical = Spacing.md),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (value.isEmpty()) {
+                            Text(
+                                "> Message...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = FontFamily.Monospace,
+                                color = theme.textMuted
+                            )
+                        }
+                        BasicTextField(
+                            value = value,
+                            onValueChange = onValueChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequester),
+                            enabled = true,  // Always enabled to keep keyboard open
+                            textStyle = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = TuiCodeFontSize.xxl,
+                                color = theme.text
+                            ),
+                            cursorBrush = SolidColor(theme.accent),
+                            maxLines = 4
                         )
+                    }
+
+                    // Show queue button when busy, send button otherwise
+                    if (isBusy && !isLoading) {
+                        IconButton(
+                            onClick = {
+                                onQueueMessage()
+                                focusRequester.requestFocus()
+                            },
+                            enabled = canQueue,
+                            modifier = Modifier.size(Sizing.iconButtonMd)
+                        ) {
+                            Text(
+                                text = "⊕",
+                                color = if (hasQueuedMessage) theme.accent else theme.textMuted,
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    } else {
+                        IconButton(
+                            onClick = {
+                                onSend()
+                                // Re-request focus after sending to keep keyboard open
+                                focusRequester.requestFocus()
+                            },
+                            enabled = canSend,
+                            modifier = Modifier.size(Sizing.iconButtonMd)
+                        ) {
+                            if (isLoading) {
+                                TuiLoadingIndicator()
+                            } else {
+                                Text(
+                                    text = "→",
+                                    color = if (canSend) theme.accent else theme.textMuted,
+                                    fontFamily = FontFamily.Monospace,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
                     }
                 }
             }

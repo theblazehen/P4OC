@@ -15,15 +15,13 @@ import androidx.navigation.compose.rememberNavController
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.ui.navigation.NavGraph
 import dev.blazelight.p4oc.ui.navigation.Screen
+import dev.blazelight.p4oc.ui.tabs.MainTabScreen
 import dev.blazelight.p4oc.ui.theme.PocketCodeTheme
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import org.koin.android.ext.android.inject
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     
-    @Inject
-    lateinit var settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore by inject()
     
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -43,6 +41,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    // Use NavGraph for initial Server/Setup screens,
+                    // then MainTabScreen takes over after connection
                     val navController = rememberNavController()
                     NavGraph(
                         navController = navController,

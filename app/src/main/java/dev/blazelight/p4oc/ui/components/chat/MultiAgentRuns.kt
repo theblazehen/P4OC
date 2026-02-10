@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -43,17 +44,17 @@ fun MultiAgentRunsIndicator(
     agents: List<AgentRun>,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     if (agents.isEmpty()) return
     
-    Card(
+    Surface(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        color = theme.backgroundElement,
+        shape = RectangleShape
     ) {
         Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -61,65 +62,75 @@ fun MultiAgentRunsIndicator(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Groups,
-                        contentDescription = stringResource(R.string.agent_runs),
-                        modifier = Modifier.size(Sizing.iconMd),
-                        tint = MaterialTheme.colorScheme.primary
+                    Text(
+                        text = "◈",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = theme.accent
                     )
                     Text(
                         text = stringResource(R.string.agent_runs),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.text
                     )
                 }
                 
                 val runningCount = agents.count { it.status == AgentRunStatus.RUNNING }
                 if (runningCount > 0) {
-                    Surface(
-                        shape = RectangleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Text(
-                            text = stringResource(R.string.agent_running_count, runningCount),
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
+                    Text(
+                        text = "[$runningCount running]",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = theme.accent
+                    )
                 }
             }
             
             agents.forEach { agent ->
-                AgentRunRow(agent = agent)
+                TuiAgentRunRow(agent = agent)
             }
         }
     }
 }
 
 @Composable
-private fun AgentRunRow(agent: AgentRun) {
+private fun TuiAgentRunRow(agent: AgentRun) {
+    val theme = LocalOpenCodeTheme.current
+    
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AgentStatusIndicator(status = agent.status)
+        // Status indicator
+        Text(
+            text = when (agent.status) {
+                AgentRunStatus.PENDING -> "○"
+                AgentRunStatus.RUNNING -> "▶"
+                AgentRunStatus.COMPLETED -> "✓"
+                AgentRunStatus.FAILED -> "✗"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = when (agent.status) {
+                AgentRunStatus.PENDING -> theme.textMuted
+                AgentRunStatus.RUNNING -> theme.accent
+                AgentRunStatus.COMPLETED -> theme.success
+                AgentRunStatus.FAILED -> theme.error
+            }
+        )
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = agent.agentName,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.text
             )
             agent.taskDescription?.let { desc ->
                 Text(
                     text = desc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted,
                     maxLines = 1
                 )
             }
@@ -128,59 +139,7 @@ private fun AgentRunRow(agent: AgentRun) {
         Text(
             text = formatDuration(agent.startTime, agent.endTime),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun AgentStatusIndicator(status: AgentRunStatus) {
-    val color = when (status) {
-        AgentRunStatus.PENDING -> MaterialTheme.colorScheme.outline
-        AgentRunStatus.RUNNING -> MaterialTheme.colorScheme.primary
-        AgentRunStatus.COMPLETED -> SemanticColors.Status.success
-        AgentRunStatus.FAILED -> MaterialTheme.colorScheme.error
-    }
-    
-    val icon = when (status) {
-        AgentRunStatus.PENDING -> Icons.Default.Schedule
-        AgentRunStatus.RUNNING -> Icons.Default.PlayArrow
-        AgentRunStatus.COMPLETED -> Icons.Default.CheckCircle
-        AgentRunStatus.FAILED -> Icons.Default.Error
-    }
-    
-    if (status == AgentRunStatus.RUNNING) {
-        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-        val alpha by infiniteTransition.animateFloat(
-            initialValue = 0.5f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(800),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "pulse_alpha"
-        )
-        
-        Box(
-            modifier = Modifier
-                .size(Sizing.iconLg)
-                .clip(CircleShape)
-                .background(color.copy(alpha = alpha * 0.2f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                icon,
-                contentDescription = stringResource(R.string.cd_agent_status),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = color
-            )
-        }
-    } else {
-        Icon(
-            icon,
-            contentDescription = stringResource(R.string.cd_agent_status),
-            modifier = Modifier.size(Sizing.iconMd),
-            tint = color
+            color = theme.textMuted
         )
     }
 }
@@ -191,78 +150,45 @@ fun AgentSwitchIndicator(
     toAgent: String,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+        color = theme.info.copy(alpha = 0.1f),
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(Spacing.sm),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (fromAgent != null) {
-                AgentBadge(name = fromAgent, isActive = false)
+                Text(
+                    text = "@$fromAgent",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted
+                )
                 
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = stringResource(R.string.cd_decorative),
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .size(Sizing.iconXs),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                Text(
+                    text = " → ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted
                 )
             } else {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = stringResource(R.string.cd_agent_running),
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .size(Sizing.iconXs),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                Text(
+                    text = "▶ ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.accent
                 )
             }
             
-            AgentBadge(name = toAgent, isActive = true)
-        }
-    }
-}
-
-@Composable
-private fun AgentBadge(
-    name: String,
-    isActive: Boolean
-) {
-    Surface(
-        shape = RectangleShape,
-        color = if (isActive) 
-            MaterialTheme.colorScheme.primary 
-        else 
-            MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.SmartToy,
-                contentDescription = stringResource(R.string.cd_agent_icon),
-                modifier = Modifier.size(14.dp),
-                tint = if (isActive) 
-                    MaterialTheme.colorScheme.onPrimary 
-                else 
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
             Text(
-                text = name,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (isActive) 
-                    MaterialTheme.colorScheme.onPrimary 
-                else 
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                text = "@$toAgent",
+                style = MaterialTheme.typography.labelSmall,
+                color = theme.accent,
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -275,37 +201,57 @@ fun SubtaskIndicator(
     status: AgentRunStatus,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-        )
+        color = theme.warning.copy(alpha = 0.1f),
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+                .padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AgentStatusIndicator(status = status)
+            // Status indicator
+            Text(
+                text = when (status) {
+                    AgentRunStatus.PENDING -> "○"
+                    AgentRunStatus.RUNNING -> "▶"
+                    AgentRunStatus.COMPLETED -> "✓"
+                    AgentRunStatus.FAILED -> "✗"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = when (status) {
+                    AgentRunStatus.PENDING -> theme.textMuted
+                    AgentRunStatus.RUNNING -> theme.accent
+                    AgentRunStatus.COMPLETED -> theme.success
+                    AgentRunStatus.FAILED -> theme.error
+                }
+            )
             
             Column(modifier = Modifier.weight(1f)) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.subtask),
+                        text = "[${stringResource(R.string.subtask)}]",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = theme.warning
                     )
-                    AgentBadge(name = agentName, isActive = status == AgentRunStatus.RUNNING)
+                    Text(
+                        text = "@$agentName",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (status == AgentRunStatus.RUNNING) theme.accent else theme.textMuted
+                    )
                 }
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = theme.text
                 )
             }
         }

@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -27,9 +28,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -48,6 +51,8 @@ fun FileAttachmentBar(
     onRemoveAttachment: (FileAttachment) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     AnimatedVisibility(
         visible = attachments.isNotEmpty(),
         enter = slideInVertically { it } + fadeIn(),
@@ -55,14 +60,14 @@ fun FileAttachmentBar(
     ) {
         Surface(
             modifier = modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 2.dp
+            color = theme.backgroundElement,
+            shape = RectangleShape
         ) {
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 attachments.forEach { attachment ->
@@ -72,16 +77,12 @@ fun FileAttachmentBar(
                     )
                 }
                 
-                IconButton(
-                    onClick = onAddAttachment,
-                    modifier = Modifier.size(Sizing.iconXl)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = stringResource(R.string.cd_add_more_files),
-                        modifier = Modifier.size(Sizing.iconMd)
-                    )
-                }
+                Text(
+                    text = "+",
+                    color = theme.accent,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.clickable(onClick = onAddAttachment)
+                )
             }
         }
     }
@@ -92,25 +93,29 @@ private fun AttachmentChip(
     attachment: FileAttachment,
     onRemove: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Surface(
         shape = RectangleShape,
-        color = MaterialTheme.colorScheme.secondaryContainer
+        color = theme.accent.copy(alpha = 0.1f),
+        modifier = Modifier.border(1.dp, theme.border, RectangleShape)
     ) {
         Row(
-            modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier.padding(start = Spacing.md, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
-            Icon(
-                getFileIcon(attachment.mimeType),
-                contentDescription = stringResource(R.string.cd_file_type),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = getFileColor(attachment.mimeType)
+            Text(
+                text = getFileSymbol(attachment.mimeType),
+                color = getFileColor(attachment.mimeType),
+                fontFamily = FontFamily.Monospace
             )
             
             Text(
                 text = attachment.name,
                 style = MaterialTheme.typography.labelMedium,
+                fontFamily = FontFamily.Monospace,
+                color = theme.text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 120.dp)
@@ -119,19 +124,16 @@ private fun AttachmentChip(
             Text(
                 text = formatFileSize(attachment.size),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontFamily = FontFamily.Monospace,
+                color = theme.textMuted
             )
             
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.size(Sizing.iconMd)
-            ) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = stringResource(R.string.cd_remove),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
+            Text(
+                text = "×",
+                color = theme.textMuted,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.clickable(onClick = onRemove)
+            )
         }
     }
 }
@@ -208,11 +210,12 @@ fun AttachmentPreview(
     attachment: FileAttachment,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
         modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        color = theme.backgroundElement,
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
@@ -225,11 +228,11 @@ fun AttachmentPreview(
                 shape = RectangleShape,
                 color = getFileColor(attachment.mimeType).copy(alpha = 0.2f)
             ) {
-                Icon(
-                    getFileIcon(attachment.mimeType),
-                    contentDescription = stringResource(R.string.cd_file_type),
+                Text(
+                    text = getFileSymbol(attachment.mimeType),
                     modifier = Modifier.padding(Spacing.lg),
-                    tint = getFileColor(attachment.mimeType)
+                    color = getFileColor(attachment.mimeType),
+                    fontFamily = FontFamily.Monospace
                 )
             }
             
@@ -237,17 +240,31 @@ fun AttachmentPreview(
                 Text(
                     text = attachment.name,
                     style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${getMimeTypeLabel(attachment.mimeType)} • ${formatFileSize(attachment.size)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.textMuted
                 )
             }
         }
     }
+}
+
+private fun getFileSymbol(mimeType: String) = when {
+    mimeType.startsWith("image/") -> "◫"
+    mimeType.startsWith("video/") -> "▶"
+    mimeType.startsWith("audio/") -> "♪"
+    mimeType.startsWith("text/") -> "≡"
+    mimeType.contains("pdf") -> "◰"
+    mimeType.contains("zip") || mimeType.contains("tar") || mimeType.contains("rar") -> "▤"
+    mimeType.contains("json") || mimeType.contains("xml") -> "◇"
+    else -> "□"
 }
 
 private fun getFileIcon(mimeType: String) = when {
@@ -261,6 +278,7 @@ private fun getFileIcon(mimeType: String) = when {
     else -> Icons.AutoMirrored.Filled.InsertDriveFile
 }
 
+@Composable
 private fun getFileColor(mimeType: String): Color = SemanticColors.MimeType.forMimeType(mimeType)
 
 private fun getMimeTypeLabel(mimeType: String): String = when {

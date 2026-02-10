@@ -4,6 +4,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -16,12 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -41,6 +46,7 @@ fun ContextUsageIndicator(
     modifier: Modifier = Modifier,
     compact: Boolean = true
 ) {
+    val theme = LocalOpenCodeTheme.current
     val percentage = (usage.usedTokens.toFloat() / usage.maxTokens.toFloat()).coerceIn(0f, 1f)
     val animatedPercentage by animateFloatAsState(
         targetValue = percentage,
@@ -49,10 +55,10 @@ fun ContextUsageIndicator(
     )
     
     val color = when {
-        percentage > 0.9f -> MaterialTheme.colorScheme.error
+        percentage > 0.9f -> theme.error
         percentage > 0.75f -> SemanticColors.Usage.high
         percentage > 0.5f -> SemanticColors.Usage.medium
-        else -> MaterialTheme.colorScheme.primary
+        else -> theme.accent
     }
     
     if (compact) {
@@ -84,7 +90,7 @@ private fun CompactContextIndicator(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Box(
             modifier = Modifier.size(Sizing.iconLg),
@@ -126,11 +132,12 @@ private fun ExpandedContextIndicator(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val theme = LocalOpenCodeTheme.current
+    
+    Surface(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        color = theme.backgroundElement,
+        shape = RectangleShape
     ) {
         Column(
             modifier = Modifier.padding(Spacing.xl),
@@ -143,23 +150,26 @@ private fun ExpandedContextIndicator(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
-                    Icon(
-                        Icons.Default.Memory,
-                        contentDescription = stringResource(R.string.cd_context_memory),
-                        tint = color
+                    Text(
+                        text = "▣",
+                        color = color,
+                        fontFamily = FontFamily.Monospace
                     )
                     Text(
                         text = stringResource(R.string.context_usage),
-                        style = MaterialTheme.typography.titleSmall
+                        style = MaterialTheme.typography.titleSmall,
+                        color = theme.text,
+                        fontFamily = FontFamily.Monospace
                     )
                 }
                 
                 Text(
                     text = "${formatTokenCount(usage.usedTokens)} / ${formatTokenCount(usage.maxTokens)}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = color
+                    color = color,
+                    fontFamily = FontFamily.Monospace
                 )
             }
             
@@ -179,27 +189,27 @@ private fun ExpandedContextIndicator(
                 TokenStat(
                     label = "Input",
                     value = usage.inputTokens,
-                    icon = Icons.AutoMirrored.Filled.Input,
-                    color = MaterialTheme.colorScheme.primary
+                    icon = "→",
+                    color = theme.accent
                 )
                 TokenStat(
                     label = "Output",
                     value = usage.outputTokens,
-                    icon = Icons.Default.Output,
-                    color = MaterialTheme.colorScheme.secondary
+                    icon = "←",
+                    color = theme.info
                 )
                 if (usage.cachedTokens > 0) {
                     TokenStat(
                         label = "Cached",
                         value = usage.cachedTokens,
-                        icon = Icons.Default.Cached,
-                        color = MaterialTheme.colorScheme.tertiary
+                        icon = "◎",
+                        color = theme.success
                     )
                 }
             }
             
             usage.estimatedCost?.let { cost ->
-                HorizontalDivider()
+                HorizontalDivider(color = theme.border)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -208,12 +218,15 @@ private fun ExpandedContextIndicator(
                     Text(
                         text = stringResource(R.string.estimated_cost),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted,
+                        fontFamily = FontFamily.Monospace
                     )
                     Text(
                         text = "$${String.format(java.util.Locale.US, "%.4f", cost)}",
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = theme.text,
+                        fontFamily = FontFamily.Monospace
                     )
                 }
             }
@@ -225,28 +238,32 @@ private fun ExpandedContextIndicator(
 private fun TokenStat(
     label: String,
     value: Int,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: String,
     color: Color
 ) {
+    val theme = LocalOpenCodeTheme.current
+    
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
-        Icon(
-            icon,
-            contentDescription = stringResource(R.string.cd_token_stat),
-            modifier = Modifier.size(Sizing.iconXs),
-            tint = color
+        Text(
+            text = icon,
+            color = color,
+            fontFamily = FontFamily.Monospace
         )
         Text(
             text = formatTokenCount(value),
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            color = theme.text,
+            fontFamily = FontFamily.Monospace
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.textMuted,
+            fontFamily = FontFamily.Monospace
         )
     }
 }
@@ -257,15 +274,15 @@ fun ContextUsageBar(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
+    val theme = LocalOpenCodeTheme.current
     var expanded by remember { mutableStateOf(false) }
     
-    Card(
+    Surface(
         modifier = modifier
             .animateContentSize()
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        color = theme.background,
+        shape = RectangleShape
     ) {
         if (expanded) {
             ExpandedContextIndicator(
@@ -279,9 +296,9 @@ fun ContextUsageBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expanded = true }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 ContextUsageIndicator(
                     usage = usage,
@@ -300,14 +317,14 @@ fun ContextUsageBar(
                 Text(
                     text = formatTokenCount(usage.usedTokens),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted,
+                    fontFamily = FontFamily.Monospace
                 )
                 
-                Icon(
-                    Icons.Default.ExpandMore,
-                    contentDescription = stringResource(R.string.cd_show_details),
-                    modifier = Modifier.size(Sizing.iconXs),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                Text(
+                    text = "▾",
+                    color = theme.textMuted,
+                    fontFamily = FontFamily.Monospace
                 )
             }
         }
@@ -316,12 +333,13 @@ fun ContextUsageBar(
 
 @Composable
 private fun getContextColor(usage: ContextUsage): Color {
+    val theme = LocalOpenCodeTheme.current
     val percentage = usage.usedTokens.toFloat() / usage.maxTokens.toFloat()
     return when {
-        percentage > 0.9f -> MaterialTheme.colorScheme.error
+        percentage > 0.9f -> theme.error
         percentage > 0.75f -> SemanticColors.Usage.high
         percentage > 0.5f -> SemanticColors.Usage.medium
-        else -> MaterialTheme.colorScheme.primary
+        else -> theme.accent
     }
 }
 

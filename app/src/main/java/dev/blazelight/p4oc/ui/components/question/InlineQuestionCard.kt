@@ -51,12 +51,12 @@ fun InlineQuestionCard(
             .background(theme.backgroundPanel)
             .border(1.dp, theme.border, RectangleShape)
             .padding(Spacing.lg),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         // Header row with icon and title
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.HelpOutline,
@@ -112,7 +112,7 @@ fun InlineQuestionCard(
         // Action buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             if (currentQuestionIndex > 0) {
                 OutlinedButton(
@@ -168,9 +168,9 @@ private fun InlineQuestionOptions(
         modifier = modifier
             .fillMaxWidth()
             .then(if (question.multiple) Modifier else Modifier.selectableGroup()),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        question.options.forEach { option ->
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+        ) {
+            question.options.forEach { option ->
             InlineOptionItem(
                 option = option,
                 isSelected = option.label in selectedOptions,
@@ -223,7 +223,7 @@ private fun InlineQuestionOptions(
                     }
                     .background(theme.backgroundElement)
                     .border(1.dp, theme.borderSubtle, RectangleShape)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -257,11 +257,11 @@ private fun InlineOptionItem(
             )
             .background(bgColor)
             .border(1.dp, borderColor, RectangleShape)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (isMultiple) {
+            .padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.mdLg),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isMultiple) {
             Checkbox(
                 checked = isSelected,
                 onCheckedChange = null,

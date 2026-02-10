@@ -18,11 +18,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 
 @Composable
 fun TermuxExtraKeysBar(
@@ -38,8 +38,8 @@ fun TermuxExtraKeysBar(
             .fillMaxWidth()
             .background(SemanticColors.TerminalKeys.background)
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         ExtraKey("ESC", "\u001B", enabled, onKeyPress)
         
@@ -110,7 +110,7 @@ private fun ExtraKey(
         onClick = { onKeyPress(sequence) },
         enabled = enabled,
         modifier = Modifier.height(36.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = SemanticColors.TerminalKeys.keyBackground,
             contentColor = SemanticColors.TerminalKeys.keyText,
@@ -120,7 +120,7 @@ private fun ExtraKey(
     ) {
         Text(
             text = label,
-            fontSize = 11.sp,
+            fontSize = TuiCodeFontSize.md,
             fontFamily = FontFamily.Monospace
         )
     }
@@ -137,17 +137,17 @@ private fun ModifierKey(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier.height(36.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = if (active) SemanticColors.TerminalKeys.activeModifier else SemanticColors.TerminalKeys.keyBackground,
-            contentColor = if (active) Color.White else SemanticColors.TerminalKeys.keyText,
+            contentColor = if (active) SemanticColors.TerminalKeys.keyTextActive else SemanticColors.TerminalKeys.keyText,
             disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
             disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
         )
     ) {
         Text(
             text = label,
-            fontSize = 11.sp,
+            fontSize = TuiCodeFontSize.md,
             fontFamily = FontFamily.Monospace
         )
     }
@@ -166,17 +166,17 @@ private fun CtrlComboKey(
         onClick = onPress,
         enabled = enabled,
         modifier = Modifier.height(36.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = SemanticColors.TerminalKeys.activeModifier,
-            contentColor = Color.White,
+            contentColor = SemanticColors.TerminalKeys.keyTextActive,
             disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
             disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
         )
     ) {
         Text(
             text = "^$letter",
-            fontSize = 11.sp,
+            fontSize = TuiCodeFontSize.md,
             fontFamily = FontFamily.Monospace
         )
     }

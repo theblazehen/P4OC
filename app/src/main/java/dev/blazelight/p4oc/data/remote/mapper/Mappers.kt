@@ -8,15 +8,15 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
-import javax.inject.Inject
-import javax.inject.Singleton
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 // ============================================================================
 // Project Mapper
 // ============================================================================
 
-@Singleton
-class ProjectMapper @Inject constructor() {
+
+class ProjectMapper constructor() {
     fun mapToDomain(dto: ProjectDto): Project = Project(
         id = dto.id,
         worktree = dto.worktree,
@@ -42,8 +42,8 @@ class ProjectMapper @Inject constructor() {
 // Session Mapper
 // ============================================================================
 
-@Singleton
-class SessionMapper @Inject constructor() {
+
+class SessionMapper constructor() {
     fun mapToDomain(dto: SessionDto): Session = Session(
         id = dto.id,
         projectID = dto.projectID,
@@ -93,8 +93,8 @@ class SessionMapper @Inject constructor() {
 // Message Mapper
 // ============================================================================
 
-@Singleton
-class MessageMapper @Inject constructor(
+
+class MessageMapper constructor(
     private val json: Json
 ) {
     fun mapToDomain(dto: MessageInfoDto): Message = when (dto.role) {
@@ -196,8 +196,8 @@ class MessageMapper @Inject constructor(
 // Part Mapper
 // ============================================================================
 
-@Singleton
-class PartMapper @Inject constructor() {
+
+class PartMapper constructor() {
     fun mapToDomain(dto: PartDto): Part = when (dto.type) {
         "text" -> Part.Text(
             id = dto.id,
@@ -407,8 +407,8 @@ class PartMapper @Inject constructor() {
 // Provider Mapper
 // ============================================================================
 
-@Singleton
-class ProviderMapper @Inject constructor() {
+
+class ProviderMapper constructor() {
     fun mapToDomain(dto: ProviderDto): Provider = Provider(
         id = dto.id,
         name = dto.name,
@@ -467,8 +467,8 @@ class ProviderMapper @Inject constructor() {
 // Agent Mapper
 // ============================================================================
 
-@Singleton
-class AgentMapper @Inject constructor() {
+
+class AgentMapper constructor() {
     fun mapToDomain(dto: AgentDto): Agent = Agent(
         name = dto.name,
         description = dto.description,
@@ -489,15 +489,16 @@ class AgentMapper @Inject constructor() {
 // Command Mapper
 // ============================================================================
 
-@Singleton
-class CommandMapper @Inject constructor() {
+
+class CommandMapper constructor() {
     fun mapToDomain(dto: CommandDto): Command = Command(
         name = dto.name,
         description = dto.description,
         agent = dto.agent,
         model = dto.model,
-        template = dto.template,
-        subtask = dto.subtask ?: false
+        template = (dto.template as? JsonPrimitive)?.contentOrNull,
+        subtask = dto.subtask ?: false,
+        mcp = dto.mcp ?: false
     )
 }
 
@@ -505,8 +506,8 @@ class CommandMapper @Inject constructor() {
 // Todo Mapper
 // ============================================================================
 
-@Singleton
-class TodoMapper @Inject constructor() {
+
+class TodoMapper constructor() {
     fun mapToDomain(dto: TodoDto): Todo = Todo(
         id = dto.id,
         content = dto.content,
@@ -519,8 +520,8 @@ class TodoMapper @Inject constructor() {
 // Symbol Mapper
 // ============================================================================
 
-@Singleton
-class SymbolMapper @Inject constructor() {
+
+class SymbolMapper constructor() {
     fun mapToDomain(dto: SymbolDto): Symbol = Symbol(
         name = dto.name,
         kind = dto.kind,
@@ -538,8 +539,8 @@ class SymbolMapper @Inject constructor() {
 // Status Mappers
 // ============================================================================
 
-@Singleton
-class StatusMapper @Inject constructor() {
+
+class StatusMapper constructor() {
     fun mapLspStatusToDomain(dto: LspStatusDto): LspStatus = LspStatus(
         id = dto.id,
         name = dto.name,
@@ -563,8 +564,8 @@ class StatusMapper @Inject constructor() {
 // Event Mapper
 // ============================================================================
 
-@Singleton
-class EventMapper @Inject constructor(
+
+class EventMapper constructor(
     private val json: Json,
     private val sessionMapper: SessionMapper,
     private val messageMapper: MessageMapper,

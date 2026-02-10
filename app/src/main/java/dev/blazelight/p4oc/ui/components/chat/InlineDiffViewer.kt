@@ -18,11 +18,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
 @Composable
@@ -33,12 +34,13 @@ fun InlineDiffViewer(
     deletions: Int = 0,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     var expanded by remember { mutableStateOf(false) }
     val diffLines = remember(diffContent) { parseInlineDiff(diffContent) }
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = theme.backgroundElement,
         shape = RectangleShape
     ) {
         Column {
@@ -50,19 +52,20 @@ fun InlineDiffViewer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(Spacing.lg),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Description,
-                        contentDescription = stringResource(R.string.cd_diff_icon),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(Sizing.iconMd)
+                    Text(
+                        text = "≡",
+                        color = theme.accent,
+                        fontFamily = FontFamily.Monospace
                     )
                     Text(
                         text = fileName,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.text,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -71,27 +74,28 @@ fun InlineDiffViewer(
                         Text(
                             text = "+$additions",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SemanticColors.Diff.addedText
+                            color = SemanticColors.Diff.addedText,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                     if (deletions > 0) {
                         Text(
                             text = "-$deletions",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SemanticColors.Diff.removedText
+                            color = SemanticColors.Diff.removedText,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
-                    Icon(
-                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (expanded) "Collapse" else "Expand",
-                        modifier = Modifier.size(Sizing.iconMd),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    Text(
+                        text = if (expanded) "▴" else "▾",
+                        color = theme.textMuted,
+                        fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
             if (expanded && diffLines.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = theme.border)
                 
                 Box(
                     modifier = Modifier
@@ -100,7 +104,7 @@ fun InlineDiffViewer(
                         .horizontalScroll(rememberScrollState())
                         .verticalScroll(rememberScrollState())
                 ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
+                    Column(modifier = Modifier.padding(Spacing.md)) {
                         diffLines.forEach { line ->
                             InlineDiffLineRow(line)
                         }
@@ -113,6 +117,8 @@ fun InlineDiffViewer(
 
 @Composable
 private fun InlineDiffLineRow(line: DiffLine) {
+    val theme = LocalOpenCodeTheme.current
+    
     val (bgColor, textColor, prefix) = when (line.type) {
         DiffLineType.ADDED -> Triple(
             SemanticColors.Diff.addedBackground,
@@ -125,13 +131,13 @@ private fun InlineDiffLineRow(line: DiffLine) {
             "-"
         )
         DiffLineType.HEADER -> Triple(
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-            MaterialTheme.colorScheme.primary,
+            theme.accent.copy(alpha = 0.1f),
+            theme.accent,
             ""
         )
         DiffLineType.CONTEXT -> Triple(
             Color.Transparent,
-            MaterialTheme.colorScheme.onSurface,
+            theme.text,
             " "
         )
     }
@@ -140,16 +146,16 @@ private fun InlineDiffLineRow(line: DiffLine) {
         modifier = Modifier
             .fillMaxWidth()
             .background(bgColor)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = Spacing.md, vertical = Spacing.xxs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         if (line.type != DiffLineType.HEADER) {
             Text(
                 text = line.lineNumber?.toString()?.padStart(4) ?: "    ",
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.outline,
+                fontSize = TuiCodeFontSize.md,
+                color = theme.textMuted,
                 modifier = Modifier.width(32.dp)
             )
         }
@@ -157,7 +163,7 @@ private fun InlineDiffLineRow(line: DiffLine) {
             text = if (line.type == DiffLineType.HEADER) line.content else "$prefix ${line.content}",
             style = MaterialTheme.typography.bodySmall,
             fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
+            fontSize = TuiCodeFontSize.md,
             color = textColor
         )
     }
@@ -195,6 +201,7 @@ fun PatchDiffViewer(
     getDiffContent: suspend (String) -> String?,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     var expandedFile by remember { mutableStateOf<String?>(null) }
     var diffContent by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -211,14 +218,14 @@ fun PatchDiffViewer(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         files.forEach { file ->
             val isExpanded = expandedFile == file
             
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                color = theme.backgroundElement,
                 shape = RectangleShape
             ) {
                 Column {
@@ -232,19 +239,20 @@ fun PatchDiffViewer(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(Spacing.lg),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.Description,
-                                contentDescription = stringResource(R.string.cd_diff_icon),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(Sizing.iconMd)
+                            Text(
+                                text = "≡",
+                                color = theme.accent,
+                                fontFamily = FontFamily.Monospace
                             )
                             Text(
                                 text = file,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
+                                fontFamily = FontFamily.Monospace,
+                                color = theme.text,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -252,18 +260,17 @@ fun PatchDiffViewer(
                             if (isLoading && isExpanded) {
                                 TuiLoadingIndicator()
                             } else {
-                                Icon(
-                                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                    modifier = Modifier.size(Sizing.iconMd),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                Text(
+                                    text = if (isExpanded) "▴" else "▾",
+                                    color = theme.textMuted,
+                                    fontFamily = FontFamily.Monospace
                                 )
                             }
                         }
                     }
 
                     if (isExpanded && diffContent != null) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        HorizontalDivider(color = theme.border)
                         
                         val currentDiffContent = diffContent
                         val diffLines = remember(currentDiffContent) { 
@@ -277,7 +284,7 @@ fun PatchDiffViewer(
                                 .horizontalScroll(rememberScrollState())
                                 .verticalScroll(rememberScrollState())
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
+                            Column(modifier = Modifier.padding(Spacing.md)) {
                                 diffLines.forEach { line ->
                                     InlineDiffLineRow(line)
                                 }

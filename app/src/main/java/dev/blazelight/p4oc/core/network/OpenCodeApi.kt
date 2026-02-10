@@ -200,7 +200,9 @@ interface OpenCodeApi {
     ): Boolean
 
     @GET("command")
-    suspend fun listCommands(): List<CommandDto>
+    suspend fun listCommands(
+        @Query("directory") directory: String? = null
+    ): List<CommandDto>
 
     @GET("file")
     suspend fun listFiles(@Query("path") path: String = "."): List<FileNodeDto>

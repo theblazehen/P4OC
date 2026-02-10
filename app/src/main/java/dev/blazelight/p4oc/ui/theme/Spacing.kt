@@ -25,6 +25,7 @@ data class TuiSpacing(
     val xs: Dp = 4.dp,
     val sm: Dp = 6.dp,
     val md: Dp = 8.dp,
+    val mdLg: Dp = 10.dp,  // Between md and lg - for horizontal content padding
     val lg: Dp = 12.dp,
     val xl: Dp = 16.dp,  // Use sparingly - only for major sections
     
@@ -121,6 +122,7 @@ object Spacing {
     val xs = TuiDefaults.xs
     val sm = TuiDefaults.sm
     val md = TuiDefaults.md
+    val mdLg = TuiDefaults.mdLg
     val lg = TuiDefaults.lg
     val xl = TuiDefaults.xl
     

@@ -13,7 +13,9 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.domain.model.Session
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.PocketCodeTheme
+import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
@@ -50,6 +52,7 @@ class SessionPreviewProvider : PreviewParameterProvider<Session> {
 @Composable
 private fun EmptyStatePreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -61,18 +64,18 @@ private fun EmptyStatePreview() {
                 Icon(
                     Icons.Default.ChatBubbleOutline,
                     contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    modifier = Modifier.size(Sizing.iconHero),
+                    tint = theme.textMuted
                 )
                 Text(
                     text = "No sessions yet",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
                 Text(
                     text = "Start a new conversation to begin",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
             }
         }
@@ -88,14 +91,15 @@ private fun SessionCardPreview(
     @PreviewParameter(SessionPreviewProvider::class) session: Session
 ) {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp)
+                .padding(Spacing.md)
         ) {
             Column(
                 modifier = Modifier.padding(Spacing.xl),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 Text(
                     text = session.title,
@@ -104,7 +108,7 @@ private fun SessionCardPreview(
                 Text(
                     text = session.directory,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
             }
         }
@@ -129,6 +133,7 @@ private fun LoadingStatePreview() {
 @Composable
 private fun ErrorStatePreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -140,13 +145,13 @@ private fun ErrorStatePreview() {
                 Icon(
                     Icons.Default.Error,
                     contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.error
+                    modifier = Modifier.size(Sizing.iconHero),
+                    tint = theme.error
                 )
                 Text(
                     text = "Something went wrong",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.error
+                    color = theme.error
                 )
                 Button(onClick = {}) {
                     Text("Retry")
@@ -163,6 +168,7 @@ private fun ErrorStatePreview() {
 @Composable
 private fun SettingsItemPreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Surface {
             Row(
                 modifier = Modifier
@@ -174,7 +180,7 @@ private fun SettingsItemPreview() {
                 Icon(
                     Icons.Default.Palette,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = theme.primary
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -184,13 +190,13 @@ private fun SettingsItemPreview() {
                     Text(
                         text = "Customize theme and appearance",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
                 Icon(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = theme.textMuted
                 )
             }
         }
@@ -204,6 +210,7 @@ private fun SettingsItemPreview() {
 @Composable
 private fun FileItemPreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Surface {
             Row(
                 modifier = Modifier
@@ -215,7 +222,7 @@ private fun FileItemPreview() {
                 Icon(
                     Icons.Default.Code,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = theme.primary
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -225,7 +232,7 @@ private fun FileItemPreview() {
                     Text(
                         text = "2.4 KB • Modified",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
             }
@@ -244,9 +251,9 @@ private fun ChatInputBarPreview() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(Spacing.md),
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 IconButton(onClick = {}) {
                     Icon(Icons.Default.AttachFile, contentDescription = "Attach")
@@ -273,14 +280,15 @@ private fun ChatInputBarPreview() {
 @Composable
 private fun GitStatusBadgesPreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Row(
             modifier = Modifier.padding(Spacing.xl),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             listOf(
-                "A" to MaterialTheme.colorScheme.primary,
-                "M" to MaterialTheme.colorScheme.tertiary,
-                "D" to MaterialTheme.colorScheme.error
+                "A" to theme.primary,
+                "M" to theme.accent,
+                "D" to theme.error
             ).forEach { (label, color) ->
                 Surface(
                     color = color.copy(alpha = 0.2f),
@@ -290,7 +298,7 @@ private fun GitStatusBadgesPreview() {
                         text = label,
                         style = MaterialTheme.typography.labelSmall,
                         color = color,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
                     )
                 }
             }
@@ -305,33 +313,34 @@ private fun GitStatusBadgesPreview() {
 @Composable
 private fun ConnectionStatusPreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Column(
             modifier = Modifier.padding(Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             // Connected
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
+                    tint = theme.primary,
+                    modifier = Modifier.size(Sizing.iconSm)
                 )
                 Text("Connected", style = MaterialTheme.typography.bodySmall)
             }
             // Disconnected
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     Icons.Default.Error,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(16.dp)
+                    tint = theme.error,
+                    modifier = Modifier.size(Sizing.iconSm)
                 )
                 Text("Disconnected", style = MaterialTheme.typography.bodySmall)
             }
@@ -346,6 +355,7 @@ private fun ConnectionStatusPreview() {
 @Composable
 private fun TodoItemPreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Surface {
             Row(
                 modifier = Modifier
@@ -363,7 +373,7 @@ private fun TodoItemPreview() {
                     Text(
                         text = "In Progress",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = theme.primary
                     )
                 }
             }
@@ -378,28 +388,29 @@ private fun TodoItemPreview() {
 @Composable
 private fun ProjectChipPreview() {
     PocketCodeTheme {
+        val theme = LocalOpenCodeTheme.current
         Row(
             modifier = Modifier.padding(Spacing.xl),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = theme.backgroundPanel,
                 shape = MaterialTheme.shapes.small
             ) {
                 Text(
                     text = "opencode_android",
                     style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
                 )
             }
             Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
+                color = theme.backgroundPanel,
                 shape = MaterialTheme.shapes.small
             ) {
                 Text(
                     text = "pocket-code",
                     style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
                 )
             }
         }

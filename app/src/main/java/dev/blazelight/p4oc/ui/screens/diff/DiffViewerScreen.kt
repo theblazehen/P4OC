@@ -24,7 +24,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 
 enum class DiffViewMode { UNIFIED, SIDE_BY_SIDE }
 
@@ -106,6 +109,7 @@ fun DiffViewerScreen(
     modifier: Modifier = Modifier,
     fileName: String? = null
 ) {
+    val theme = LocalOpenCodeTheme.current
     var viewMode by remember { mutableStateOf(DiffViewMode.UNIFIED) }
     val (parsedFileName, hunks) = remember(diffContent) { parseDiff(diffContent) }
     val displayFileName = fileName ?: parsedFileName
@@ -116,21 +120,28 @@ fun DiffViewerScreen(
                 title = {
                     Column {
                         Text(
-                            text = stringResource(R.string.diff_viewer_title),
-                            style = MaterialTheme.typography.titleMedium
+                            text = "[ ${stringResource(R.string.diff_viewer_title)} ]",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.text
                         )
                         if (displayFileName.isNotEmpty()) {
                             Text(
                                 text = displayFileName,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                fontFamily = FontFamily.Monospace,
+                                color = theme.textMuted
                             )
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+                        Text(
+                            text = "←",
+                            color = theme.accent,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 },
                 actions = {
@@ -140,16 +151,19 @@ fun DiffViewerScreen(
                                 DiffViewMode.SIDE_BY_SIDE else DiffViewMode.UNIFIED
                         }
                     ) {
-                        Icon(
-                            if (viewMode == DiffViewMode.UNIFIED) Icons.Default.ViewColumn 
-                            else Icons.Default.ViewAgenda,
-                            contentDescription = if (viewMode == DiffViewMode.UNIFIED) 
-                                stringResource(R.string.cd_switch_side_by_side) else stringResource(R.string.cd_switch_unified)
+                        Text(
+                            text = if (viewMode == DiffViewMode.UNIFIED) "⫼" else "≡",
+                            color = theme.accent,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = theme.backgroundElement
+                )
             )
         },
+        containerColor = theme.background,
         modifier = modifier
     ) { padding ->
         if (hunks.isEmpty()) {
@@ -160,9 +174,10 @@ fun DiffViewerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = stringResource(R.string.diff_no_content),
+                    text = "∅ ${stringResource(R.string.diff_no_content)}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.textMuted
                 )
             }
         } else {
@@ -189,11 +204,11 @@ private fun UnifiedDiffView(
     hunks: List<DiffHunk>,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     val addedBgColor = SemanticColors.Diff.addedBackground
     val removedBgColor = SemanticColors.Diff.removedBackground
     val addedTextColor = SemanticColors.Diff.addedText
     val removedTextColor = SemanticColors.Diff.removedText
-    val headerBgColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     val allLines = remember(hunks) {
         hunks.flatMap { hunk -> hunk.lines }
@@ -208,15 +223,15 @@ private fun UnifiedDiffView(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(headerBgColor)
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .background(theme.backgroundElement)
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm)
                     ) {
                         Text(
                             text = line.content,
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontFamily = FontFamily.Monospace
                             ),
-                            color = MaterialTheme.colorScheme.primary
+                            color = theme.accent
                         )
                     }
                 }
@@ -237,18 +252,18 @@ private fun UnifiedDiffView(
                             text = (line.oldLineNumber?.toString() ?: "").padStart(4),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp
+                                fontSize = TuiCodeFontSize.md
                             ),
-                            color = MaterialTheme.colorScheme.outline,
+                            color = theme.textMuted,
                             modifier = Modifier.width(40.dp)
                         )
                         Text(
                             text = (line.newLineNumber?.toString() ?: "").padStart(4),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp
+                                fontSize = TuiCodeFontSize.md
                             ),
-                            color = MaterialTheme.colorScheme.outline,
+                            color = theme.textMuted,
                             modifier = Modifier.width(40.dp)
                         )
                         Text(
@@ -263,7 +278,7 @@ private fun UnifiedDiffView(
                                         color = when (line.type) {
                                             DiffLine.LineType.ADDED -> addedTextColor
                                             DiffLine.LineType.REMOVED -> removedTextColor
-                                            else -> MaterialTheme.colorScheme.onSurface
+                                            else -> theme.text
                                         },
                                         fontWeight = if (line.type != DiffLine.LineType.CONTEXT) 
                                             FontWeight.Medium else FontWeight.Normal
@@ -275,9 +290,9 @@ private fun UnifiedDiffView(
                             },
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp
+                                fontSize = TuiCodeFontSize.lg
                             ),
-                            modifier = Modifier.padding(start = 8.dp)
+                            modifier = Modifier.padding(start = Spacing.md)
                         )
                     }
                 }
@@ -291,11 +306,11 @@ private fun SideBySideDiffView(
     hunks: List<DiffHunk>,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalOpenCodeTheme.current
     val addedBgColor = SemanticColors.Diff.addedBackground
     val removedBgColor = SemanticColors.Diff.removedBackground
     val addedTextColor = SemanticColors.Diff.addedText
     val removedTextColor = SemanticColors.Diff.removedText
-    val headerBgColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     data class SideBySideLine(
         val leftLineNum: Int?,
@@ -375,15 +390,15 @@ private fun SideBySideDiffView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(headerBgColor)
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = Spacing.md, vertical = Spacing.sm)
                 ) {
                     Text(
                         text = line.headerContent,
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
-                        color = MaterialTheme.colorScheme.primary
+                        color = theme.accent
                     )
                 }
             } else {
@@ -408,27 +423,27 @@ private fun SideBySideDiffView(
                             text = (line.leftLineNum?.toString() ?: "").padStart(4),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp
+                                fontSize = TuiCodeFontSize.md
                             ),
-                            color = MaterialTheme.colorScheme.outline,
+                            color = theme.textMuted,
                             modifier = Modifier.width(40.dp)
                         )
                         Text(
                             text = line.leftContent ?: "",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp
+                                fontSize = TuiCodeFontSize.lg
                             ),
                             color = if (line.leftType == DiffLine.LineType.REMOVED) 
-                                removedTextColor else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 4.dp)
+                                removedTextColor else theme.text,
+                            modifier = Modifier.padding(start = Spacing.xs)
                         )
                     }
 
                     VerticalDivider(
                         modifier = Modifier.fillMaxHeight(),
                         thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant
+                        color = theme.border
                     )
 
                     Row(
@@ -447,20 +462,20 @@ private fun SideBySideDiffView(
                             text = (line.rightLineNum?.toString() ?: "").padStart(4),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp
+                                fontSize = TuiCodeFontSize.md
                             ),
-                            color = MaterialTheme.colorScheme.outline,
+                            color = theme.textMuted,
                             modifier = Modifier.width(40.dp)
                         )
                         Text(
                             text = line.rightContent ?: "",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp
+                                fontSize = TuiCodeFontSize.lg
                             ),
                             color = if (line.rightType == DiffLine.LineType.ADDED) 
-                                addedTextColor else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 4.dp)
+                                addedTextColor else theme.text,
+                            modifier = Modifier.padding(start = Spacing.xs)
                         )
                     }
                 }
@@ -473,7 +488,7 @@ private fun SideBySideDiffView(
 fun DiffStats(added: Int, removed: Int, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (added > 0) {
@@ -485,7 +500,7 @@ fun DiffStats(added: Int, removed: Int, modifier: Modifier = Modifier) {
                     text = "+$added",
                     style = MaterialTheme.typography.labelSmall,
                     color = SemanticColors.Diff.addedText,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
                 )
             }
         }
@@ -498,7 +513,7 @@ fun DiffStats(added: Int, removed: Int, modifier: Modifier = Modifier) {
                     text = "-$removed",
                     style = MaterialTheme.typography.labelSmall,
                     color = SemanticColors.Diff.removedText,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xxs)
                 )
             }
         }

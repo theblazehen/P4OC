@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,14 +27,13 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
 import dev.blazelight.p4oc.data.remote.dto.SetActiveModelRequest
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
@@ -61,8 +60,8 @@ data class ModelControlsState(
     val filterProvider: String? = null
 )
 
-@HiltViewModel
-class ModelControlsViewModel @Inject constructor(
+
+class ModelControlsViewModel constructor(
     private val connectionManager: ConnectionManager
 ) : ViewModel() {
     
@@ -155,7 +154,7 @@ class ModelControlsViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelControlsScreen(
-    viewModel: ModelControlsViewModel = hiltViewModel(),
+    viewModel: ModelControlsViewModel = koinViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -221,18 +220,19 @@ fun ModelControlsScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(Spacing.xl),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     val favoriteModels = filteredModels.filter { it.isFavorite }
                     val otherModels = filteredModels.filter { !it.isFavorite }
                     
                     if (favoriteModels.isNotEmpty()) {
                         item {
+                            val theme = LocalOpenCodeTheme.current
                             Text(
                                 text = stringResource(R.string.models_favorites),
                                 style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 8.dp)
+                                color = theme.accent,
+                                modifier = Modifier.padding(vertical = Spacing.md)
                             )
                         }
                         items(favoriteModels, key = { it.id }) { model ->
@@ -247,11 +247,12 @@ fun ModelControlsScreen(
                     
                     if (otherModels.isNotEmpty()) {
                         item {
+                            val theme = LocalOpenCodeTheme.current
                             Text(
                                 text = stringResource(R.string.models_all),
                                 style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 8.dp)
+                                color = theme.accent,
+                                modifier = Modifier.padding(vertical = Spacing.md)
                             )
                         }
                         items(otherModels, key = { it.id }) { model ->
@@ -314,7 +315,7 @@ private fun ProviderFilterChips(
 ) {
     Row(
         modifier = modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         FilterChip(
             selected = selected == null,
@@ -339,14 +340,15 @@ private fun ModelCard(
     onSelect: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onSelect,
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) 
-                MaterialTheme.colorScheme.primaryContainer 
+                theme.accent.copy(alpha = 0.2f)
             else 
-                MaterialTheme.colorScheme.surface
+                theme.backgroundElement
         ),
         border = if (isSelected) 
             CardDefaults.outlinedCardBorder() 
@@ -355,7 +357,7 @@ private fun ModelCard(
     ) {
         Column(
             modifier = Modifier.padding(Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -371,30 +373,30 @@ private fun ModelCard(
                     Text(
                         text = model.providerId,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
                 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     if (isSelected) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = stringResource(R.string.cd_selected),
-                            tint = MaterialTheme.colorScheme.primary
+                        Text(
+                            text = "✓",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = theme.accent
                         )
                     }
                     IconButton(onClick = onToggleFavorite) {
-                        Icon(
-                            if (model.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = if (model.isFavorite) stringResource(R.string.cd_remove_from_favorites) else stringResource(R.string.cd_add_to_favorites),
-                            tint = if (model.isFavorite) SemanticColors.Accent.favorite else MaterialTheme.colorScheme.onSurfaceVariant
+                        Text(
+                            text = if (model.isFavorite) "★" else "☆",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (model.isFavorite) SemanticColors.Accent.favorite else theme.textMuted
                         )
                     }
                 }
             }
             
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 if (model.supportsTools) {
                     AssistChip(
@@ -432,14 +434,14 @@ private fun ModelCard(
                     Text(
                         text = "Context: ${formatContextLength(model.contextLength)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
                 if (model.inputCostPer1k > 0 || model.outputCostPer1k > 0) {
                     Text(
                         text = "$${String.format(java.util.Locale.US, "%.4f", model.inputCostPer1k)} / $${String.format(java.util.Locale.US, "%.4f", model.outputCostPer1k)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
             }

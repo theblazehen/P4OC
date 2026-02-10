@@ -33,6 +33,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.PocketCode.Splash">
             <intent-filter>
@@ -40,11 +41,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- Service to receive Termux command results -->
-        <service
-            android:name=".core.termux.TermuxResultService"
-            android:exported="false" />
 
     </application>
 

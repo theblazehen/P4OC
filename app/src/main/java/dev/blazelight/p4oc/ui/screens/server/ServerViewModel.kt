@@ -10,20 +10,16 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
 import dev.blazelight.p4oc.core.network.safeApiCall
-import dev.blazelight.p4oc.core.termux.TermuxBridge
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 private const val TAG = "ServerViewModel"
 
-@HiltViewModel
-class ServerViewModel @Inject constructor(
-    private val termuxBridge: TermuxBridge,
+
+class ServerViewModel constructor(
     private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
     private val directoryManager: DirectoryManager
@@ -33,7 +29,6 @@ class ServerViewModel @Inject constructor(
     val uiState: StateFlow<ServerUiState> = _uiState.asStateFlow()
 
     init {
-        checkTermuxStatus()
         loadRecentServers()
         tryAutoReconnect()
     }
@@ -54,12 +49,11 @@ class ServerViewModel @Inject constructor(
             _uiState.update { 
                 it.copy(
                     isConnecting = true,
-                    connectionMode = if (lastConnection.isLocal) ConnectionMode.LOCAL else ConnectionMode.REMOTE,
-                    remoteUrl = if (!lastConnection.isLocal) lastConnection.url else ""
+                    remoteUrl = lastConnection.url
                 )
             }
             
-            val result = connectionManager.connect(lastConnection)
+            val result = connectionManager.connect(lastConnection, lastConnection.password)
             
             result.fold(
                 onSuccess = {
@@ -75,30 +69,6 @@ class ServerViewModel @Inject constructor(
         }
     }
 
-    private fun checkTermuxStatus() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(termuxStatus = TermuxStatusUi.Checking) }
-            val status = termuxBridge.checkStatus()
-            _uiState.update { 
-                it.copy(termuxStatus = mapTermuxStatus(status)) 
-            }
-        }
-    }
-
-    private fun mapTermuxStatus(status: TermuxBridge.TermuxStatus): TermuxStatusUi = when (status) {
-        TermuxBridge.TermuxStatus.Unknown -> TermuxStatusUi.Unknown
-        TermuxBridge.TermuxStatus.NotInstalled -> TermuxStatusUi.NotInstalled
-        TermuxBridge.TermuxStatus.Installed -> TermuxStatusUi.SetupRequired
-        TermuxBridge.TermuxStatus.SetupRequired -> TermuxStatusUi.SetupRequired
-        TermuxBridge.TermuxStatus.OpenCodeNotInstalled -> TermuxStatusUi.OpenCodeNotInstalled
-        TermuxBridge.TermuxStatus.Ready -> TermuxStatusUi.Ready
-        is TermuxBridge.TermuxStatus.ServerRunning -> TermuxStatusUi.ServerRunning
-    }
-
-    fun setConnectionMode(mode: ConnectionMode) {
-        _uiState.update { it.copy(connectionMode = mode, error = null) }
-    }
-
     fun setRemoteUrl(url: String) {
         _uiState.update { it.copy(remoteUrl = url, error = null) }
     }
@@ -109,44 +79,6 @@ class ServerViewModel @Inject constructor(
 
     fun setPassword(password: String) {
         _uiState.update { it.copy(password = password) }
-    }
-
-    fun startLocalServer() {
-        termuxBridge.startOpenCodeServer()
-        _uiState.update { it.copy(termuxStatus = TermuxStatusUi.ServerRunning) }
-    }
-
-    fun installOpenCode() {
-        termuxBridge.installOpenCode()
-    }
-
-    fun openTermux() {
-        termuxBridge.openTermuxSetup()
-    }
-
-    fun connectToLocal() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isConnecting = true, error = null) }
-            
-            val config = ServerConfig.LOCAL_DEFAULT
-            val result = connectionManager.connect(config)
-
-            result.fold(
-                onSuccess = {
-                    settingsDataStore.saveLastConnection(config)
-                    initializeProjectContext()
-                    _uiState.update { it.copy(isConnecting = false, isConnected = true) }
-                },
-                onFailure = { error ->
-                    _uiState.update { 
-                        it.copy(
-                            isConnecting = false, 
-                            error = "Failed to connect: ${error.message}"
-                        ) 
-                    }
-                }
-            )
-        }
     }
 
     fun connectToRemote() {
@@ -182,7 +114,7 @@ class ServerViewModel @Inject constructor(
                     // Clear password from UI state after successful connection for security
                     _uiState.update { it.copy(password = "") }
                     settingsDataStore.saveLastConnection(config)
-                    settingsDataStore.addRecentServer(url, "Remote Server")
+                    settingsDataStore.addRecentServer(url, "Remote Server", state.username.takeIf { it.isNotBlank() }, state.password.takeIf { it.isNotBlank() })
                     initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
@@ -225,8 +157,9 @@ class ServerViewModel @Inject constructor(
     fun connectToRecentServer(server: RecentServer) {
         _uiState.update { 
             it.copy(
-                connectionMode = ConnectionMode.REMOTE,
-                remoteUrl = server.url
+                remoteUrl = server.url,
+                username = server.username ?: "opencode",
+                password = server.password ?: ""
             )
         }
         connectToRemote()
@@ -256,10 +189,8 @@ class ServerViewModel @Inject constructor(
 }
 
 data class ServerUiState(
-    val connectionMode: ConnectionMode = ConnectionMode.LOCAL,
-    val termuxStatus: TermuxStatusUi = TermuxStatusUi.Unknown,
     val remoteUrl: String = "",
-    val username: String = "",
+    val username: String = "opencode",
     val password: String = "",
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,

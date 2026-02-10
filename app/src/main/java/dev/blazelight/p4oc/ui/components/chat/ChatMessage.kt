@@ -14,6 +14,8 @@ import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolGroupWidget
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
@@ -23,6 +25,7 @@ fun ChatMessage(
     messageWithParts: MessageWithParts,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    onOpenSubSession: ((String) -> Unit)? = null,
     defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT,
     modifier: Modifier = Modifier
 ) {
@@ -39,6 +42,7 @@ fun ChatMessage(
                 messageWithParts = messageWithParts,
                 onToolApprove = onToolApprove,
                 onToolDeny = onToolDeny,
+                onOpenSubSession = onOpenSubSession,
                 defaultToolWidgetState = defaultToolWidgetState
             )
         }
@@ -48,29 +52,35 @@ fun ChatMessage(
 @Composable
 private fun UserMessage(messageWithParts: MessageWithParts) {
     val theme = LocalOpenCodeTheme.current
-    val textParts = messageWithParts.parts.filterIsInstance<Part.Text>()
+    // Filter out synthetic text parts (system prompts, AGENTS.md content, etc.)
+    val textParts = messageWithParts.parts
+        .filterIsInstance<Part.Text>()
+        .filter { !it.synthetic && !it.ignored }
     val text = textParts.joinToString("\n") { it.text }
+    
+    // Don't render anything if there's no visible text
+    if (text.isBlank()) return
 
-    // TUI style: Surface2 background + Mauve left border, no header
+    // TUI style: Distinct background with accent left border for user messages
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.dp)
+            .padding(vertical = Spacing.xs)
     ) {
-        // Mauve left border
+        // Accent left border (thicker for user messages)
         Box(
             modifier = Modifier
-                .width(2.dp)
+                .width(Spacing.xs)
                 .fillMaxHeight()
-                .background(theme.secondary)
+                .background(theme.primary)
         )
         
-        // Content with Surface2 background
+        // Content with distinct background - use primary tint for better contrast
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(theme.backgroundPanel.copy(alpha = 0.3f))
-                .padding(horizontal = 6.dp, vertical = 2.dp)  // Reduced vertical padding
+                .background(theme.primary.copy(alpha = 0.12f))
+                .padding(horizontal = Spacing.mdLg, vertical = Spacing.md)
         ) {
             StreamingMarkdown(
                 text = text,
@@ -85,44 +95,42 @@ private fun AssistantMessage(
     messageWithParts: MessageWithParts,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    onOpenSubSession: ((String) -> Unit)? = null,
     defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT
 ) {
     // Build ordered groups: consecutive tools get batched, non-tools rendered individually
     // Invisible parts (StepStart, StepFinish, Snapshot, etc.) don't break tool groups
-    val partGroups = remember(messageWithParts.parts) {
-        buildList {
-            var currentToolBatch = mutableListOf<Part.Tool>()
-            
-            for (part in messageWithParts.parts) {
-                when (part) {
-                    is Part.Tool -> currentToolBatch.add(part)
-                    // Invisible parts - don't break tool groups, just skip
-                    is Part.StepStart, is Part.StepFinish, is Part.Snapshot,
-                    is Part.Agent, is Part.Retry, is Part.Compaction, is Part.Subtask -> {
-                        // Skip - truly invisible
+    val partGroups = buildList {
+        var currentToolBatch = mutableListOf<Part.Tool>()
+
+        for (part in messageWithParts.parts) {
+            when (part) {
+                is Part.Tool -> currentToolBatch.add(part)
+                // Invisible parts - don't break tool groups, just skip
+                is Part.StepStart, is Part.StepFinish, is Part.Snapshot,
+                is Part.Agent, is Part.Retry, is Part.Compaction, is Part.Subtask -> {
+                    // Skip - truly invisible
+                }
+                // Visible parts - flush tools before rendering
+                else -> {
+                    if (currentToolBatch.isNotEmpty()) {
+                        add(PartGroupItem.Tools(currentToolBatch.toList()))
+                        currentToolBatch = mutableListOf()
                     }
-                    // Visible parts - flush tools before rendering
-                    else -> {
-                        if (currentToolBatch.isNotEmpty()) {
-                            add(PartGroupItem.Tools(currentToolBatch.toList()))
-                            currentToolBatch = mutableListOf()
-                        }
-                        add(PartGroupItem.Other(part))
-                    }
+                    add(PartGroupItem.Other(part))
                 }
             }
-            // Flush any trailing tools
-            if (currentToolBatch.isNotEmpty()) {
-                add(PartGroupItem.Tools(currentToolBatch.toList()))
-            }
+        }
+        // Flush any trailing tools
+        if (currentToolBatch.isNotEmpty()) {
+            add(PartGroupItem.Tools(currentToolBatch.toList()))
         }
     }
     
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 0.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp)  // Reduced from 2.dp
+            .fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(1.dp)  // 1.dp = minimal spacing, no token for this
     ) {
         // Render part groups in order
         partGroups.forEach { group ->
@@ -133,7 +141,8 @@ private fun AssistantMessage(
                         tools = group.tools,
                         defaultState = defaultToolWidgetState,
                         onToolApprove = onToolApprove,
-                        onToolDeny = onToolDeny
+                        onToolDeny = onToolDeny,
+                        onOpenSubSession = onOpenSubSession
                     )
                 }
                 is PartGroupItem.Other -> {
@@ -162,17 +171,14 @@ private sealed class PartGroupItem {
 private fun TextPart(part: Part.Text) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         verticalAlignment = Alignment.Top
     ) {
-        // Key on content length to force remeasurement when content grows
-        key(part.text.length) {
-            StreamingMarkdown(
-                text = part.text,
-                isStreaming = part.isStreaming,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-        }
+        StreamingMarkdown(
+            text = part.text,
+            isStreaming = part.isStreaming,
+            modifier = Modifier.weight(1f)
+        )
         if (part.isStreaming) {
             TuiLoadingIndicator()
         }
@@ -181,6 +187,7 @@ private fun TextPart(part: Part.Text) {
 
 @Composable
 private fun ReasoningPart(part: Part.Reasoning) {
+    val theme = LocalOpenCodeTheme.current
     var expanded by remember { mutableStateOf(false) }
     
     val thinkingDuration = part.time?.let { time ->
@@ -196,13 +203,13 @@ private fun ReasoningPart(part: Part.Reasoning) {
 
     Surface(
         onClick = { expanded = !expanded },
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+        color = theme.warning.copy(alpha = 0.1f),
         shape = RectangleShape
     ) {
-        Column(modifier = Modifier.padding(6.dp)) {
+        Column(modifier = Modifier.padding(Spacing.sm)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isThinking) {
@@ -211,15 +218,15 @@ private fun ReasoningPart(part: Part.Reasoning) {
                     Icon(
                         Icons.Default.Psychology,
                         contentDescription = stringResource(R.string.models_reasoning),
-                        modifier = Modifier.size(12.dp),
-                        tint = MaterialTheme.colorScheme.tertiary
+                        modifier = Modifier.size(Sizing.iconXs),
+                        tint = theme.warning
                     )
                 }
                 
                 Text(
                     text = if (isThinking) "Thinking..." else "Reasoning",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary,
+                    color = theme.warning,
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -227,26 +234,25 @@ private fun ReasoningPart(part: Part.Reasoning) {
                     Text(
                         text = duration,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                        color = theme.textMuted
                     )
                 }
                 
                 Icon(
                     if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Collapse" else "Expand",
-                    modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    modifier = Modifier.size(Sizing.iconXs),
+                    tint = theme.textMuted
                 )
             }
             
             if (expanded && part.text.isNotEmpty()) {
                 HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f)
+                    modifier = Modifier.padding(vertical = Spacing.xs),
+                    color = theme.border
                 )
-                StreamingMarkdown(
+                TertiaryStreamingMarkdown(
                     text = part.text,
-                    styles = rememberTertiaryMarkdownStyles(),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -256,30 +262,32 @@ private fun ReasoningPart(part: Part.Reasoning) {
 
 @Composable
 private fun FilePart(part: Part.File) {
+    val theme = LocalOpenCodeTheme.current
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = theme.backgroundElement,
         shape = RectangleShape
     ) {
         Row(
-            modifier = Modifier.padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.AttachFile, 
                 contentDescription = stringResource(R.string.cd_attach_file),
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier.size(Sizing.iconXs),
+                tint = theme.textMuted
             )
             Column {
                 Text(
                     text = part.filename ?: "File",
-                    style = MaterialTheme.typography.labelSmall
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.text
                 )
                 Text(
                     text = part.mime,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
             }
         }
@@ -288,35 +296,37 @@ private fun FilePart(part: Part.File) {
 
 @Composable
 private fun CompactPatchPart(part: Part.Patch) {
+    val theme = LocalOpenCodeTheme.current
     var expanded by remember { mutableStateOf(false) }
     
     Surface(
         onClick = { expanded = !expanded },
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = theme.backgroundElement,
         shape = RectangleShape
     ) {
-        Column(modifier = Modifier.padding(6.dp)) {
+        Column(modifier = Modifier.padding(Spacing.sm)) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
                     Icons.Default.Description, 
                     contentDescription = stringResource(R.string.cd_diff_icon),
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    modifier = Modifier.size(Sizing.iconXs),
+                    tint = theme.accent
                 )
                 Text(
                     text = "Patch: ${part.files.size} file(s)",
                     style = MaterialTheme.typography.labelSmall,
+                    color = theme.text,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
                     if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Collapse" else "Expand",
-                    modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    modifier = Modifier.size(Sizing.iconXs),
+                    tint = theme.textMuted
                 )
             }
             
@@ -325,7 +335,7 @@ private fun CompactPatchPart(part: Part.Patch) {
                     Text(
                         text = "  $file",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = theme.textMuted
                     )
                 }
             } else if (part.files.isNotEmpty()) {
@@ -333,7 +343,7 @@ private fun CompactPatchPart(part: Part.Patch) {
                 Text(
                     text = "  $firstFile" + if (part.files.size > 1) " ..." else "",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
             }
         }
@@ -342,19 +352,20 @@ private fun CompactPatchPart(part: Part.Patch) {
 
 @Composable
 private fun TokenUsageInfo(tokens: TokenUsage, cost: Double) {
+    val theme = LocalOpenCodeTheme.current
     Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         Text(
             text = "${tokens.input}/${tokens.output}",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline
+            color = theme.textMuted
         )
         if (cost > 0) {
             Text(
                 text = "$${String.format(java.util.Locale.US, "%.4f", cost)}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline
+                color = theme.textMuted
             )
         }
     }

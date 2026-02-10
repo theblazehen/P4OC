@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.WrapText
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,26 +17,25 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 
-@HiltViewModel
-class VisualSettingsViewModel @Inject constructor(
+
+class VisualSettingsViewModel constructor(
     private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
     
@@ -56,7 +56,8 @@ class VisualSettingsViewModel @Inject constructor(
         "gruvbox" to "Gruvbox",
         "nord" to "Nord",
         "opencode" to "OpenCode",
-        "tokyonight" to "Tokyo Night"
+        "tokyonight" to "Tokyo Night",
+        "xterm" to "XTerm 256"
     )
     
     init {
@@ -150,7 +151,7 @@ class VisualSettingsViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VisualSettingsScreen(
-    viewModel: VisualSettingsViewModel = hiltViewModel(),
+    viewModel: VisualSettingsViewModel = koinViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -255,7 +256,7 @@ fun VisualSettingsScreen(
                     onSelect = viewModel::updateToolWidgetDefaultState
                 )
                 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(Spacing.lg))
                 
                 // Live preview of all three states
                 ToolWidgetPreviewSection(selectedState = settings.toolWidgetDefaultState)
@@ -265,7 +266,7 @@ fun VisualSettingsScreen(
             
             PreviewCard(settings = settings)
             
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.lg))
         }
     }
 }
@@ -275,24 +276,25 @@ private fun SettingsSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            color = theme.accent,
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
         )
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = Spacing.md),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = theme.backgroundElement
             )
         ) {
             Column(
-                modifier = Modifier.padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
                 content = content
             )
         }
@@ -307,6 +309,7 @@ private fun FontSizeSlider(
     onValueChange: (Int) -> Unit,
     range: IntRange
 ) {
+    val theme = LocalOpenCodeTheme.current
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -317,7 +320,7 @@ private fun FontSizeSlider(
             Text(
                 "${value}sp",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = theme.accent
             )
         }
         Slider(
@@ -343,7 +346,7 @@ private fun ThemeModeSelector(
     
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         modes.forEach { (id, label) ->
             FilterChip(
@@ -378,7 +381,7 @@ private fun ThemeSelector(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
         )
         
         ExposedDropdownMenu(
@@ -406,6 +409,7 @@ private fun SettingsSwitch(
     onCheckedChange: (Boolean) -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
+    val theme = LocalOpenCodeTheme.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -419,14 +423,14 @@ private fun SettingsSwitch(
         Icon(
             icon,
             contentDescription = stringResource(R.string.cd_decorative),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = theme.textMuted
         )
             Column {
                 Text(title, style = MaterialTheme.typography.bodyMedium)
                 Text(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = theme.textMuted
                 )
             }
         }
@@ -439,26 +443,27 @@ private fun SettingsSwitch(
 
 @Composable
 private fun PreviewCard(settings: VisualSettings) {
+    val theme = LocalOpenCodeTheme.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .padding(Spacing.md),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = theme.backgroundElement
         )
     ) {
         Column(
             modifier = Modifier.padding(Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Text(
                 text = stringResource(R.string.visual_settings_preview),
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
+                color = theme.accent
             )
             
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = theme.accent.copy(alpha = 0.2f),
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text(
@@ -469,7 +474,7 @@ private fun PreviewCard(settings: VisualSettings) {
             }
             
             Surface(
-                color = MaterialTheme.colorScheme.surface,
+                color = theme.backgroundPanel,
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text(
@@ -497,7 +502,7 @@ private fun ToolWidgetStateSelector(
     
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         Text(
             text = stringResource(R.string.visual_settings_tool_mode_label),
@@ -520,7 +525,7 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
     
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         Text(
             text = stringResource(R.string.visual_settings_preview),
@@ -535,8 +540,8 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
             shape = RectangleShape
         ) {
             Column(
-                modifier = Modifier.padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.padding(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
                 when (selectedState) {
                     "oneline" -> {
@@ -545,13 +550,13 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
                             text = "✓ Read ×2 | ✓ Edit | ⟳ Bash",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp
+                                fontSize = TuiCodeFontSize.xxl
                             ),
                             color = theme.text,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(theme.backgroundPanel.copy(alpha = 0.5f))
-                                .padding(6.dp)
+                                .padding(Spacing.sm)
                         )
                         Text(
                             text = stringResource(R.string.visual_settings_tap_to_expand),
@@ -565,17 +570,17 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
                             text = "✓ Read ×2 | ✓ Edit | ⟳ Bash",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp
+                                fontSize = TuiCodeFontSize.xxl
                             ),
                             color = theme.text,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(theme.backgroundPanel.copy(alpha = 0.5f))
-                                .padding(6.dp)
+                                .padding(Spacing.sm)
                         )
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                            verticalArrangement = Arrangement.spacedBy(1.dp)  // 1.dp = minimal, no token
                         ) {
                             CompactRowPreview("✓", "Read Theme.kt", theme.success, theme)
                             CompactRowPreview("✓", "Read Colors.kt", theme.success, theme)
@@ -594,17 +599,17 @@ private fun ToolWidgetPreviewSection(selectedState: String) {
                             text = "✓ Read ×2 | ✓ Edit | ⟳ Bash",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp
+                                fontSize = TuiCodeFontSize.xxl
                             ),
                             color = theme.text,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(theme.backgroundPanel.copy(alpha = 0.5f))
-                                .padding(6.dp)
+                                .padding(Spacing.sm)
                         )
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
                         ) {
                             ExpandedWidgetPreview(
                                 title = "Read Theme.kt",
@@ -651,8 +656,8 @@ private fun CompactRowPreview(
         modifier = Modifier
             .fillMaxWidth()
             .background(theme.backgroundPanel.copy(alpha = 0.4f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -662,7 +667,7 @@ private fun CompactRowPreview(
         )
         Text(
             text = description,
-            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.md),
             color = theme.text,
             modifier = Modifier.weight(1f)
         )
@@ -681,11 +686,11 @@ private fun ExpandedWidgetPreview(
         modifier = Modifier
             .fillMaxWidth()
             .background(theme.backgroundPanel.copy(alpha = 0.5f))
-            .padding(6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -697,7 +702,7 @@ private fun ExpandedWidgetPreview(
                 text = title,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp
+                    fontSize = TuiCodeFontSize.md
                 ),
                 color = theme.text
             )
@@ -706,14 +711,14 @@ private fun ExpandedWidgetPreview(
             text = preview,
             style = MaterialTheme.typography.labelSmall.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 9.sp,
+                fontSize = TuiCodeFontSize.xs,
                 lineHeight = 12.sp
             ),
             color = theme.textMuted,
             modifier = Modifier
                 .fillMaxWidth()
                 .background(theme.backgroundElement)
-                .padding(4.dp),
+                .padding(Spacing.xs),
             maxLines = 2
         )
     }

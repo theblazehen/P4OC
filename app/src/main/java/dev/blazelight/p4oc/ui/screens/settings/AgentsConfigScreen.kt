@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,15 +24,14 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.ui.components.TuiAlertDialog
 import dev.blazelight.p4oc.ui.components.TuiTextButton
+import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Sizing
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
@@ -52,8 +51,8 @@ data class AgentsConfigState(
     val selectedAgent: AgentInfo? = null
 )
 
-@HiltViewModel
-class AgentsConfigViewModel @Inject constructor(
+
+class AgentsConfigViewModel constructor(
     private val connectionManager: ConnectionManager
 ) : ViewModel() {
     
@@ -118,7 +117,7 @@ class AgentsConfigViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentsConfigScreen(
-    viewModel: AgentsConfigViewModel = hiltViewModel(),
+    viewModel: AgentsConfigViewModel = koinViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -159,6 +158,7 @@ fun AgentsConfigScreen(
                 modifier = Modifier.padding(padding)
             )
         } else if (state.agents.isEmpty() && state.error != null) {
+            val theme = LocalOpenCodeTheme.current
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -167,18 +167,17 @@ fun AgentsConfigScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
-                    Icon(
-                        Icons.Default.Error,
-                        contentDescription = stringResource(R.string.cd_error_state),
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.error
+                    Text(
+                        text = "✗",
+                        style = MaterialTheme.typography.displayMedium,
+                        color = theme.error
                     )
                     Text(
                         text = stringResource(R.string.agents_failed_to_load),
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.error
+                        color = theme.error
                     )
                     Button(onClick = { viewModel.loadAgents() }) {
                         Text(stringResource(R.string.retry))
@@ -190,15 +189,16 @@ fun AgentsConfigScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 item {
+                    val theme = LocalOpenCodeTheme.current
                     Text(
                         text = stringResource(R.string.agents_description),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        color = theme.textMuted,
+                        modifier = Modifier.padding(bottom = Spacing.md)
                     )
                 }
                 
@@ -207,10 +207,11 @@ fun AgentsConfigScreen(
                 
                 if (builtInAgents.isNotEmpty()) {
                     item {
+                        val theme = LocalOpenCodeTheme.current
                         Text(
                             text = stringResource(R.string.agents_builtin),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = theme.accent
                         )
                     }
                     
@@ -225,11 +226,12 @@ fun AgentsConfigScreen(
                 
                 if (customAgents.isNotEmpty()) {
                     item {
+                        val theme = LocalOpenCodeTheme.current
                         Spacer(Modifier.height(Spacing.md))
                         Text(
                             text = stringResource(R.string.agents_custom),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = theme.accent
                         )
                     }
                     
@@ -266,6 +268,7 @@ private fun AgentCard(
     onToggle: () -> Unit,
     onClick: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick
@@ -273,7 +276,7 @@ private fun AgentCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(Spacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -289,7 +292,7 @@ private fun AgentCard(
                     Icon(
                         getAgentIcon(agent.name),
                         contentDescription = stringResource(R.string.cd_agent_icon),
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(Spacing.md),
                         tint = getAgentColor(agent.name)
                     )
                 }
@@ -303,13 +306,13 @@ private fun AgentCard(
                     Text(
                         text = agent.description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = theme.textMuted,
                         maxLines = 2
                     )
                     
                     if (agent.tools.isNotEmpty()) {
-                        Spacer(Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Spacer(Modifier.height(Spacing.xs))
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                             agent.tools.take(3).forEach { tool ->
                                 SuggestionChip(
                                     onClick = {},
@@ -326,7 +329,7 @@ private fun AgentCard(
                                 Text(
                                     text = "+${agent.tools.size - 3}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = theme.textMuted,
                                     modifier = Modifier.align(Alignment.CenterVertically)
                                 )
                             }
@@ -348,6 +351,7 @@ private fun AgentDetailDialog(
     agent: AgentInfo,
     onDismiss: () -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     TuiAlertDialog(
         onDismissRequest = onDismiss,
         icon = getAgentIcon(agent.name),
@@ -366,17 +370,17 @@ private fun AgentDetailDialog(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 agent.tools.forEach { tool ->
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Build,
                             contentDescription = stringResource(R.string.agents_tools),
                             modifier = Modifier.size(Sizing.iconXs),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = theme.textMuted
                         )
                         Text(
                             text = tool,
@@ -395,7 +399,7 @@ private fun AgentDetailDialog(
             )
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = theme.backgroundElement
                 )
             ) {
                 Text(
@@ -410,28 +414,28 @@ private fun AgentDetailDialog(
 
 @Composable
 private fun EmptyAgentsView() {
+    val theme = LocalOpenCodeTheme.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        Icon(
-            Icons.Default.SmartToy,
-            contentDescription = stringResource(R.string.cd_agent_icon),
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.outline
+        Text(
+            text = "◇",
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.textMuted
         )
         Text(
             text = stringResource(R.string.agents_no_agents),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.text
         )
         Text(
             text = stringResource(R.string.agents_appear_here),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = theme.textMuted
         )
     }
 }
@@ -448,4 +452,5 @@ private fun getAgentIcon(name: String) = when (name.lowercase()) {
     else -> Icons.Default.SmartToy
 }
 
+@Composable
 private fun getAgentColor(name: String): Color = SemanticColors.Agent.forName(name)

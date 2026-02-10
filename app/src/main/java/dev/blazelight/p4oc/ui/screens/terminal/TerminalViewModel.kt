@@ -14,18 +14,15 @@ import dev.blazelight.p4oc.domain.model.Pty
 import dev.blazelight.p4oc.terminal.PtyTerminalClient
 import dev.blazelight.p4oc.terminal.WebSocketTerminalOutput
 import com.termux.terminal.TerminalEmulator
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class TerminalViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+
+class TerminalViewModel constructor(
+    private val context: Context,
     private val connectionManager: ConnectionManager,
     private val ptyWebSocket: PtyWebSocketClient
 ) : ViewModel() {
