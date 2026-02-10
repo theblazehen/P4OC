@@ -51,3 +51,12 @@ temp_opencode_analysis/
 
 # Serena (AI tool config)
 .serena/
+
+# Beads (issue tracker)
+.beads/
+
+# OpenSpec (AI spec system)
+openspec/
+
+# AI session context (not project docs)
+compact_context.md
