@@ -136,7 +136,9 @@ fun SkillsScreen(
         }
     }
     
+    val theme = LocalOpenCodeTheme.current
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.skills_title)) },
@@ -149,7 +151,8 @@ fun SkillsScreen(
                     IconButton(onClick = { viewModel.loadSkills() }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }

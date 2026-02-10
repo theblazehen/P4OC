@@ -135,7 +135,9 @@ fun AgentsConfigScreen(
         }
     }
     
+    val theme = LocalOpenCodeTheme.current
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.agents_title)) },
@@ -148,7 +150,8 @@ fun AgentsConfigScreen(
                     IconButton(onClick = { viewModel.loadAgents() }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }

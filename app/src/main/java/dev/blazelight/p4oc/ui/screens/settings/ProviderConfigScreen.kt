@@ -41,7 +41,9 @@ fun ProviderConfigScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val theme = LocalOpenCodeTheme.current
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.provider_config_title)) },
@@ -54,7 +56,8 @@ fun ProviderConfigScreen(
                     IconButton(onClick = { viewModel.loadProviders() }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
             )
         }
     ) { padding ->

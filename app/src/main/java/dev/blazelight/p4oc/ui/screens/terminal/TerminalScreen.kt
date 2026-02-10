@@ -44,7 +44,9 @@ fun TerminalScreen(
         }
     }
 
+    val theme = LocalOpenCodeTheme.current
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             TopAppBar(
                 title = {
@@ -65,7 +67,8 @@ fun TerminalScreen(
                     IconButton(onClick = { viewModel.createNewSession() }) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }

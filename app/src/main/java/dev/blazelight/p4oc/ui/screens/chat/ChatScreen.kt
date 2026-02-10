@@ -381,8 +381,9 @@ private fun ChatTopBar(
 ) {
     val theme = LocalOpenCodeTheme.current
     Surface(
-        tonalElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        color = theme.backgroundElement,
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier

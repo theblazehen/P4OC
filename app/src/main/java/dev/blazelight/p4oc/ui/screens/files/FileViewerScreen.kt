@@ -39,6 +39,7 @@ fun FileViewerScreen(
     val theme = LocalOpenCodeTheme.current
 
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             TopAppBar(
                 title = { 
@@ -66,7 +67,8 @@ fun FileViewerScreen(
                             contentDescription = stringResource(R.string.cd_toggle_line_numbers)
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
             )
         }
     ) { padding ->

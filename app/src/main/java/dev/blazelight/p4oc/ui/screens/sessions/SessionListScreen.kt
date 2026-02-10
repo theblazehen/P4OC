@@ -85,11 +85,15 @@ fun SessionListScreen(
         }
     }
 
+    val theme = LocalOpenCodeTheme.current
+
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             Surface(
-                tonalElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                color = theme.backgroundElement,
+                tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -139,7 +143,6 @@ fun SessionListScreen(
             }
         },
         floatingActionButton = {
-            val theme = LocalOpenCodeTheme.current
             SmallFloatingActionButton(
                 onClick = { showNewSessionDialog = true },
                 containerColor = theme.backgroundElement,

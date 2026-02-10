@@ -174,7 +174,9 @@ fun ModelControlsScreen(
         state.models.map { it.providerId }.distinct()
     }
     
+    val theme = LocalOpenCodeTheme.current
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.models_title)) },
@@ -187,7 +189,8 @@ fun ModelControlsScreen(
                     IconButton(onClick = { viewModel.loadModels() }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
             )
         }
     ) { padding ->

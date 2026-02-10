@@ -11,8 +11,12 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,18 +40,21 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDisconnectDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val theme = LocalOpenCodeTheme.current
 
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             Surface(
-                tonalElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                color = theme.backgroundElement,
+                tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = onNavigateBack,
@@ -73,82 +80,59 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.server)) },
-                supportingContent = { Text(uiState.serverUrl) },
-                leadingContent = {
-                    Icon(
-                        if (uiState.isLocal) Icons.Default.PhoneAndroid else Icons.Default.Cloud,
-                        contentDescription = stringResource(R.string.cd_connection_status)
-                    )
-                }
+            // Server info (non-clickable)
+            SettingsItem(
+                icon = if (uiState.isLocal) Icons.Default.PhoneAndroid else Icons.Default.Cloud,
+                title = stringResource(R.string.server),
+                subtitle = uiState.serverUrl
             )
 
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_provider_model)) },
-                supportingContent = { Text(stringResource(R.string.settings_provider_model_desc)) },
-                leadingContent = { Icon(Icons.Default.SmartToy, contentDescription = stringResource(R.string.settings_provider_model)) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
-                modifier = Modifier.clickable { onProviderConfig() }
+            SettingsItem(
+                icon = Icons.Default.SmartToy,
+                title = stringResource(R.string.settings_provider_model),
+                subtitle = stringResource(R.string.settings_provider_model_desc),
+                onClick = onProviderConfig,
+                showChevron = true
             )
 
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_agents)) },
-                supportingContent = { Text(stringResource(R.string.settings_agents_desc)) },
-                leadingContent = { Icon(Icons.Default.Groups, contentDescription = stringResource(R.string.settings_agents)) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
-                modifier = Modifier.clickable { onAgentsConfig() }
+            SettingsItem(
+                icon = Icons.Default.Groups,
+                title = stringResource(R.string.settings_agents),
+                subtitle = stringResource(R.string.settings_agents_desc),
+                onClick = onAgentsConfig,
+                showChevron = true
             )
 
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_skills)) },
-                supportingContent = { Text(stringResource(R.string.settings_skills_desc)) },
-                leadingContent = { Icon(Icons.Default.Extension, contentDescription = stringResource(R.string.settings_skills)) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
-                modifier = Modifier.clickable { onSkills() }
+            SettingsItem(
+                icon = Icons.Default.Extension,
+                title = stringResource(R.string.settings_skills),
+                subtitle = stringResource(R.string.settings_skills_desc),
+                onClick = onSkills,
+                showChevron = true
             )
 
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_visual)) },
-                supportingContent = { Text(stringResource(R.string.settings_visual_desc)) },
-                leadingContent = { Icon(Icons.Default.Palette, contentDescription = stringResource(R.string.settings_visual)) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.cd_chevron_right)) },
-                modifier = Modifier.clickable { onVisualSettings() }
+            SettingsItem(
+                icon = Icons.Default.Palette,
+                title = stringResource(R.string.settings_visual),
+                subtitle = stringResource(R.string.settings_visual_desc),
+                onClick = onVisualSettings,
+                showChevron = true
             )
 
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_about)) },
-                supportingContent = { Text(stringResource(R.string.settings_version)) },
-                leadingContent = { Icon(Icons.Default.Info, contentDescription = stringResource(R.string.settings_about)) }
+            SettingsItem(
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.settings_about),
+                subtitle = stringResource(R.string.settings_version)
             )
-
-            HorizontalDivider()
 
             Spacer(Modifier.weight(1f))
 
-            val theme = LocalOpenCodeTheme.current
-            ListItem(
-                headlineContent = {
-                    Text(stringResource(R.string.settings_disconnect), color = theme.error)
-                },
-                leadingContent = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = stringResource(R.string.settings_disconnect),
-                        tint = theme.error
-                    )
-                },
-                modifier = Modifier.clickable { showDisconnectDialog = true }
+            // Disconnect button
+            SettingsItem(
+                icon = Icons.AutoMirrored.Filled.Logout,
+                title = stringResource(R.string.settings_disconnect),
+                onClick = { showDisconnectDialog = true },
+                tint = theme.error
             )
         }
     }
@@ -169,6 +153,73 @@ fun SettingsScreen(
             isDestructive = true
         )
     }
+}
+
+@Composable
+private fun SettingsItem(
+    icon: ImageVector,
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    onClick: (() -> Unit)? = null,
+    showChevron: Boolean = false,
+    tint: androidx.compose.ui.graphics.Color? = null
+) {
+    val theme = LocalOpenCodeTheme.current
+    val iconColor = tint ?: theme.textMuted
+    val titleColor = tint ?: theme.text
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = theme.background,
+        shape = RectangleShape
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
+        ) {
+            Icon(
+                icon,
+                contentDescription = title,
+                modifier = Modifier.size(Sizing.iconMd),
+                tint = iconColor
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.textMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (showChevron) {
+                Text(
+                    text = "→",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.textMuted
+                )
+            }
+        }
+    }
+    // Thin separator
+    HorizontalDivider(
+        thickness = Sizing.dividerThickness,
+        color = theme.borderSubtle
+    )
 }
 
 

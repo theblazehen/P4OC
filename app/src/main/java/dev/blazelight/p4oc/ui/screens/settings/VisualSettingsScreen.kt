@@ -158,7 +158,9 @@ fun VisualSettingsScreen(
     val themeName by viewModel.themeName.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     
+    val theme = LocalOpenCodeTheme.current
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.visual_settings_title)) },
@@ -171,7 +173,8 @@ fun VisualSettingsScreen(
                     TextButton(onClick = viewModel::resetToDefaults) {
                         Text(stringResource(R.string.visual_settings_reset))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
             )
         }
     ) { padding ->

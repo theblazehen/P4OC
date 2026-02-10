@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import androidx.compose.ui.graphics.RectangleShape
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -99,12 +100,15 @@ fun ProjectsScreen(
     onProjectClick: (projectId: String, worktree: String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val theme = LocalOpenCodeTheme.current
 
     Scaffold(
+        containerColor = theme.background,
         topBar = {
             Surface(
-                tonalElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                color = theme.backgroundElement,
+                tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -148,7 +152,6 @@ fun ProjectsScreen(
                 )
             }
             uiState.error != null -> {
-                val theme = LocalOpenCodeTheme.current
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -175,7 +178,6 @@ fun ProjectsScreen(
                 }
             }
             uiState.projects.isEmpty() -> {
-                val theme = LocalOpenCodeTheme.current
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -241,10 +243,12 @@ private fun ProjectCard(
         "${localDateTime.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }} ${localDateTime.dayOfMonth.toString().padStart(2, '0')}"
     }
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        color = theme.backgroundElement,
+        shape = RectangleShape
     ) {
         Row(
             modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
