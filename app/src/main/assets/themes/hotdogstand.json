@@ -1,0 +1,220 @@
+{
+  "$schema": "https://opencode.ai/theme.json",
+  "defs": {
+    "red": "#FF0000",
+    "darkRed": "#CC0000",
+    "darkerRed": "#990000",
+    "deepRed": "#770000",
+    "bloodRed": "#550000",
+    "yellow": "#FFFF00",
+    "darkYellow": "#CCCC00",
+    "mutedYellow": "#BBBB44",
+    "white": "#FFFFFF",
+    "offWhite": "#EEEECC",
+    "lightGray": "#DDDDAA",
+    "midGray": "#AAAAAA",
+    "black": "#000000"
+  },
+  "theme": {
+    "background": {
+      "dark": "red",
+      "light": "red"
+    },
+    "backgroundPanel": {
+      "dark": "darkRed",
+      "light": "darkRed"
+    },
+    "backgroundElement": {
+      "dark": "darkerRed",
+      "light": "darkerRed"
+    },
+    "text": {
+      "dark": "white",
+      "light": "white"
+    },
+    "textMuted": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "primary": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "secondary": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "accent": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "border": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "borderActive": {
+      "dark": "white",
+      "light": "white"
+    },
+    "borderSubtle": {
+      "dark": "darkYellow",
+      "light": "darkYellow"
+    },
+    "error": {
+      "dark": "white",
+      "light": "white"
+    },
+    "warning": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "success": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "info": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "diffAdded": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "diffAddedBg": {
+      "dark": "#553300",
+      "light": "#553300"
+    },
+    "diffAddedLineNumberBg": {
+      "dark": "#442200",
+      "light": "#442200"
+    },
+    "diffRemoved": {
+      "dark": "white",
+      "light": "white"
+    },
+    "diffRemovedBg": {
+      "dark": "deepRed",
+      "light": "deepRed"
+    },
+    "diffRemovedLineNumberBg": {
+      "dark": "bloodRed",
+      "light": "bloodRed"
+    },
+    "diffContext": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "diffContextBg": {
+      "dark": "darkRed",
+      "light": "darkRed"
+    },
+    "diffHighlightAdded": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "diffHighlightRemoved": {
+      "dark": "white",
+      "light": "white"
+    },
+    "diffHunkHeader": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "diffLineNumber": {
+      "dark": "darkYellow",
+      "light": "darkYellow"
+    },
+    "syntaxKeyword": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "syntaxString": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "syntaxNumber": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "syntaxFunction": {
+      "dark": "white",
+      "light": "white"
+    },
+    "syntaxComment": {
+      "dark": "mutedYellow",
+      "light": "mutedYellow"
+    },
+    "syntaxVariable": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "syntaxType": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "syntaxOperator": {
+      "dark": "white",
+      "light": "white"
+    },
+    "syntaxPunctuation": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "markdownText": {
+      "dark": "white",
+      "light": "white"
+    },
+    "markdownHeading": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "markdownLink": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "markdownLinkText": {
+      "dark": "white",
+      "light": "white"
+    },
+    "markdownCode": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "markdownCodeBlock": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "markdownStrong": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "markdownEmph": {
+      "dark": "offWhite",
+      "light": "offWhite"
+    },
+    "markdownBlockQuote": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "markdownListItem": {
+      "dark": "white",
+      "light": "white"
+    },
+    "markdownListEnumeration": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "markdownImage": {
+      "dark": "yellow",
+      "light": "yellow"
+    },
+    "markdownImageText": {
+      "dark": "white",
+      "light": "white"
+    },
+    "markdownHorizontalRule": {
+      "dark": "darkYellow",
+      "light": "darkYellow"
+    }
+  }
+}

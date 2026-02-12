@@ -57,7 +57,8 @@ class VisualSettingsViewModel constructor(
         "nord" to "Nord",
         "opencode" to "OpenCode",
         "tokyonight" to "Tokyo Night",
-        "xterm" to "XTerm 256"
+        "xterm" to "XTerm 256",
+        "hotdogstand" to "Hot Dog Stand"
     )
     
     init {
