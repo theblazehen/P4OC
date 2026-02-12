@@ -25,6 +25,7 @@ import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,33 +46,10 @@ fun SettingsScreen(
     Scaffold(
         containerColor = theme.background,
         topBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = theme.backgroundElement,
-                tonalElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier.size(Sizing.iconButtonMd)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            modifier = Modifier.size(Sizing.iconLg)
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.settings_title),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
+            TuiTopBar(
+                title = stringResource(R.string.settings_title),
+                onNavigateBack = onNavigateBack
+            )
         }
     ) { padding ->
         Column(

@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import androidx.compose.ui.graphics.vector.ImageVector
 import dev.blazelight.p4oc.ui.theme.SemanticColors
@@ -68,8 +69,19 @@ fun FileExplorerScreen(
         containerColor = theme.background,
         topBar = {
             Column {
-                TopAppBar(
-                    title = {
+                TuiTopBar(
+                    title = "",
+                    onNavigateBack = {
+                        if (isSearchActive) {
+                            isSearchActive = false
+                            searchQuery = ""
+                        } else if (uiState.currentPath.isNotBlank()) {
+                            viewModel.navigateUp()
+                        } else {
+                            onNavigateBack()
+                        }
+                    },
+                    titleContent = {
                         if (isSearchActive) {
                             OutlinedTextField(
                                 value = searchQuery,
@@ -90,41 +102,27 @@ fun FileExplorerScreen(
                                 text = uiState.currentPath.substringAfterLast('/').ifBlank { "Files" },
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                color = theme.text
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            if (isSearchActive) {
-                                isSearchActive = false
-                                searchQuery = ""
-                            } else if (uiState.currentPath.isNotBlank()) {
-                                viewModel.navigateUp()
-                            } else {
-                                onNavigateBack()
-                            }
-                        }) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.cd_back),
-                                tint = theme.textMuted
+                                color = theme.text,
+                                style = MaterialTheme.typography.titleMedium
                             )
                         }
                     },
                     actions = {
                         if (!isSearchActive) {
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search), tint = theme.textMuted)
+                            IconButton(
+                                onClick = { isSearchActive = true },
+                                modifier = Modifier.size(Sizing.iconButtonMd)
+                            ) {
+                                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search), tint = theme.textMuted, modifier = Modifier.size(Sizing.iconAction))
                             }
                         }
-                        IconButton(onClick = viewModel::refresh) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh), tint = theme.textMuted)
+                        IconButton(
+                            onClick = viewModel::refresh,
+                            modifier = Modifier.size(Sizing.iconButtonMd)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.cd_refresh), tint = theme.textMuted, modifier = Modifier.size(Sizing.iconAction))
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = theme.backgroundElement
-                    )
+                    }
                 )
                 
                 if (uiState.currentPath.isNotBlank()) {

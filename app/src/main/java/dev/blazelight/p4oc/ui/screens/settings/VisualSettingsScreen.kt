@@ -33,6 +33,7 @@ import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 
 
 class VisualSettingsViewModel constructor(
@@ -163,19 +164,14 @@ fun VisualSettingsScreen(
     Scaffold(
         containerColor = theme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.visual_settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                },
+            TuiTopBar(
+                title = stringResource(R.string.visual_settings_title),
+                onNavigateBack = onNavigateBack,
                 actions = {
                     TextButton(onClick = viewModel::resetToDefaults) {
                         Text(stringResource(R.string.visual_settings_reset))
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
+                }
             )
         }
     ) { padding ->

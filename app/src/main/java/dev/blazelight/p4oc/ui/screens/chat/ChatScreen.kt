@@ -36,6 +36,7 @@ import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import kotlinx.coroutines.launch
 import dev.blazelight.p4oc.ui.theme.Spacing
@@ -380,36 +381,10 @@ private fun ChatTopBar(
     onTodos: () -> Unit = {}
 ) {
     val theme = LocalOpenCodeTheme.current
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = theme.backgroundElement,
-        tonalElevation = 0.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(Sizing.iconButtonMd)
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.cd_back),
-                    modifier = Modifier.size(Sizing.iconLg)
-                )
-            }
-            
-            Text(
-                text = title,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium
-            )
-            
+    TuiTopBar(
+        title = title,
+        onNavigateBack = onBack,
+        actions = {
             ConnectionIndicator(state = connectionState)
             
             Spacer(Modifier.width(Spacing.md))
@@ -471,7 +446,7 @@ private fun ChatTopBar(
                 Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_files), modifier = Modifier.size(Sizing.iconAction))
             }
         }
-    }
+    )
 }
 
 @Composable

@@ -38,6 +38,7 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.Sizing
 
 private data class SessionNode(
@@ -90,36 +91,10 @@ fun SessionListScreen(
     Scaffold(
         containerColor = theme.background,
         topBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = theme.backgroundElement,
-                tonalElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (onNavigateBack != null) {
-                        IconButton(
-                            onClick = onNavigateBack,
-                            modifier = Modifier.size(Sizing.iconButtonMd)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.cd_back),
-                                modifier = Modifier.size(Sizing.iconLg)
-                            )
-                        }
-                    }
-                    
-                    Text(
-                        text = projectName ?: "Sessions",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    
+            TuiTopBar(
+                title = projectName ?: "Sessions",
+                onNavigateBack = onNavigateBack,
+                actions = {
                     // Always show folder icon for project navigation
                     IconButton(
                         onClick = onProjects,
@@ -140,7 +115,7 @@ fun SessionListScreen(
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings), modifier = Modifier.size(Sizing.iconAction))
                     }
                 }
-            }
+            )
         },
         floatingActionButton = {
             SmallFloatingActionButton(

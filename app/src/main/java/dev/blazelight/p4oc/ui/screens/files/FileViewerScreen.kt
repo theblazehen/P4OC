@@ -16,8 +16,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.code.Language
 import dev.blazelight.p4oc.ui.components.code.SyntaxHighlightedCode
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,10 +43,17 @@ fun FileViewerScreen(
     Scaffold(
         containerColor = theme.background,
         topBar = {
-            TopAppBar(
-                title = { 
+            TuiTopBar(
+                title = "",
+                onNavigateBack = onNavigateBack,
+                titleContent = {
                     Column {
-                        Text(filename)
+                        Text(
+                            filename,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
                         Text(
                             text = if (language != Language.UNKNOWN) language.name.lowercase() else "plain text",
                             style = MaterialTheme.typography.labelSmall,
@@ -52,23 +61,21 @@ fun FileViewerScreen(
                         )
                     }
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
-                },
                 actions = {
-                    IconButton(onClick = { showLineNumbers = !showLineNumbers }) {
+                    IconButton(
+                        onClick = { showLineNumbers = !showLineNumbers },
+                        modifier = Modifier.size(Sizing.iconButtonMd)
+                    ) {
                         Icon(
                             imageVector = if (showLineNumbers) 
                                 Icons.Default.FormatListNumbered 
                             else 
                                 Icons.Default.FormatListNumberedRtl,
-                            contentDescription = stringResource(R.string.cd_toggle_line_numbers)
+                            contentDescription = stringResource(R.string.cd_toggle_line_numbers),
+                            modifier = Modifier.size(Sizing.iconAction)
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
+                }
             )
         }
     ) { padding ->

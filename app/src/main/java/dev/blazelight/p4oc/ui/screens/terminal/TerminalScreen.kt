@@ -17,6 +17,7 @@ import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TermuxExtraKeysBar
 import dev.blazelight.p4oc.ui.components.TermuxTerminalView
 import dev.blazelight.p4oc.ui.theme.SemanticColors
@@ -48,27 +49,29 @@ fun TerminalScreen(
     Scaffold(
         containerColor = theme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(uiState.selectedPty?.title ?: stringResource(R.string.terminal_title))
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                },
+            TuiTopBar(
+                title = uiState.selectedPty?.title ?: stringResource(R.string.terminal_title),
+                onNavigateBack = onNavigateBack,
                 actions = {
-                    IconButton(onClick = viewModel::clearTerminal) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.clear))
+                    IconButton(
+                        onClick = viewModel::clearTerminal,
+                        modifier = Modifier.size(Sizing.iconButtonMd)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(Sizing.iconAction))
                     }
-                    IconButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                    IconButton(
+                        onClick = viewModel::refresh,
+                        modifier = Modifier.size(Sizing.iconButtonMd)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), modifier = Modifier.size(Sizing.iconAction))
                     }
-                    IconButton(onClick = { viewModel.createNewSession() }) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create))
+                    IconButton(
+                        onClick = { viewModel.createNewSession() },
+                        modifier = Modifier.size(Sizing.iconButtonMd)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create), modifier = Modifier.size(Sizing.iconAction))
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }

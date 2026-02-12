@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 
 data class ModelInfo(
     val id: String,
@@ -178,19 +179,17 @@ fun ModelControlsScreen(
     Scaffold(
         containerColor = theme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.models_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                },
+            TuiTopBar(
+                title = stringResource(R.string.models_title),
+                onNavigateBack = onNavigateBack,
                 actions = {
-                    IconButton(onClick = { viewModel.loadModels() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                    IconButton(
+                        onClick = { viewModel.loadModels() },
+                        modifier = Modifier.size(Sizing.iconButtonMd)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), modifier = Modifier.size(Sizing.iconAction))
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.backgroundElement)
+                }
             )
         }
     ) { padding ->

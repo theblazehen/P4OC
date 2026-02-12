@@ -26,8 +26,10 @@ import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
+import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 
 enum class DiffViewMode { UNIFIED, SIDE_BY_SIDE }
 
@@ -116,8 +118,10 @@ fun DiffViewerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
+            TuiTopBar(
+                title = "",
+                onNavigateBack = onNavigateBack,
+                titleContent = {
                     Column {
                         Text(
                             text = "[ ${stringResource(R.string.diff_viewer_title)} ]",
@@ -135,21 +139,13 @@ fun DiffViewerScreen(
                         }
                     }
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Text(
-                            text = "←",
-                            color = theme.accent,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                },
                 actions = {
                     IconButton(
                         onClick = {
                             viewMode = if (viewMode == DiffViewMode.UNIFIED) 
                                 DiffViewMode.SIDE_BY_SIDE else DiffViewMode.UNIFIED
-                        }
+                        },
+                        modifier = Modifier.size(Sizing.iconButtonMd)
                     ) {
                         Text(
                             text = if (viewMode == DiffViewMode.UNIFIED) "⫼" else "≡",
@@ -157,10 +153,7 @@ fun DiffViewerScreen(
                             fontFamily = FontFamily.Monospace
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = theme.backgroundElement
-                )
+                }
             )
         },
         containerColor = theme.background,

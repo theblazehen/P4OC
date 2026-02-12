@@ -111,13 +111,19 @@ fun MainTabScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = theme.background,
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier
     ) { _ ->
-        // Don't use paddingValues - child screens handle their own insets
+        // We consume the status bar insets here so child Scaffolds don't double-pad.
+        // The tab bar gets the status bar padding, then consumeWindowInsets tells
+        // downstream composables that the status bar is already accounted for.
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .consumeWindowInsets(WindowInsets.statusBars)
         ) {
-            // Tab bar with status bar padding
+            // Tab bar (no longer needs its own statusBarsPadding)
             TabBar(
                 tabs = tabs,
                 activeTabId = activeTabId,
@@ -140,7 +146,6 @@ fun MainTabScreen(
                     pendingNewTab = true
                     pendingNewTabRoute = null
                 },
-                modifier = Modifier.statusBarsPadding()
             )
             
             // Pager state for swipe between tabs

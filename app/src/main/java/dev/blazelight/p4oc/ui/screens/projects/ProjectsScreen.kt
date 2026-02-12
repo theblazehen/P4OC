@@ -38,6 +38,7 @@ import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
+import dev.blazelight.p4oc.ui.components.TuiTopBar
 
 data class ProjectsUiState(
     val projects: List<ProjectDto> = emptyList(),
@@ -105,36 +106,10 @@ fun ProjectsScreen(
     Scaffold(
         containerColor = theme.background,
         topBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = theme.backgroundElement,
-                tonalElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (onNavigateBack != null) {
-                        IconButton(
-                            onClick = onNavigateBack,
-                            modifier = Modifier.size(Sizing.iconButtonMd)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.back),
-                                modifier = Modifier.size(Sizing.iconLg)
-                            )
-                        }
-                    }
-                    
-                    Text(
-                        text = stringResource(R.string.projects_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    
+            TuiTopBar(
+                title = stringResource(R.string.projects_title),
+                onNavigateBack = onNavigateBack,
+                actions = {
                     IconButton(
                         onClick = { viewModel.loadProjects() },
                         modifier = Modifier.size(Sizing.iconButtonMd)
@@ -142,7 +117,7 @@ fun ProjectsScreen(
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), modifier = Modifier.size(Sizing.iconAction))
                     }
                 }
-            }
+            )
         }
     ) { padding ->
         when {
