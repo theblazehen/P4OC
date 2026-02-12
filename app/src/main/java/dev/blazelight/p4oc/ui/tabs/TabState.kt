@@ -47,7 +47,9 @@ data class TabState(
  */
 class TabInstance(
     val state: TabState,
-    val navController: NavHostController
+    val navController: NavHostController,
+    /** Route to navigate to once the NavHost graph is ready. Consumed once. */
+    val pendingRoute: String? = null
 ) {
     val id: String get() = state.id
     val sessionId: String? get() = state.sessionId
@@ -64,7 +66,7 @@ class TabInstance(
     }
     
     fun withState(newState: TabState): TabInstance {
-        return TabInstance(newState, navController).also {
+        return TabInstance(newState, navController, pendingRoute).also {
             it._connectionState.value = this._connectionState.value
         }
     }

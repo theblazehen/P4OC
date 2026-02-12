@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -36,9 +37,17 @@ fun TabNavHost(
     onNewFilesTab: () -> Unit = {},
     onNewTerminalTab: () -> Unit = {},
     isActiveTab: Boolean = true,
+    pendingRoute: String? = null,
     onConnectionStateChanged: ((SessionConnectionState?) -> Unit)? = null,
     modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier
 ) {
+    // Navigate to pending route once the NavHost graph is set
+    LaunchedEffect(pendingRoute) {
+        pendingRoute?.let { route ->
+            navController.navigate(route)
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Sessions.route,

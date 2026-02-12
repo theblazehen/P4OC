@@ -96,13 +96,12 @@ fun MainTabScreen(
     if (pendingNewTab) {
         val newNavController = rememberNavController()
         LaunchedEffect(newNavController) {
-            val newTab = TabInstance(TabState(), newNavController)
+            val newTab = TabInstance(
+                state = TabState(),
+                navController = newNavController,
+                pendingRoute = pendingNewTabRoute
+            )
             tabManager.registerTab(newTab, focus = true)
-            
-            // Navigate to specific route if requested
-            pendingNewTabRoute?.let { route ->
-                newNavController.navigate(route)
-            }
             
             pendingNewTab = false
             pendingNewTabRoute = null
@@ -181,6 +180,7 @@ fun MainTabScreen(
                         tabManager = tabManager,
                         tabId = tab.id,
                         onDisconnect = onDisconnect,
+                        pendingRoute = tab.pendingRoute,
                         onNewFilesTab = {
                             pendingNewTab = true
                             pendingNewTabRoute = Screen.Files.route
