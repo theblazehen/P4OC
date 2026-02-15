@@ -54,6 +54,62 @@ class TerminalViewModel constructor(
 
     fun setTerminalView(view: TerminalView) {
         terminalViewRef = WeakReference(view)
+        // Calculate and apply proper terminal size based on view dimensions
+        view.post {
+            resizeTerminalToFit(view)
+        }
+    }
+    
+    private fun resizeTerminalToFit(view: TerminalView) {
+        val width = view.width
+        val height = view.height
+        
+        if (width <= 0 || height <= 0) {
+            Log.w(TAG, "View not measured yet, skipping resize")
+            return
+        }
+        
+        val renderer = view.mRenderer
+        if (renderer == null) {
+            Log.w(TAG, "Renderer not initialized, skipping resize")
+            return
+        }
+        
+        // Get actual character dimensions from TerminalRenderer (public API)
+        val charWidth = renderer.getFontWidth()
+        val charLineSpacing = renderer.getFontLineSpacing()
+        
+        if (charWidth <= 0 || charLineSpacing <= 0) {
+            Log.w(TAG, "Invalid character dimensions, skipping resize")
+            return
+        }
+        
+        // Calculate cols/rows exactly as Termux does
+        val cols = maxOf(4, (width / charWidth).toInt())
+        val rows = maxOf(4, height / charLineSpacing)
+        
+        Log.d(TAG, "Resizing terminal: ${cols}x${rows} (view: ${width}x${height}px, char: ${charWidth}x${charLineSpacing})")
+        
+        // Resize the local emulator
+        emulator?.resize(cols, rows)
+        view.onScreenUpdated()
+        
+        // Notify server of new size
+        viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
+            val result = safeApiCall { 
+                api.updatePtySession(
+                    ptyId, 
+                    dev.blazelight.p4oc.data.remote.dto.UpdatePtyRequest(
+                        size = dev.blazelight.p4oc.data.remote.dto.PtySizeDto(rows, cols)
+                    )
+                )
+            }
+            when (result) {
+                is ApiResult.Success -> Log.d(TAG, "PTY size updated to ${cols}x${rows}")
+                is ApiResult.Error -> Log.e(TAG, "Failed to update PTY size: ${result.message}")
+            }
+        }
     }
 
     init {

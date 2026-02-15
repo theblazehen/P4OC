@@ -230,6 +230,12 @@ fun TermuxTerminalView(
                     view.mEmulator = emu
                     view.onScreenUpdated()
                     onTerminalViewReady?.invoke(view)
+                    
+                    // Add layout listener to handle keyboard show/hide and orientation changes
+                    view.viewTreeObserver.addOnGlobalLayoutListener {
+                        // Re-notify on layout changes so ViewModel can recalculate size
+                        onTerminalViewReady?.invoke(view)
+                    }
                 }
             }
         },
