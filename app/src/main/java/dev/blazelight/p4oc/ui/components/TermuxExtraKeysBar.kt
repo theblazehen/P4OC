@@ -19,8 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 
@@ -72,29 +72,31 @@ fun TermuxExtraKeysBar(
         ExtraKey("←", "\u001B[D", enabled, onKeyPress)
         ExtraKey("→", "\u001B[C", enabled, onKeyPress)
         
-        CtrlComboKey("C", ctrlActive, enabled) { 
-            onKeyPress("\u0003")
-            ctrlActive = false
-        }
-        CtrlComboKey("D", ctrlActive, enabled) { 
-            onKeyPress("\u0004")
-            ctrlActive = false
-        }
-        CtrlComboKey("Z", ctrlActive, enabled) { 
-            onKeyPress("\u001A")
-            ctrlActive = false
-        }
-        CtrlComboKey("L", ctrlActive, enabled) { 
-            onKeyPress("\u000C")
-            ctrlActive = false
-        }
-        CtrlComboKey("A", ctrlActive, enabled) { 
-            onKeyPress("\u0001")
-            ctrlActive = false
-        }
-        CtrlComboKey("E", ctrlActive, enabled) { 
-            onKeyPress("\u0005")
-            ctrlActive = false
+        if (ctrlActive) {
+            CtrlComboKey("C", enabled) { 
+                onKeyPress("\u0003")
+                ctrlActive = false
+            }
+            CtrlComboKey("D", enabled) { 
+                onKeyPress("\u0004")
+                ctrlActive = false
+            }
+            CtrlComboKey("Z", enabled) { 
+                onKeyPress("\u001A")
+                ctrlActive = false
+            }
+            CtrlComboKey("L", enabled) { 
+                onKeyPress("\u000C")
+                ctrlActive = false
+            }
+            CtrlComboKey("A", enabled) { 
+                onKeyPress("\u0001")
+                ctrlActive = false
+            }
+            CtrlComboKey("E", enabled) { 
+                onKeyPress("\u0005")
+                ctrlActive = false
+            }
         }
     }
 }
@@ -109,8 +111,8 @@ private fun ExtraKey(
     FilledTonalButton(
         onClick = { onKeyPress(sequence) },
         enabled = enabled,
-        modifier = Modifier.height(36.dp),
-        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = 0.dp),
+        modifier = Modifier.height(Sizing.buttonHeightMd),
+        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = Spacing.none),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = SemanticColors.TerminalKeys.keyBackground,
             contentColor = SemanticColors.TerminalKeys.keyText,
@@ -136,8 +138,8 @@ private fun ModifierKey(
     FilledTonalButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.height(36.dp),
-        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = 0.dp),
+        modifier = Modifier.height(Sizing.buttonHeightMd),
+        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = Spacing.none),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = if (active) SemanticColors.TerminalKeys.activeModifier else SemanticColors.TerminalKeys.keyBackground,
             contentColor = if (active) SemanticColors.TerminalKeys.keyTextActive else SemanticColors.TerminalKeys.keyText,
@@ -156,17 +158,14 @@ private fun ModifierKey(
 @Composable
 private fun CtrlComboKey(
     letter: String,
-    ctrlActive: Boolean,
     enabled: Boolean,
     onPress: () -> Unit
 ) {
-    if (!ctrlActive) return
-    
     FilledTonalButton(
         onClick = onPress,
         enabled = enabled,
-        modifier = Modifier.height(36.dp),
-        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = 0.dp),
+        modifier = Modifier.height(Sizing.buttonHeightMd),
+        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = Spacing.none),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = SemanticColors.TerminalKeys.activeModifier,
             contentColor = SemanticColors.TerminalKeys.keyTextActive,
