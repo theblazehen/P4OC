@@ -52,13 +52,12 @@ fun TermuxExtraKeysBar(
         modifier = modifier
             .fillMaxWidth()
             .background(SemanticColors.TerminalKeys.background)
-            .padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
     ) {
         // Row 1: ESC  /  ―  HOME  ↑  END  PGUP
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(Sizing.buttonHeightMd)
+                .height(Sizing.buttonHeightSm)
         ) {
             ExtraKey("ESC", "\u001B", enabled, onKeyPress, Modifier.weight(1f))
             ExtraKey("/", "/", enabled, onKeyPress, Modifier.weight(1f))
@@ -73,7 +72,7 @@ fun TermuxExtraKeysBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(Sizing.buttonHeightMd)
+                .height(Sizing.buttonHeightSm)
         ) {
             ExtraKey("↹", "\t", enabled, onKeyPress, Modifier.weight(1f))
             ModifierKey("CTRL", ctrlActive, enabled, onCtrlToggle, Modifier.weight(1f))
@@ -117,8 +116,7 @@ private fun ExtraKey(
                         onKeyPress(sequence)
                     }
                 )
-            }
-            .padding(vertical = Spacing.xxs),
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -177,8 +175,7 @@ private fun RepeatableExtraKey(
                         isPressed = false
                     }
                 )
-            }
-            .padding(vertical = Spacing.xxs),
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -223,8 +220,7 @@ private fun ModifierKey(
                         onClick()
                     }
                 )
-            }
-            .padding(vertical = Spacing.xxs),
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
