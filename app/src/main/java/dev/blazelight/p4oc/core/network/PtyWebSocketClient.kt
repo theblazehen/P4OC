@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.Credentials
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -93,9 +94,12 @@ class PtyWebSocketClient constructor(
 
             Log.d(TAG, "Connecting to WebSocket: $wsUrl")
 
-            val request = Request.Builder()
-                .url(wsUrl)
-                .build()
+            val requestBuilder = Request.Builder().url(wsUrl)
+            val config = connection.config
+            if (config.username != null && config.password != null) {
+                requestBuilder.header("Authorization", Credentials.basic(config.username, config.password))
+            }
+            val request = requestBuilder.build()
 
             currentWebSocket = wsOkHttpClient.newWebSocket(request, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {

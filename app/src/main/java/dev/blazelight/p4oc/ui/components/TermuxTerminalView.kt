@@ -172,7 +172,8 @@ class TerminalInputView(context: Context) : View(context) {
 fun TermuxTerminalView(
     emulator: TerminalEmulator?,
     onKeyInput: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onTerminalViewReady: ((TerminalView) -> Unit)? = null
 ) {
     val context = LocalContext.current
     
@@ -228,6 +229,7 @@ fun TermuxTerminalView(
                     view.setTerminalViewClient(terminalViewClient)
                     view.mEmulator = emu
                     view.onScreenUpdated()
+                    onTerminalViewReady?.invoke(view)
                 }
             }
         },
