@@ -51,6 +51,8 @@ class TerminalViewModel constructor(
     private var terminalOutput: WebSocketTerminalOutput? = null
     private var terminalClient: PtyTerminalClient? = null
     private var terminalViewRef: WeakReference<TerminalView>? = null
+    private var lastKnownCols = 0
+    private var lastKnownRows = 0
 
     fun setTerminalView(view: TerminalView) {
         terminalViewRef = WeakReference(view)
@@ -88,28 +90,38 @@ class TerminalViewModel constructor(
         val cols = maxOf(4, (width / charWidth).toInt())
         val rows = maxOf(4, height / charLineSpacing)
         
+        // Skip resize if dimensions haven't changed
+        if (cols == lastKnownCols && rows == lastKnownRows) {
+            return
+        }
+        
+        lastKnownCols = cols
+        lastKnownRows = rows
+        
         Log.d(TAG, "Resizing terminal: ${cols}x${rows} (view: ${width}x${height}px, char: ${charWidth}x${charLineSpacing})")
         
         // Resize the local emulator
         emulator?.resize(cols, rows)
         view.onScreenUpdated()
         
-        // Notify server of new size
-        viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
-            val result = safeApiCall { 
-                api.updatePtySession(
-                    ptyId, 
-                    dev.blazelight.p4oc.data.remote.dto.UpdatePtyRequest(
-                        size = dev.blazelight.p4oc.data.remote.dto.PtySizeDto(rows, cols)
-                    )
-                )
-            }
-            when (result) {
-                is ApiResult.Success -> Log.d(TAG, "PTY size updated to ${cols}x${rows}")
-                is ApiResult.Error -> Log.e(TAG, "Failed to update PTY size: ${result.message}")
-            }
-        }
+        // TODO: Notify server of new size when PATCH /pty/{id} endpoint is available
+        // Currently the OpenCode server doesn't support PTY resize via API
+        // Local emulator is resized correctly, but server-side PTY stays at default size
+        // viewModelScope.launch {
+        //     val api = connectionManager.getApi() ?: return@launch
+        //     val result = safeApiCall { 
+        //         api.updatePtySession(
+        //             ptyId, 
+        //             dev.blazelight.p4oc.data.remote.dto.UpdatePtyRequest(
+        //                 size = dev.blazelight.p4oc.data.remote.dto.PtySizeDto(rows, cols)
+        //             )
+        //         )
+        //     }
+        //     when (result) {
+        //         is ApiResult.Success -> Log.d(TAG, "PTY size updated to ${cols}x${rows}")
+        //         is ApiResult.Error -> Log.w(TAG, "PTY resize not supported by server")
+        //     }
+        // }
     }
 
     init {
