@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.RectangleShape
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import kotlinx.coroutines.Job
@@ -56,7 +58,7 @@ fun TermuxExtraKeysBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .height(Sizing.buttonHeightMd)
         ) {
             ExtraKey("ESC", "\u001B", enabled, onKeyPress, Modifier.weight(1f))
             ExtraKey("/", "/", enabled, onKeyPress, Modifier.weight(1f))
@@ -71,7 +73,7 @@ fun TermuxExtraKeysBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .height(Sizing.buttonHeightMd)
         ) {
             ExtraKey("↹", "\t", enabled, onKeyPress, Modifier.weight(1f))
             ModifierKey("CTRL", ctrlActive, enabled, onCtrlToggle, Modifier.weight(1f))
