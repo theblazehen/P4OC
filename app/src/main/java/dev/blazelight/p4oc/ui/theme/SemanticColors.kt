@@ -227,11 +227,9 @@ object SemanticColors {
     // Terminal extra keys bar colors - derive from theme
     object TerminalKeys {
         val background: Color @Composable get() = LocalOpenCodeTheme.current.background
-        val keyBackground: Color @Composable get() = LocalOpenCodeTheme.current.backgroundPanel
         val keyText: Color @Composable get() = LocalOpenCodeTheme.current.textMuted
         val keyTextActive: Color @Composable get() = LocalOpenCodeTheme.current.text
-        val keyDisabledBackground: Color @Composable get() = LocalOpenCodeTheme.current.backgroundElement
-        val keyDisabledText: Color @Composable get() = LocalOpenCodeTheme.current.border
+        val keyPressed: Color @Composable get() = LocalOpenCodeTheme.current.backgroundElement
         val activeModifier: Color @Composable get() = LocalOpenCodeTheme.current.success
     }
     

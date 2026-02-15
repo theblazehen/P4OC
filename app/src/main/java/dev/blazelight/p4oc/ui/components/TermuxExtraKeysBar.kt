@@ -1,182 +1,240 @@
 package dev.blazelight.p4oc.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.RectangleShape
 import dev.blazelight.p4oc.ui.theme.Spacing
-import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
+/**
+ * Terminal extra keys bar in Termux style.
+ * Two-row grid layout with transparent buttons and Unicode symbols.
+ * 
+ * Default layout matches Termux:
+ * Row 1: ESC  /  ―  HOME  ↑  END  PGUP
+ * Row 2: TAB  CTRL ALT  ←  ↓  →  PGDN
+ */
 @Composable
 fun TermuxExtraKeysBar(
     onKeyPress: (String) -> Unit,
+    ctrlActive: Boolean,
+    altActive: Boolean,
+    onCtrlToggle: () -> Unit,
+    onAltToggle: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    var ctrlActive by remember { mutableStateOf(false) }
-    var altActive by remember { mutableStateOf(false) }
-
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .background(SemanticColors.TerminalKeys.background)
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+            .padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
     ) {
-        ExtraKey("ESC", "\u001B", enabled, onKeyPress)
+        // Row 1: ESC  /  ―  HOME  ↑  END  PGUP
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            ExtraKey("ESC", "\u001B", enabled, onKeyPress, Modifier.weight(1f))
+            ExtraKey("/", "/", enabled, onKeyPress, Modifier.weight(1f))
+            ExtraKey("―", "-", enabled, onKeyPress, Modifier.weight(1f))
+            ExtraKey("HOME", "\u001B[H", enabled, onKeyPress, Modifier.weight(1f))
+            RepeatableExtraKey("↑", "\u001B[A", enabled, onKeyPress, Modifier.weight(1f))
+            ExtraKey("END", "\u001B[F", enabled, onKeyPress, Modifier.weight(1f))
+            ExtraKey("PGUP", "\u001B[5~", enabled, onKeyPress, Modifier.weight(1f))
+        }
         
-        ModifierKey(
-            label = "CTRL",
-            active = ctrlActive,
-            enabled = enabled,
-            onClick = { ctrlActive = !ctrlActive }
-        )
-        
-        ModifierKey(
-            label = "ALT",
-            active = altActive,
-            enabled = enabled,
-            onClick = { altActive = !altActive }
-        )
-        
-        ExtraKey("TAB", "\t", enabled, onKeyPress)
-        ExtraKey("-", "-", enabled, onKeyPress)
-        ExtraKey("/", "/", enabled, onKeyPress)
-        ExtraKey("|", "|", enabled, onKeyPress)
-        ExtraKey("~", "~", enabled, onKeyPress)
-        ExtraKey("HOME", "\u001B[H", enabled, onKeyPress)
-        ExtraKey("END", "\u001B[F", enabled, onKeyPress)
-        ExtraKey("PGUP", "\u001B[5~", enabled, onKeyPress)
-        ExtraKey("PGDN", "\u001B[6~", enabled, onKeyPress)
-        
-        ExtraKey("↑", "\u001B[A", enabled, onKeyPress)
-        ExtraKey("↓", "\u001B[B", enabled, onKeyPress)
-        ExtraKey("←", "\u001B[D", enabled, onKeyPress)
-        ExtraKey("→", "\u001B[C", enabled, onKeyPress)
-        
-        if (ctrlActive) {
-            CtrlComboKey("C", enabled) { 
-                onKeyPress("\u0003")
-                ctrlActive = false
-            }
-            CtrlComboKey("D", enabled) { 
-                onKeyPress("\u0004")
-                ctrlActive = false
-            }
-            CtrlComboKey("Z", enabled) { 
-                onKeyPress("\u001A")
-                ctrlActive = false
-            }
-            CtrlComboKey("L", enabled) { 
-                onKeyPress("\u000C")
-                ctrlActive = false
-            }
-            CtrlComboKey("A", enabled) { 
-                onKeyPress("\u0001")
-                ctrlActive = false
-            }
-            CtrlComboKey("E", enabled) { 
-                onKeyPress("\u0005")
-                ctrlActive = false
-            }
+        // Row 2: TAB  CTRL  ALT  ←  ↓  →  PGDN
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            ExtraKey("↹", "\t", enabled, onKeyPress, Modifier.weight(1f))
+            ModifierKey("CTRL", ctrlActive, enabled, onCtrlToggle, Modifier.weight(1f))
+            ModifierKey("ALT", altActive, enabled, onAltToggle, Modifier.weight(1f))
+            RepeatableExtraKey("←", "\u001B[D", enabled, onKeyPress, Modifier.weight(1f))
+            RepeatableExtraKey("↓", "\u001B[B", enabled, onKeyPress, Modifier.weight(1f))
+            RepeatableExtraKey("→", "\u001B[C", enabled, onKeyPress, Modifier.weight(1f))
+            ExtraKey("PGDN", "\u001B[6~", enabled, onKeyPress, Modifier.weight(1f))
         }
     }
 }
 
+/**
+ * Single extra key button (non-repeating).
+ */
 @Composable
 private fun ExtraKey(
     label: String,
     sequence: String,
     enabled: Boolean,
-    onKeyPress: (String) -> Unit
+    onKeyPress: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    FilledTonalButton(
-        onClick = { onKeyPress(sequence) },
-        enabled = enabled,
-        modifier = Modifier.height(Sizing.buttonHeightMd),
-        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = Spacing.none),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = SemanticColors.TerminalKeys.keyBackground,
-            contentColor = SemanticColors.TerminalKeys.keyText,
-            disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
-            disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
-        )
+    var isPressed by remember { mutableStateOf(false) }
+    
+    Box(
+        modifier = modifier
+            .background(
+                color = if (isPressed) SemanticColors.TerminalKeys.keyPressed else Color.Transparent,
+                shape = RectangleShape
+            )
+            .pointerInput(enabled, sequence) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease()
+                        isPressed = false
+                    },
+                    onTap = {
+                        onKeyPress(sequence)
+                    }
+                )
+            }
+            .padding(vertical = Spacing.xxs),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
+            color = if (enabled) SemanticColors.TerminalKeys.keyText else SemanticColors.TerminalKeys.keyText.copy(alpha = 0.5f),
             fontSize = TuiCodeFontSize.md,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center
         )
     }
 }
 
+/**
+ * Repeatable extra key button (long-press triggers repeat).
+ * Matches Termux behavior: 400ms initial delay, then 80ms repeat interval.
+ */
+@Composable
+private fun RepeatableExtraKey(
+    label: String,
+    sequence: String,
+    enabled: Boolean,
+    onKeyPress: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var repeatJob by remember { mutableStateOf<Job?>(null) }
+    
+    Box(
+        modifier = modifier
+            .background(
+                color = if (isPressed) SemanticColors.TerminalKeys.keyPressed else Color.Transparent,
+                shape = RectangleShape
+            )
+            .pointerInput(enabled, sequence) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        
+                        // Start repeat job
+                        repeatJob = scope.launch {
+                            onKeyPress(sequence) // First press
+                            delay(400) // Initial delay (Termux: FALLBACK_LONG_PRESS_DURATION)
+                            while (true) {
+                                onKeyPress(sequence)
+                                delay(80) // Repeat delay (Termux: DEFAULT_LONG_PRESS_REPEAT_DELAY)
+                            }
+                        }
+                        
+                        tryAwaitRelease()
+                        
+                        // Cancel repeat on release
+                        repeatJob?.cancel()
+                        repeatJob = null
+                        isPressed = false
+                    }
+                )
+            }
+            .padding(vertical = Spacing.xxs),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (enabled) SemanticColors.TerminalKeys.keyText else SemanticColors.TerminalKeys.keyText.copy(alpha = 0.5f),
+            fontSize = TuiCodeFontSize.md,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * Modifier key button (CTRL/ALT) with active state.
+ * Active state shows in text color, background stays transparent.
+ */
 @Composable
 private fun ModifierKey(
     label: String,
     active: Boolean,
     enabled: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    FilledTonalButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.height(Sizing.buttonHeightMd),
-        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = Spacing.none),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (active) SemanticColors.TerminalKeys.activeModifier else SemanticColors.TerminalKeys.keyBackground,
-            contentColor = if (active) SemanticColors.TerminalKeys.keyTextActive else SemanticColors.TerminalKeys.keyText,
-            disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
-            disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
-        )
+    var isPressed by remember { mutableStateOf(false) }
+    
+    Box(
+        modifier = modifier
+            .background(
+                color = if (isPressed) SemanticColors.TerminalKeys.keyPressed else Color.Transparent,
+                shape = RectangleShape
+            )
+            .pointerInput(enabled, active) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease()
+                        isPressed = false
+                    },
+                    onTap = {
+                        onClick()
+                    }
+                )
+            }
+            .padding(vertical = Spacing.xxs),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
+            color = when {
+                !enabled -> SemanticColors.TerminalKeys.keyText.copy(alpha = 0.5f)
+                active -> SemanticColors.TerminalKeys.activeModifier
+                else -> SemanticColors.TerminalKeys.keyText
+            },
             fontSize = TuiCodeFontSize.md,
-            fontFamily = FontFamily.Monospace
-        )
-    }
-}
-
-@Composable
-private fun CtrlComboKey(
-    letter: String,
-    enabled: Boolean,
-    onPress: () -> Unit
-) {
-    FilledTonalButton(
-        onClick = onPress,
-        enabled = enabled,
-        modifier = Modifier.height(Sizing.buttonHeightMd),
-        contentPadding = PaddingValues(horizontal = Spacing.mdLg, vertical = Spacing.none),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = SemanticColors.TerminalKeys.activeModifier,
-            contentColor = SemanticColors.TerminalKeys.keyTextActive,
-            disabledContainerColor = SemanticColors.TerminalKeys.keyDisabledBackground,
-            disabledContentColor = SemanticColors.TerminalKeys.keyDisabledText
-        )
-    ) {
-        Text(
-            text = "^$letter",
-            fontSize = TuiCodeFontSize.md,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center
         )
     }
 }
