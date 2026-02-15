@@ -61,28 +61,31 @@ fun MainTabScreen(
         }
     }
     
-    // Load existing PTY sessions as tabs on connect
-    var ptyTabsLoaded by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (!ptyTabsLoaded) {
-            val api = connectionManager.getApi()
-            if (api != null) {
-                val result = safeApiCall { api.listPtySessions() }
-                when (result) {
-                    is ApiResult.Success -> {
-                        // Queue terminal tabs for existing PTYs
-                        result.data.forEach { ptyDto ->
-                            pendingTabQueue.add(Screen.Terminal.createRoute(ptyDto.id))
-                        }
-                    }
-                    is ApiResult.Error -> {
-                        Log.e(TAG, "Failed to load PTY sessions: ${result.message}")
-                    }
-                }
-            }
-            ptyTabsLoaded = true
-        }
-    }
+    // TODO: Load existing PTY sessions as tabs on connect (disabled due to layout conflict)
+    // Loading multiple tabs during initial composition causes HorizontalPager layout issues
+    // For now, users need to create terminals manually
+    // var ptyTabsLoaded by remember { mutableStateOf(false) }
+    // LaunchedEffect(Unit) {
+    //     if (!ptyTabsLoaded) {
+    //         // Wait for UI to stabilize
+    //         kotlinx.coroutines.delay(500)
+    //         val api = connectionManager.getApi()
+    //         if (api != null) {
+    //             val result = safeApiCall { api.listPtySessions() }
+    //             when (result) {
+    //                 is ApiResult.Success -> {
+    //                     result.data.forEach { ptyDto ->
+    //                         pendingTabQueue.add(Screen.Terminal.createRoute(ptyDto.id))
+    //                     }
+    //                 }
+    //                 is ApiResult.Error -> {
+    //                     Log.e(TAG, "Failed to load PTY sessions: ${result.message}")
+    //                 }
+    //             }
+    //         }
+    //         ptyTabsLoaded = true
+    //     }
+    // }
     
     // Process pending tab queue
     LaunchedEffect(pendingTabQueue.size, pendingNewTab) {
