@@ -232,7 +232,7 @@ fun getIconForRoute(route: String?): ImageVector {
         route == "sessions" -> Icons.AutoMirrored.Filled.List
         route.startsWith("chat/") -> Icons.AutoMirrored.Filled.Chat
         route == "files" || route.startsWith("files/") -> Icons.Default.Folder
-        route == "terminal" -> Icons.Default.Terminal
+        route.startsWith("terminal/") -> Icons.Default.Terminal
         route.startsWith("settings") -> Icons.Default.Settings
         route == "projects" -> Icons.Default.FolderOpen
         else -> Icons.Default.Tab
@@ -250,7 +250,7 @@ fun getTitleForRoute(route: String?, sessionTitle: String? = null): String {
         route.startsWith("chat/") -> sessionTitle ?: "Chat"
         route == "files" -> "Files"
         route.startsWith("files/") -> "File"
-        route == "terminal" -> "Terminal"
+        route.startsWith("terminal/") -> sessionTitle ?: "Terminal"
         route == "settings" -> "Settings"
         route.startsWith("settings/") -> "Settings"
         route == "projects" -> "Projects"

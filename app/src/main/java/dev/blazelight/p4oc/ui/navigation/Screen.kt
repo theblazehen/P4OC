@@ -14,7 +14,10 @@ sealed class Screen(val route: String) {
         const val ARG_DIRECTORY = "directory"
     }
     
-    data object Terminal : Screen("terminal")
+    data object Terminal : Screen("terminal/{ptyId}") {
+        fun createRoute(ptyId: String) = "terminal/$ptyId"
+        const val ARG_PTY_ID = "ptyId"
+    }
     
     data object Files : Screen("files")
     

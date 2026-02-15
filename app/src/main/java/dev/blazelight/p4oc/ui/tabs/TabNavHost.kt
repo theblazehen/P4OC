@@ -190,10 +190,18 @@ fun TabNavHost(
             )
         }
 
-        // Terminal screen
-        composable(Screen.Terminal.route) {
+        // Terminal screen (per-PTY, each tab has its own)
+        composable(
+            route = Screen.Terminal.route,
+            arguments = listOf(
+                navArgument(Screen.Terminal.ARG_PTY_ID) { type = NavType.StringType }
+            )
+        ) {
             TerminalScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onPtyLoaded = { ptyId, ptyTitle ->
+                    // Update tab binding with PTY id and title
+                    tabManager.updateTabSession(tabId, ptyId, ptyTitle)
+                }
             )
         }
 

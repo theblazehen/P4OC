@@ -88,7 +88,7 @@ val networkModule = module {
 
     // Network
     single { DirectoryManager(get()) }
-    single { PtyWebSocketClient(get()) }
+    factory { PtyWebSocketClient(get()) }
     single { ConnectionManager(get(), get(), get()) }
 }
 
@@ -114,7 +114,7 @@ val viewModelModule = module {
     viewModelOf(::ProviderConfigViewModel)
     viewModelOf(::ProjectsViewModel)
     viewModel { params -> ChatViewModel(params.get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    viewModel { TerminalViewModel(androidContext(), get(), get()) }
+    viewModel { params -> TerminalViewModel(params.get(), androidContext(), get(), get()) }
 }
 
 val allModules = listOf(

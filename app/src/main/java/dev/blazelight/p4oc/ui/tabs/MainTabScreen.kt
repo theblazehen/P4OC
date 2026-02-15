@@ -8,15 +8,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import dev.blazelight.p4oc.core.network.ApiResult
+import dev.blazelight.p4oc.core.network.ConnectionManager
+import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.data.remote.dto.CreatePtyRequest
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.ui.navigation.Screen
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 private const val TAG = "MainTabScreen"
@@ -31,6 +37,8 @@ fun MainTabScreen(
     modifier: Modifier = Modifier
 ) {
     val tabManager: TabManager = koinInject()
+    val connectionManager: ConnectionManager = koinInject()
+    val coroutineScope = rememberCoroutineScope()
     val theme = LocalOpenCodeTheme.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -42,6 +50,7 @@ fun MainTabScreen(
     // State for pending new tab creation
     var pendingNewTab by remember { mutableStateOf(false) }
     var pendingNewTabRoute by remember { mutableStateOf<String?>(null) }
+    val pendingTabQueue = remember { mutableStateListOf<String?>() }
     
     // Create initial tab if needed
     val initialNavController = rememberNavController()
@@ -49,6 +58,38 @@ fun MainTabScreen(
         if (!tabManager.hasTabs()) {
             val initialTab = TabInstance(TabState(), initialNavController)
             tabManager.registerTab(initialTab, focus = true)
+        }
+    }
+    
+    // Load existing PTY sessions as tabs on connect
+    var ptyTabsLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!ptyTabsLoaded) {
+            val api = connectionManager.getApi()
+            if (api != null) {
+                val result = safeApiCall { api.listPtySessions() }
+                when (result) {
+                    is ApiResult.Success -> {
+                        // Queue terminal tabs for existing PTYs
+                        result.data.forEach { ptyDto ->
+                            pendingTabQueue.add(Screen.Terminal.createRoute(ptyDto.id))
+                        }
+                    }
+                    is ApiResult.Error -> {
+                        Log.e(TAG, "Failed to load PTY sessions: ${result.message}")
+                    }
+                }
+            }
+            ptyTabsLoaded = true
+        }
+    }
+    
+    // Process pending tab queue
+    LaunchedEffect(pendingTabQueue.size, pendingNewTab) {
+        if (!pendingNewTab && pendingTabQueue.isNotEmpty()) {
+            val nextRoute = pendingTabQueue.removeAt(0)
+            pendingNewTabRoute = nextRoute
+            pendingNewTab = true
         }
     }
     
@@ -134,17 +175,34 @@ fun MainTabScreen(
                     tabManager.focusTab(tabId)
                 },
                 onTabClose = { tabId ->
-                    // If this is the last tab, create a new one first
-                    if (tabs.size == 1) {
-                        pendingNewTab = true
-                        pendingNewTabRoute = null
+                    coroutineScope.launch {
+                        // Check if it's a terminal tab and delete the PTY
+                        val tab = tabs.find { it.id == tabId }
+                        val route = tab?.navController?.currentBackStackEntry?.destination?.route
+                        if (route != null && route.startsWith("terminal/")) {
+                            // Extract ptyId from route (route is "terminal/{ptyId}")
+                            val ptyId = tab.navController.currentBackStackEntry
+                                ?.arguments?.getString(Screen.Terminal.ARG_PTY_ID)
+                            if (ptyId != null) {
+                                val api = connectionManager.getApi()
+                                if (api != null) {
+                                    val result = safeApiCall { api.deletePtySession(ptyId) }
+                                    if (result is ApiResult.Error) {
+                                        Log.e(TAG, "Failed to delete PTY $ptyId: ${result.message}")
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // If this is the last tab, create a new one first
+                        if (tabs.size == 1) {
+                            pendingTabQueue.add(null)
+                        }
+                        tabManager.closeTab(tabId, null)
                     }
-                    tabManager.closeTab(tabId, null)
                 },
                 onAddClick = {
-                    // Trigger new tab creation
-                    pendingNewTab = true
-                    pendingNewTabRoute = null
+                    pendingTabQueue.add(null)
                 },
             )
             
@@ -187,12 +245,27 @@ fun MainTabScreen(
                         onDisconnect = onDisconnect,
                         pendingRoute = tab.pendingRoute,
                         onNewFilesTab = {
-                            pendingNewTab = true
-                            pendingNewTabRoute = Screen.Files.route
+                            pendingTabQueue.add(Screen.Files.route)
                         },
                         onNewTerminalTab = {
-                            pendingNewTab = true
-                            pendingNewTabRoute = Screen.Terminal.route
+                            coroutineScope.launch {
+                                val api = connectionManager.getApi() ?: run {
+                                    Log.e(TAG, "Cannot create terminal: not connected")
+                                    snackbarHostState.showSnackbar("Not connected to server")
+                                    return@launch
+                                }
+                                val result = safeApiCall { api.createPtySession(CreatePtyRequest()) }
+                                when (result) {
+                                    is ApiResult.Success -> {
+                                        val ptyId = result.data.id
+                                        pendingTabQueue.add(Screen.Terminal.createRoute(ptyId))
+                                    }
+                                    is ApiResult.Error -> {
+                                        Log.e(TAG, "Failed to create PTY: ${result.message}")
+                                        snackbarHostState.showSnackbar("Failed to create terminal: ${result.message}")
+                                    }
+                                }
+                            }
                         },
                         isActiveTab = isActive,
                         onConnectionStateChanged = { state ->

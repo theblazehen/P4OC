@@ -2,18 +2,20 @@ package dev.blazelight.p4oc.ui.screens.terminal
 
 import android.content.Context
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.PtyWebSocketClient
 import dev.blazelight.p4oc.core.network.safeApiCall
-import dev.blazelight.p4oc.data.remote.dto.CreatePtyRequest
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
-import dev.blazelight.p4oc.domain.model.Pty
 import dev.blazelight.p4oc.terminal.PtyTerminalClient
 import dev.blazelight.p4oc.terminal.WebSocketTerminalOutput
+import dev.blazelight.p4oc.ui.navigation.Screen
 import com.termux.terminal.TerminalEmulator
+import com.termux.view.TerminalView
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +23,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 
+/**
+ * ViewModel for a single PTY terminal session.
+ * Each terminal tab gets its own instance with its own ptyId and websocket connection.
+ */
 class TerminalViewModel constructor(
+    savedStateHandle: SavedStateHandle,
     private val context: Context,
     private val connectionManager: ConnectionManager,
     private val ptyWebSocket: PtyWebSocketClient
@@ -34,57 +41,54 @@ class TerminalViewModel constructor(
         private const val TRANSCRIPT_ROWS = 2000
     }
 
+    val ptyId: String = savedStateHandle.get<String>(Screen.Terminal.ARG_PTY_ID)
+        ?: throw IllegalArgumentException("ptyId is required for TerminalViewModel")
+
     private val _uiState = MutableStateFlow(TerminalUiState())
     val uiState: StateFlow<TerminalUiState> = _uiState.asStateFlow()
 
-    private val terminalEmulators = mutableMapOf<String, TerminalEmulator>()
+    private var emulator: TerminalEmulator? = null
     private var terminalOutput: WebSocketTerminalOutput? = null
     private var terminalClient: PtyTerminalClient? = null
+    private var terminalViewRef: WeakReference<TerminalView>? = null
+
+    fun setTerminalView(view: TerminalView) {
+        terminalViewRef = WeakReference(view)
+    }
 
     init {
-        loadPtySessions()
+        initEmulator()
+        fetchPtyDetails()
+        connectToSession()
         observeEvents()
         observeWebSocketOutput()
         observeWebSocketState()
     }
-
-    fun getTerminalEmulator(): TerminalEmulator? {
-        val ptyId = _uiState.value.selectedPtyId ?: return null
-        return terminalEmulators.getOrPut(ptyId) {
-            createEmulatorForSession(ptyId)
+    
+    private fun fetchPtyDetails() {
+        viewModelScope.launch {
+            val api = connectionManager.getApi() ?: return@launch
+            val result = safeApiCall { api.listPtySessions() }
+            when (result) {
+                is ApiResult.Success -> {
+                    val pty = result.data.find { it.id == ptyId }
+                    pty?.let {
+                        _uiState.update { state -> state.copy(title = it.title) }
+                    }
+                }
+                is ApiResult.Error -> {
+                    Log.e(TAG, "Failed to fetch PTY details: ${result.message}")
+                }
+            }
         }
     }
 
-    private fun createEmulatorForSession(ptyId: String): TerminalEmulator {
-        ensureTerminalClientInitialized()
-        
-        val output = WebSocketTerminalOutput(
-            webSocket = ptyWebSocket,
-            onTitleChanged = { _, newTitle ->
-                Log.d(TAG, "Terminal title changed: $newTitle")
-            },
-            onBell = {
-                Log.d(TAG, "Terminal bell")
-            }
-        )
-        
-        return TerminalEmulator(
-            output,
-            DEFAULT_COLS,
-            DEFAULT_ROWS,
-            TRANSCRIPT_ROWS,
-            terminalClient
-        )
-    }
+    fun getTerminalEmulator(): TerminalEmulator? = emulator
 
-    private fun ensureTerminalClientInitialized() {
-        if (terminalClient != null) return
-        
+    private fun initEmulator() {
         terminalClient = PtyTerminalClient(
             context = context,
-            onTextChanged = {
-                _uiState.update { it.copy(terminalRevision = it.terminalRevision + 1) }
-            },
+            onTextChanged = { /* View invalidated directly via postInvalidate */ },
             onTitleChanged = { title ->
                 Log.d(TAG, "Session title changed: $title")
             },
@@ -98,16 +102,40 @@ class TerminalViewModel constructor(
                 sendInput(text)
             }
         )
+
+        terminalOutput = WebSocketTerminalOutput(
+            webSocket = ptyWebSocket,
+            onTitleChanged = { _, newTitle ->
+                Log.d(TAG, "Terminal title changed: $newTitle")
+            },
+            onBell = {
+                Log.d(TAG, "Terminal bell")
+            }
+        )
+
+        emulator = TerminalEmulator(
+            terminalOutput,
+            DEFAULT_COLS,
+            DEFAULT_ROWS,
+            TRANSCRIPT_ROWS,
+            terminalClient
+        )
+    }
+
+    private fun connectToSession() {
+        ptyWebSocket.connect(ptyId)
+        _uiState.update { it.copy(isConnecting = true) }
     }
 
     private fun observeWebSocketOutput() {
         viewModelScope.launch {
             ptyWebSocket.output.collect { data ->
-                val ptyId = _uiState.value.selectedPtyId ?: return@collect
-                val emulator = terminalEmulators[ptyId] ?: return@collect
+                val em = emulator ?: return@collect
                 val bytes = data.toByteArray()
-                emulator.append(bytes, bytes.size)
-                _uiState.update { it.copy(terminalRevision = it.terminalRevision + 1) }
+                em.append(bytes, bytes.size)
+                // Invalidate the TerminalView directly on the UI thread
+                // instead of triggering Compose recomposition for every data chunk
+                terminalViewRef?.get()?.postInvalidate()
             }
         }
     }
@@ -118,18 +146,23 @@ class TerminalViewModel constructor(
                 when (connectionState) {
                     is PtyWebSocketClient.ConnectionState.Connected -> {
                         Log.d(TAG, "WebSocket connected to ${connectionState.ptyId}")
-                        _uiState.update { it.copy(isConnected = true) }
+                        _uiState.update { it.copy(isConnected = true, isConnecting = false) }
                     }
                     is PtyWebSocketClient.ConnectionState.Error -> {
                         Log.e(TAG, "WebSocket error: ${connectionState.message}")
-                        _uiState.update { it.copy(error = "Connection error: ${connectionState.message}", isConnected = false) }
+                        _uiState.update { it.copy(
+                            error = "Connection error: ${connectionState.message}",
+                            isConnected = false,
+                            isConnecting = false
+                        ) }
                     }
                     is PtyWebSocketClient.ConnectionState.Disconnected -> {
                         Log.d(TAG, "WebSocket disconnected")
-                        _uiState.update { it.copy(isConnected = false) }
+                        _uiState.update { it.copy(isConnected = false, isConnecting = false) }
                     }
                     is PtyWebSocketClient.ConnectionState.Connecting -> {
                         Log.d(TAG, "WebSocket connecting...")
+                        _uiState.update { it.copy(isConnecting = true) }
                     }
                 }
             }
@@ -140,173 +173,21 @@ class TerminalViewModel constructor(
         viewModelScope.launch {
             connectionManager.getEventSource()?.events?.collect { event ->
                 when (event) {
-                    is OpenCodeEvent.PtyCreated -> {
-                        _uiState.update { state ->
-                            state.copy(
-                                ptySessions = state.ptySessions + event.pty,
-                                selectedPtyId = state.selectedPtyId ?: event.pty.id
-                            )
-                        }
-                    }
                     is OpenCodeEvent.PtyUpdated -> {
-                        _uiState.update { state ->
-                            state.copy(
-                                ptySessions = state.ptySessions.map {
-                                    if (it.id == event.pty.id) event.pty else it
-                                }
-                            )
+                        if (event.pty.id == ptyId) {
+                            _uiState.update { it.copy(title = event.pty.title) }
                         }
                     }
                     is OpenCodeEvent.PtyExited -> {
-                        val exitMessage = "\r\n[Process exited with code ${event.exitCode}]\r\n"
-                        val bytes = exitMessage.toByteArray()
-                        terminalEmulators[event.id]?.append(bytes, bytes.size)
-                        _uiState.update { state ->
-                            state.copy(
-                                ptySessions = state.ptySessions.map {
-                                    if (it.id == event.id) it.copy(status = "exited") else it
-                                },
-                                terminalRevision = state.terminalRevision + 1
-                            )
-                        }
-                    }
-                    is OpenCodeEvent.PtyDeleted -> {
-                        if (_uiState.value.selectedPtyId == event.id) {
-                            ptyWebSocket.disconnect()
-                        }
-                        terminalEmulators.remove(event.id)
-                        _uiState.update { state ->
-                            val newSessions = state.ptySessions.filter { it.id != event.id }
-                            state.copy(
-                                ptySessions = newSessions,
-                                selectedPtyId = if (state.selectedPtyId == event.id) {
-                                    newSessions.firstOrNull()?.id
-                                } else state.selectedPtyId
-                            )
+                        if (event.id == ptyId) {
+                            val exitMessage = "\r\n[Process exited with code ${event.exitCode}]\r\n"
+                            val bytes = exitMessage.toByteArray()
+                            emulator?.append(bytes, bytes.size)
+                            terminalViewRef?.get()?.postInvalidate()
+                            _uiState.update { it.copy(isExited = true) }
                         }
                     }
                     else -> {}
-                }
-            }
-        }
-    }
-
-    private fun loadPtySessions() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
-                return@launch
-            }
-            val result = safeApiCall { api.listPtySessions() }
-
-            when (result) {
-                is ApiResult.Success -> {
-                    val sessions = result.data.map { dto ->
-                        Pty(
-                            id = dto.id,
-                            title = dto.title,
-                            command = dto.command,
-                            args = dto.args,
-                            cwd = dto.cwd,
-                            status = dto.status,
-                            pid = dto.pid
-                        )
-                    }
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            ptySessions = sessions,
-                            selectedPtyId = sessions.firstOrNull()?.id
-                        )
-                    }
-                    sessions.firstOrNull()?.let { connectToSession(it.id) }
-                }
-                is ApiResult.Error -> {
-                    Log.e(TAG, "Failed to load PTY sessions: ${result.message}")
-                    _uiState.update {
-                        it.copy(isLoading = false, error = result.message)
-                    }
-                }
-            }
-        }
-    }
-
-    fun createNewSession(title: String? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isCreating = true) }
-
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isCreating = false, error = "Not connected") }
-                return@launch
-            }
-            val request = CreatePtyRequest(title = title ?: "Terminal")
-
-            val result = safeApiCall { api.createPtySession(request) }
-
-            when (result) {
-                is ApiResult.Success -> {
-                    val pty = Pty(
-                        id = result.data.id,
-                        title = result.data.title,
-                        command = result.data.command,
-                        args = result.data.args,
-                        cwd = result.data.cwd,
-                        status = result.data.status,
-                        pid = result.data.pid
-                    )
-                    clearTerminal()
-                    _uiState.update {
-                        it.copy(
-                            isCreating = false,
-                            ptySessions = it.ptySessions + pty,
-                            selectedPtyId = pty.id
-                        )
-                    }
-                    connectToSession(pty.id)
-                }
-                is ApiResult.Error -> {
-                    Log.e(TAG, "Failed to create PTY session: ${result.message}")
-                    _uiState.update {
-                        it.copy(isCreating = false, error = result.message)
-                    }
-                }
-            }
-        }
-    }
-
-    fun selectSession(ptyId: String) {
-        _uiState.update { it.copy(selectedPtyId = ptyId, terminalRevision = it.terminalRevision + 1) }
-        connectToSession(ptyId)
-    }
-
-    private fun connectToSession(ptyId: String) {
-        ptyWebSocket.connect(ptyId)
-    }
-
-    fun deleteSession(ptyId: String) {
-        viewModelScope.launch {
-            if (_uiState.value.selectedPtyId == ptyId) {
-                ptyWebSocket.disconnect()
-            }
-            terminalEmulators.remove(ptyId)
-            val api = connectionManager.getApi() ?: return@launch
-            val result = safeApiCall { api.deletePtySession(ptyId) }
-            when (result) {
-                is ApiResult.Success -> {
-                    _uiState.update { state ->
-                        val newSessions = state.ptySessions.filter { it.id != ptyId }
-                        state.copy(
-                            ptySessions = newSessions,
-                            selectedPtyId = if (state.selectedPtyId == ptyId) {
-                                newSessions.firstOrNull()?.id
-                            } else state.selectedPtyId
-                        )
-                    }
-                }
-                is ApiResult.Error -> {
-                    Log.e(TAG, "Failed to delete PTY: ${result.message}")
                 }
             }
         }
@@ -322,36 +203,28 @@ class TerminalViewModel constructor(
     }
 
     fun clearTerminal() {
-        val ptyId = _uiState.value.selectedPtyId ?: return
-        terminalEmulators[ptyId]?.reset()
-        _uiState.update { it.copy(terminalRevision = it.terminalRevision + 1) }
+        emulator?.reset()
+        terminalViewRef?.get()?.postInvalidate()
     }
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 
-    fun refresh() {
-        loadPtySessions()
-    }
-
     override fun onCleared() {
         super.onCleared()
         ptyWebSocket.disconnect()
-        terminalEmulators.clear()
+        emulator = null
         terminalClient = null
         terminalOutput = null
+        terminalViewRef = null
     }
 }
 
 data class TerminalUiState(
-    val isLoading: Boolean = false,
-    val isCreating: Boolean = false,
+    val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
-    val ptySessions: List<Pty> = emptyList(),
-    val selectedPtyId: String? = null,
-    val error: String? = null,
-    val terminalRevision: Int = 0
-) {
-    val selectedPty: Pty? get() = ptySessions.find { it.id == selectedPtyId }
-}
+    val isExited: Boolean = false,
+    val title: String? = null,
+    val error: String? = null
+)

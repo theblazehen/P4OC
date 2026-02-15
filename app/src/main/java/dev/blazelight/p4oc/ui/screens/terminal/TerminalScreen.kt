@@ -2,38 +2,32 @@ package dev.blazelight.p4oc.ui.screens.terminal
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
-import androidx.compose.ui.unit.dp
 import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.res.stringResource
-import dev.blazelight.p4oc.R
-import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TermuxExtraKeysBar
 import dev.blazelight.p4oc.ui.components.TermuxTerminalView
 import dev.blazelight.p4oc.ui.theme.SemanticColors
-import dev.blazelight.p4oc.ui.theme.Spacing
-import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TerminalScreen(
     viewModel: TerminalViewModel = koinViewModel(),
-    onNavigateBack: () -> Unit
+    onPtyLoaded: ((ptyId: String, ptyTitle: String) -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     
+    // Notify when PTY title is loaded
+    LaunchedEffect(uiState.title) {
+        uiState.title?.let { title ->
+            onPtyLoaded?.invoke(viewModel.ptyId, title)
+        }
+    }
+
     // Show error in snackbar
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
@@ -45,163 +39,43 @@ fun TerminalScreen(
         }
     }
 
-    val theme = LocalOpenCodeTheme.current
-    Scaffold(
-        containerColor = theme.background,
-        topBar = {
-            TuiTopBar(
-                title = uiState.selectedPty?.title ?: stringResource(R.string.terminal_title),
-                onNavigateBack = onNavigateBack,
-                actions = {
-                    IconButton(
-                        onClick = viewModel::clearTerminal,
-                        modifier = Modifier.size(Sizing.iconButtonMd)
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(Sizing.iconAction))
-                    }
-                    IconButton(
-                        onClick = viewModel::refresh,
-                        modifier = Modifier.size(Sizing.iconButtonMd)
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), modifier = Modifier.size(Sizing.iconAction))
-                    }
-                    IconButton(
-                        onClick = { viewModel.createNewSession() },
-                        modifier = Modifier.size(Sizing.iconButtonMd)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create), modifier = Modifier.size(Sizing.iconAction))
-                    }
-                }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (uiState.ptySessions.isNotEmpty()) {
-                SessionTabRow(
-                    sessions = uiState.ptySessions,
-                    selectedPtyId = uiState.selectedPtyId,
-                    onSelectSession = viewModel::selectSession,
-                    onDeleteSession = viewModel::deleteSession
-                )
-                HorizontalDivider()
-            }
-
+            // Terminal view
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .background(SemanticColors.Terminal.background)
             ) {
-                when {
-                    uiState.isLoading -> {
-                        TuiLoadingIndicator(
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                    uiState.ptySessions.isEmpty() -> {
-                        EmptyTerminalState(
-                            onCreateTerminal = { viewModel.createNewSession() },
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                    else -> {
-                        TermuxTerminalView(
-                            emulator = viewModel.getTerminalEmulator(),
-                            onKeyInput = viewModel::sendInput,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                if (uiState.isConnecting && !uiState.isConnected) {
+                    TuiLoadingIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    TermuxTerminalView(
+                        emulator = viewModel.getTerminalEmulator(),
+                        onKeyInput = viewModel::sendInput,
+                        modifier = Modifier.fillMaxSize(),
+                        onTerminalViewReady = { view -> viewModel.setTerminalView(view) }
+                    )
                 }
             }
 
+            // Extra keys bar
             TermuxExtraKeysBar(
                 onKeyPress = viewModel::sendInput,
-                enabled = uiState.selectedPtyId != null && uiState.isConnected,
+                enabled = uiState.isConnected,
                 modifier = Modifier.fillMaxWidth()
             )
         }
-    }
-}
 
-@Composable
-private fun SessionTabRow(
-    sessions: List<dev.blazelight.p4oc.domain.model.Pty>,
-    selectedPtyId: String?,
-    onSelectSession: (String) -> Unit,
-    onDeleteSession: (String) -> Unit
-) {
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md)
-    ) {
-        items(sessions) { pty ->
-            FilterChip(
-                selected = pty.id == selectedPtyId,
-                onClick = { onSelectSession(pty.id) },
-                label = { Text(pty.title) },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Terminal,
-                        contentDescription = stringResource(R.string.cd_terminal_tab),
-                        modifier = Modifier.size(Sizing.iconXs)
-                    )
-                },
-                trailingIcon = {
-                    IconButton(
-                        onClick = { onDeleteSession(pty.id) },
-                        modifier = Modifier.size(Sizing.iconXs)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = stringResource(R.string.close),
-                            modifier = Modifier.size(Sizing.iconXs)
-                        )
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmptyTerminalState(
-    onCreateTerminal: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val theme = LocalOpenCodeTheme.current
-    Column(
-        modifier = modifier.padding(Spacing.lg),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(Spacing.md)
-    ) {
-        Icon(
-            Icons.Default.Terminal,
-            contentDescription = stringResource(R.string.cd_terminal),
-            modifier = Modifier.size(Sizing.iconHero),
-            tint = SemanticColors.Terminal.green
+        // Snackbar host overlaid
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
-        Text(
-            text = stringResource(R.string.terminal_no_sessions),
-            color = theme.text,
-            style = MaterialTheme.typography.titleMedium
-        )
-        Button(
-            onClick = onCreateTerminal,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = SemanticColors.Terminal.green,
-                contentColor = theme.background
-            )
-        ) {
-            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.terminal_create))
-            Spacer(Modifier.width(Spacing.md))
-            Text(stringResource(R.string.terminal_create))
-        }
     }
 }
