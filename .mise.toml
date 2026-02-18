@@ -1,5 +1,2 @@
 [tools]
 java = "temurin-17"
-
-[env]
-JAVA_HOME = "{{env.MISE_TOOL_DIRS.java}}"
