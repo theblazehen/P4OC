@@ -63,3 +63,12 @@ openspec/
 
 # AI session context (not project docs)
 compact_context.md
+
+# Temporary/debug files
+detekt-*.jar
+detekt-*.html
+detekt-*.txt
+repomix-*.xml
+temp_research/
+*.png
+!screenshots/*.png
