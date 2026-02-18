@@ -3,6 +3,7 @@ package dev.blazelight.p4oc.ui.screens.chat
 import androidx.compose.runtime.Composable
 import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageWithParts
+import dev.blazelight.p4oc.domain.model.Permission
 import dev.blazelight.p4oc.ui.components.chat.ChatMessage
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 
@@ -49,8 +50,10 @@ internal fun MessageBlockView(
     block: MessageBlock,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    onToolAlways: (String) -> Unit,
     onOpenSubSession: ((String) -> Unit)? = null,
-    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT
+    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT,
+    pendingPermissionsByCallId: Map<String, Permission> = emptyMap()
 ) {
     when (block) {
         is MessageBlock.UserBlock -> {
@@ -58,8 +61,10 @@ internal fun MessageBlockView(
                 messageWithParts = block.message,
                 onToolApprove = onToolApprove,
                 onToolDeny = onToolDeny,
+                onToolAlways = onToolAlways,
                 onOpenSubSession = onOpenSubSession,
-                defaultToolWidgetState = defaultToolWidgetState
+                defaultToolWidgetState = defaultToolWidgetState,
+                pendingPermissionsByCallId = pendingPermissionsByCallId
             )
         }
         is MessageBlock.AssistantBlock -> {
@@ -73,8 +78,10 @@ internal fun MessageBlockView(
                 messageWithParts = mergedMessageWithParts,
                 onToolApprove = onToolApprove,
                 onToolDeny = onToolDeny,
+                onToolAlways = onToolAlways,
                 onOpenSubSession = onOpenSubSession,
-                defaultToolWidgetState = defaultToolWidgetState
+                defaultToolWidgetState = defaultToolWidgetState,
+                pendingPermissionsByCallId = pendingPermissionsByCallId
             )
         }
     }

@@ -59,7 +59,7 @@ fun PermissionDialogEnhanced(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.8f)
+                .fillMaxHeight(0.65f)
                 .border(1.dp, theme.border, RectangleShape),
             shape = RectangleShape,
             color = theme.background

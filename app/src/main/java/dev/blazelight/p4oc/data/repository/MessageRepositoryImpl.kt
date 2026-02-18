@@ -89,9 +89,8 @@ class MessageRepositoryImpl constructor(
         val api = connectionManager.getApi() ?: return ApiResult.Error(message = "Not connected")
         return safeApiCall {
             api.respondToPermission(
-                sessionId,
                 permissionId,
-                PermissionResponseRequest(response = response)
+                PermissionResponseRequest(reply = response)
             )
         }
     }

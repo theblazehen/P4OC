@@ -354,25 +354,24 @@ data class PartInputDto(
 @Serializable
 data class PermissionDto(
     val id: String,
-    val type: String,
-    val pattern: JsonElement? = null, // string | Array<string>
+    val permission: String,
+    val patterns: List<String>,
     @SerialName("sessionID") val sessionID: String,
-    @SerialName("messageID") val messageID: String,
-    @SerialName("callID") val callID: String? = null,
-    val title: String,
-    val metadata: JsonObject? = null,
-    val time: PermissionTimeDto? = null
+    val metadata: JsonObject,
+    val always: List<String>,
+    val tool: PermissionToolDto? = null
 )
 
 @Serializable
-data class PermissionTimeDto(
-    val created: Long
+data class PermissionToolDto(
+    @SerialName("messageID") val messageID: String,
+    @SerialName("callID") val callID: String
 )
 
 @Serializable
 data class PermissionResponseRequest(
-    val response: String,
-    val remember: Boolean? = null
+    val reply: String,
+    val message: String? = null
 )
 
 // ============================================================================
@@ -841,8 +840,8 @@ data class PartRemovedPropertiesDto(
 @Serializable
 data class PermissionRepliedPropertiesDto(
     @SerialName("sessionID") val sessionID: String,
-    @SerialName("permissionID") val permissionID: String,
-    val response: String
+    @SerialName("requestID") val requestID: String,
+    val reply: String
 )
 
 @Serializable

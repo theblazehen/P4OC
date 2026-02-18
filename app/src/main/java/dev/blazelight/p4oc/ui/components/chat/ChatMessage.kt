@@ -25,8 +25,10 @@ fun ChatMessage(
     messageWithParts: MessageWithParts,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    onToolAlways: (String) -> Unit,
     onOpenSubSession: ((String) -> Unit)? = null,
     defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT,
+    pendingPermissionsByCallId: Map<String, Permission> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     val message = messageWithParts.message
@@ -42,8 +44,10 @@ fun ChatMessage(
                 messageWithParts = messageWithParts,
                 onToolApprove = onToolApprove,
                 onToolDeny = onToolDeny,
+                onToolAlways = onToolAlways,
                 onOpenSubSession = onOpenSubSession,
-                defaultToolWidgetState = defaultToolWidgetState
+                defaultToolWidgetState = defaultToolWidgetState,
+                pendingPermissionsByCallId = pendingPermissionsByCallId
             )
         }
     }
@@ -95,8 +99,10 @@ private fun AssistantMessage(
     messageWithParts: MessageWithParts,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
+    onToolAlways: (String) -> Unit,
     onOpenSubSession: ((String) -> Unit)? = null,
-    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT
+    defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT,
+    pendingPermissionsByCallId: Map<String, Permission> = emptyMap()
 ) {
     // Build ordered groups: consecutive tools get batched, non-tools rendered individually
     // Invisible parts (StepStart, StepFinish, Snapshot, etc.) don't break tool groups
@@ -144,6 +150,20 @@ private fun AssistantMessage(
                         onToolDeny = onToolDeny,
                         onOpenSubSession = onOpenSubSession
                     )
+                    
+                    // Render inline permission prompts for tools with pending permissions
+                    group.tools.forEach { tool ->
+                        tool.callID?.let { callId ->
+                            pendingPermissionsByCallId[callId]?.let { permission ->
+                                InlinePermissionPrompt(
+                                    permission = permission,
+                                    onAllow = { onToolApprove(permission.id) },
+                                    onAlways = { onToolAlways(permission.id) },
+                                    onReject = { onToolDeny(permission.id) }
+                                )
+                            }
+                        }
+                    }
                 }
                 is PartGroupItem.Other -> {
                     when (val part = group.part) {

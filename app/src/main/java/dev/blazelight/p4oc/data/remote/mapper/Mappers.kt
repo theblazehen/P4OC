@@ -630,25 +630,26 @@ class EventMapper constructor(
                 val props = json.decodeFromJsonElement<SessionCompactedDto>(dto.properties)
                 OpenCodeEvent.SessionCompacted(props.sessionID)
             }
-            "permission.updated" -> {
+            "permission.asked" -> {
                 val permissionDto = json.decodeFromJsonElement<PermissionDto>(dto.properties)
+                val title = generatePermissionTitle(permissionDto.permission, permissionDto.patterns)
                 OpenCodeEvent.PermissionRequested(
                     Permission(
                         id = permissionDto.id,
-                        type = permissionDto.type,
-                        pattern = mapPatternToList(permissionDto.pattern),
+                        type = permissionDto.permission,
+                        patterns = permissionDto.patterns,
                         sessionID = permissionDto.sessionID,
-                        messageID = permissionDto.messageID,
-                        callID = permissionDto.callID,
-                        title = permissionDto.title,
-                        metadata = permissionDto.metadata ?: buildJsonObject {},
-                        createdAt = permissionDto.time?.created ?: 0L
+                        messageID = permissionDto.tool?.messageID ?: "",
+                        callID = permissionDto.tool?.callID,
+                        title = title,
+                        metadata = permissionDto.metadata,
+                        always = permissionDto.always
                     )
                 )
             }
             "permission.replied" -> {
                 val props = json.decodeFromJsonElement<PermissionRepliedPropertiesDto>(dto.properties)
-                OpenCodeEvent.PermissionReplied(props.sessionID, props.permissionID, props.response)
+                OpenCodeEvent.PermissionReplied(props.sessionID, props.requestID, props.reply)
             }
             "question.asked" -> {
                 val questionDto = json.decodeFromJsonElement<QuestionRequestDto>(dto.properties)
@@ -828,3 +829,19 @@ private data class PtyDeletedPropertiesDto(
 private data class ServerInstanceDisposedPropertiesDto(
     val directory: String
 )
+
+private fun generatePermissionTitle(permission: String, patterns: List<String>): String {
+    val action = when (permission) {
+        "bash", "shell" -> "Execute command"
+        "edit", "write" -> "Write to file"
+        "patch" -> "Edit file"
+        "webfetch" -> "Fetch URL"
+        "task" -> "Run sub-agent"
+        "skill" -> "Use skill"
+        "external_directory" -> "Access external directory"
+        "doom_loop" -> "Continue execution"
+        else -> permission.replaceFirstChar { it.uppercase() }
+    }
+    val pattern = patterns.firstOrNull() ?: ""
+    return if (pattern.isNotEmpty()) "$action: $pattern" else action
+}

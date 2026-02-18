@@ -306,8 +306,18 @@ class ChatViewModel constructor(
             }
             is OpenCodeEvent.PermissionRequested -> {
                 if (event.permission.sessionID == sessionId) {
+                    // Add to queue for modal (legacy)
                     pendingPermissions.offer(event.permission)
                     showNextPermission()
+                    
+                    // Add to callID map for inline rendering
+                    event.permission.callID?.let { callId ->
+                        _uiState.update { state ->
+                            state.copy(
+                                pendingPermissionsByCallId = state.pendingPermissionsByCallId + (callId to event.permission)
+                            )
+                        }
+                    }
                 }
             }
             is OpenCodeEvent.QuestionAsked -> {
@@ -370,6 +380,17 @@ class ChatViewModel constructor(
             is OpenCodeEvent.TodoUpdated -> {
                 if (event.sessionID == sessionId) {
                     _uiState.update { it.copy(todos = event.todos) }
+                }
+            }
+            is OpenCodeEvent.PermissionReplied -> {
+                if (event.sessionID == sessionId) {
+                    // Find and remove the permission from the map by matching requestID
+                    _uiState.update { state ->
+                        val updatedMap = state.pendingPermissionsByCallId.filterValues { 
+                            it.id != event.requestID 
+                        }
+                        state.copy(pendingPermissionsByCallId = updatedMap)
+                    }
                 }
             }
             else -> {}
@@ -555,12 +576,19 @@ class ChatViewModel constructor(
     fun respondToPermission(permissionId: String, response: String) {
         viewModelScope.launch {
             val api = connectionManager.getApi() ?: return@launch
-            val request = PermissionResponseRequest(response = response)
-            safeApiCall { api.respondToPermission(sessionId, permissionId, request, getDirectory()) }
+            val request = PermissionResponseRequest(reply = response)
+            safeApiCall { api.respondToPermission(permissionId, request, getDirectory()) }
+            
+            // Clear from modal queue (legacy)
             _uiState.update { it.copy(pendingPermission = null) }
-            // Clear persisted state
             savedStateHandle.remove<String>(KEY_PENDING_PERMISSION)
             showNextPermission()
+            
+            // Clear from inline map
+            _uiState.update { state ->
+                val updatedMap = state.pendingPermissionsByCallId.filterValues { it.id != permissionId }
+                state.copy(pendingPermissionsByCallId = updatedMap)
+            }
         }
     }
 
@@ -952,7 +980,8 @@ data class ChatUiState(
     val pickerFiles: List<FileNode> = emptyList(),
     val pickerCurrentPath: String = "",
     val isPickerLoading: Boolean = false,
-    val queuedMessage: QueuedMessage? = null
+    val queuedMessage: QueuedMessage? = null,
+    val pendingPermissionsByCallId: Map<String, Permission> = emptyMap()
 )
 
 data class QueuedMessage(

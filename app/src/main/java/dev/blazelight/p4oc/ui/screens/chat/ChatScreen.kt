@@ -262,10 +262,12 @@ fun ChatScreen(
                         ) { block ->
                             MessageBlockView(
                                 block = block,
-                                onToolApprove = { viewModel.respondToPermission(it, "allow") },
-                                onToolDeny = { viewModel.respondToPermission(it, "deny") },
+                                onToolApprove = { viewModel.respondToPermission(it, "once") },
+                                onToolDeny = { viewModel.respondToPermission(it, "reject") },
+                                onToolAlways = { viewModel.respondToPermission(it, "always") },
                                 onOpenSubSession = onOpenSubSession,
-                                defaultToolWidgetState = defaultToolWidgetState
+                                defaultToolWidgetState = defaultToolWidgetState,
+                                pendingPermissionsByCallId = uiState.pendingPermissionsByCallId
                             )
                         }
                     }
@@ -285,14 +287,15 @@ fun ChatScreen(
                 )
             }
 
-            uiState.pendingPermission?.let { permission ->
-                PermissionDialogEnhanced(
-                    permission = permission,
-                    onAllow = { viewModel.respondToPermission(permission.id, "allow") },
-                    onDeny = { viewModel.respondToPermission(permission.id, "deny") },
-                    onAlways = { viewModel.respondToPermission(permission.id, "always") }
-                )
-            }
+            // Inline permission handling via tool widgets - no modal dialog needed
+            // uiState.pendingPermission?.let { permission ->
+            //     PermissionDialogEnhanced(
+            //         permission = permission,
+            //         onAllow = { viewModel.respondToPermission(permission.id, "once") },
+            //         onDeny = { viewModel.respondToPermission(permission.id, "reject") },
+            //         onAlways = { viewModel.respondToPermission(permission.id, "always") }
+            //     )
+            // }
 
             uiState.error?.let { error ->
                 Snackbar(

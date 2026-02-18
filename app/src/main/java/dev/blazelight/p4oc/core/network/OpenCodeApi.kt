@@ -184,10 +184,9 @@ interface OpenCodeApi {
         @Query("directory") directory: String? = null
     ): MessageWrapperDto
 
-    @POST("session/{sessionId}/permissions/{permissionId}")
+    @POST("permission/{requestId}/reply")
     suspend fun respondToPermission(
-        @Path("sessionId") sessionId: String,
-        @Path("permissionId") permissionId: String,
+        @Path("requestId") requestId: String,
         @Body request: PermissionResponseRequest,
         @Query("directory") directory: String? = null
     ): Boolean

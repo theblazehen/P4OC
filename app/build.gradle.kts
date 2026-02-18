@@ -35,8 +35,8 @@ android {
         applicationId = "dev.blazelight.p4oc"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.0"
+        versionCode = 5
+        versionName = "0.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -71,6 +71,7 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = false
+            excludes += setOf("**/libtermux.so")
         }
     }
 }
