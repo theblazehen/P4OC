@@ -40,30 +40,14 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Decode keystore
-        run: echo "${{ secrets.RELEASE_STORE_FILE }}" | base64 -d > release.jks
+      - name: Build optimized APK
+        run: ./gradlew :app:assembleGithubRelease
 
-      - name: Write local.properties
-        env:
-          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: |
-          printf '%s\n' \
-            "sdk.dir=${ANDROID_HOME}" \
-            "RELEASE_STORE_FILE=${{ github.workspace }}/release.jks" \
-            "RELEASE_STORE_PASSWORD=${RELEASE_STORE_PASSWORD}" \
-            "RELEASE_KEY_ALIAS=${RELEASE_KEY_ALIAS}" \
-            "RELEASE_KEY_PASSWORD=${RELEASE_KEY_PASSWORD}" \
-            > local.properties
-
-      - name: Build release APK and AAB
-        run: ./gradlew :app:assembleRelease :app:bundleRelease
+      - name: Rename APK
+        run: mv app/build/outputs/apk/githubRelease/app-githubRelease.apk app/build/outputs/apk/githubRelease/P4OC-${{ github.ref_name }}.apk
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/bundle/release/app-release.aab
+          files: app/build/outputs/apk/githubRelease/P4OC-${{ github.ref_name }}.apk
