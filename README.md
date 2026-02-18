@@ -1,5 +1,9 @@
 # P4OC (Pocket for OpenCode)
 
+<a href="https://play.google.com/store/apps/details?id=dev.blazelight.p4oc">
+  <img src="https://raw.githubusercontent.com/pioug/google-play-badges/main/svg/en.svg" alt="Get it on Google Play" height="80">
+</a>
+
 An Android client for [OpenCode](https://github.com/sst/opencode), the terminal-based AI coding assistant. You point it at a running OpenCode server and talk to it from your phone.
 
 The whole thing is built around a terminal UI aesthetic. No stock Material3 cards or rounded corners. Everything is flat, monospaced where it matters, and styled to look like it belongs in a terminal.
