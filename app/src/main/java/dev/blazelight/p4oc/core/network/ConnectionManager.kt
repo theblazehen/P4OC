@@ -32,6 +32,14 @@ class ConnectionManager constructor(
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
+    /**
+     * The auth-aware OkHttpClient for the current connection.
+     * Used by PtyWebSocketClient for WebSocket connections that need the same auth.
+     * Null when not connected.
+     */
+    private val _authOkHttpClient = MutableStateFlow<OkHttpClient?>(null)
+    val authOkHttpClient: StateFlow<OkHttpClient?> = _authOkHttpClient.asStateFlow()
+
     val isConnected: Boolean
         get() = _connection.value != null && _connectionState.value is ConnectionState.Connected
 
@@ -75,6 +83,9 @@ class ConnectionManager constructor(
                 directoryProvider = { directoryManager.getDirectory() }
             )
 
+            // Build and store the auth-aware WebSocket client
+            _authOkHttpClient.value = buildWebSocketOkHttpClient(config, password)
+
             val connection = Connection(config, api, eventSource)
             _connection.value = connection
             _connectionState.value = ConnectionState.Connected
@@ -90,6 +101,7 @@ class ConnectionManager constructor(
         } catch (e: Exception) {
             AppLog.e(TAG, "Connection failed", e)
             _connectionState.value = ConnectionState.Error(e.message ?: "Unknown error")
+            _authOkHttpClient.value = null
             Result.failure(e)
         }
     }
@@ -98,6 +110,7 @@ class ConnectionManager constructor(
         AppLog.d(TAG, "Disconnecting")
         _connection.value?.disconnect()
         _connection.value = null
+        _authOkHttpClient.value = null
         _connectionState.value = ConnectionState.Disconnected
     }
 
@@ -108,6 +121,7 @@ class ConnectionManager constructor(
             .writeTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+                redactHeader("Authorization")
             })
 
         if (config.username != null && password != null) {
@@ -124,7 +138,26 @@ class ConnectionManager constructor(
             .writeTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS else HttpLoggingInterceptor.Level.NONE
+                redactHeader("Authorization")
             })
+
+        if (config.username != null && password != null) {
+            builder.addInterceptor(createAuthInterceptor(config.username, password))
+        }
+
+        return builder.build()
+    }
+
+    /**
+     * Build an OkHttpClient configured for WebSocket use (long-lived, with auth).
+     * This is exposed to PtyWebSocketClient via [authOkHttpClient].
+     */
+    private fun buildWebSocketOkHttpClient(config: ServerConfig, password: String?): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.SECONDS)  // No timeout for WebSocket
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .pingInterval(30, TimeUnit.SECONDS)
 
         if (config.username != null && password != null) {
             builder.addInterceptor(createAuthInterceptor(config.username, password))

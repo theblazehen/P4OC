@@ -4,6 +4,7 @@ import androidx.room.Room
 import dev.blazelight.p4oc.core.database.PocketCodeDatabase
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.network.ConnectionManager
+import dev.blazelight.p4oc.core.security.CredentialStore
 import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.PtyWebSocketClient
 import dev.blazelight.p4oc.core.notification.NotificationEventObserver
@@ -50,8 +51,11 @@ val appModule = module {
         }
     }
 
+    // Security - must be created before SettingsDataStore (used in migration)
+    single { CredentialStore(androidContext()) }
+
     // Core services
-    single { SettingsDataStore(androidContext()) }
+    single { SettingsDataStore(androidContext(), get()) }
     single { NotificationHelper(androidContext()) }
     single { NotificationEventObserver(get(), get()) }
 }

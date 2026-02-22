@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import okhttp3.Credentials
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -22,6 +21,9 @@ import java.util.concurrent.TimeUnit
 /**
  * WebSocket client for PTY terminal I/O.
  * Connects to /pty/{id}/connect endpoint for real-time terminal communication.
+ *
+ * Auth is handled by the OkHttpClient provided by ConnectionManager,
+ * which has an auth interceptor baked in. This class never sees credentials.
  */
 
 class PtyWebSocketClient constructor(
@@ -46,11 +48,11 @@ class PtyWebSocketClient constructor(
     // Lock to prevent race conditions in connect/disconnect
     private val connectionLock = Any()
     
-    // Dedicated OkHttpClient for WebSocket (long-lived connections)
-    private val wsOkHttpClient: OkHttpClient by lazy {
+    // Fallback OkHttpClient for unauthenticated connections
+    private val fallbackOkHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.SECONDS) // No timeout for WebSocket
+            .readTimeout(0, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .pingInterval(30, TimeUnit.SECONDS)
             .build()
@@ -94,14 +96,13 @@ class PtyWebSocketClient constructor(
 
             AppLog.d(TAG, "Connecting to WebSocket: $wsUrl")
 
-            val requestBuilder = Request.Builder().url(wsUrl)
-            val config = connection.config
-            if (config.username != null && config.password != null) {
-                requestBuilder.header("Authorization", Credentials.basic(config.username, config.password))
-            }
-            val request = requestBuilder.build()
+            val request = Request.Builder().url(wsUrl).build()
 
-            currentWebSocket = wsOkHttpClient.newWebSocket(request, object : WebSocketListener() {
+            // Use the auth-aware OkHttpClient from ConnectionManager.
+            // The auth interceptor automatically adds Authorization headers.
+            val wsClient = connectionManager.authOkHttpClient.value ?: fallbackOkHttpClient
+
+            currentWebSocket = wsClient.newWebSocket(request, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     AppLog.d(TAG, "WebSocket connected to $ptyId")
                     _connectionState.value = ConnectionState.Connected(ptyId)

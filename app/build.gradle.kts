@@ -131,6 +131,9 @@ dependencies {
     // DataStore Preferences
     implementation(libs.datastore.preferences)
 
+    // Encrypted storage
+    implementation(libs.security.crypto)
+
     // Dependency Injection - Koin (no codegen, works with AGP 9 + Kotlin 2.3)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)

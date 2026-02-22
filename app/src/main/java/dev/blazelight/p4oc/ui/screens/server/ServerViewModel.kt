@@ -10,6 +10,7 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.core.security.CredentialStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +23,8 @@ private const val TAG = "ServerViewModel"
 class ServerViewModel constructor(
     private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
-    private val directoryManager: DirectoryManager
+    private val directoryManager: DirectoryManager,
+    private val credentialStore: CredentialStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUiState())
@@ -43,17 +45,17 @@ class ServerViewModel constructor(
 
     private fun tryAutoReconnect() {
         viewModelScope.launch {
-            val lastConnection = settingsDataStore.getLastConnection() ?: return@launch
+            val (lastConfig, password) = settingsDataStore.getLastConnection() ?: return@launch
             
-            AppLog.d(TAG, "Found last connection: ${lastConnection.url}")
+            AppLog.d(TAG, "Found last connection: ${lastConfig.url}")
             _uiState.update { 
                 it.copy(
                     isConnecting = true,
-                    remoteUrl = lastConnection.url
+                    remoteUrl = lastConfig.url
                 )
             }
             
-            val result = connectionManager.connect(lastConnection, lastConnection.password)
+            val result = connectionManager.connect(lastConfig, password)
             
             result.fold(
                 onSuccess = {
@@ -101,8 +103,7 @@ class ServerViewModel constructor(
                 url = url,
                 name = "Remote Server",
                 isLocal = false,
-                username = state.username.takeIf { it.isNotBlank() },
-                password = state.password.takeIf { it.isNotBlank() }
+                username = state.username.takeIf { it.isNotBlank() }
             )
             val password = state.password.takeIf { it.isNotBlank() }
 
@@ -113,8 +114,8 @@ class ServerViewModel constructor(
                     AppLog.d(TAG, "Connection successful!")
                     // Clear password from UI state after successful connection for security
                     _uiState.update { it.copy(password = "") }
-                    settingsDataStore.saveLastConnection(config)
-                    settingsDataStore.addRecentServer(url, "Remote Server", state.username.takeIf { it.isNotBlank() }, state.password.takeIf { it.isNotBlank() })
+                    settingsDataStore.saveLastConnection(config, password)
+                    settingsDataStore.addRecentServer(url, "Remote Server", state.username.takeIf { it.isNotBlank() }, password)
                     initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
@@ -155,11 +156,13 @@ class ServerViewModel constructor(
     }
 
     fun connectToRecentServer(server: RecentServer) {
+        // Load the password from CredentialStore (not from the RecentServer object)
+        val savedPassword = credentialStore.getServerPassword(server.url)
         _uiState.update { 
             it.copy(
                 remoteUrl = server.url,
                 username = server.username ?: "opencode",
-                password = server.password ?: ""
+                password = savedPassword ?: ""
             )
         }
         connectToRemote()

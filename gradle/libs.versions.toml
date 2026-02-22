@@ -33,6 +33,7 @@ navigation = "2.9.7"
 okhttp = "5.3.2"
 retrofit = "3.0.0"
 room = "2.8.4"
+security-crypto = "1.1.0-alpha06"
 splashscreen = "1.2.0"
 # Terminal
 termux = "0.118.0"
@@ -91,6 +92,7 @@ room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 # Room
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
 # Splash
 splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 termux-emulator = { module = "com.termux.termux-app:terminal-emulator", version.ref = "termux" }

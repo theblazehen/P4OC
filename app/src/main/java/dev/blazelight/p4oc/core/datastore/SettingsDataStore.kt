@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import dev.blazelight.p4oc.core.log.AppLog
+import dev.blazelight.p4oc.core.security.CredentialStore
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -12,16 +14,20 @@ import kotlinx.coroutines.runBlocking
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
+private const val TAG = "SettingsDataStore"
 
 class SettingsDataStore constructor(
-    private val context: Context
+    private val context: Context,
+    private val credentialStore: CredentialStore
 ) {
     companion object {
         private val KEY_SERVER_URL = stringPreferencesKey("server_url")
         private val KEY_SERVER_NAME = stringPreferencesKey("server_name")
         private val KEY_IS_LOCAL_SERVER = booleanPreferencesKey("is_local_server")
         private val KEY_USERNAME = stringPreferencesKey("username")
-        private val KEY_PASSWORD = stringPreferencesKey("password")
+        // KEY_PASSWORD intentionally removed — migrated to CredentialStore
+        @Deprecated("Only used for migration detection and removal")
+        private val KEY_PASSWORD_LEGACY = stringPreferencesKey("password")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_THEME_NAME = stringPreferencesKey("theme_name")
         
@@ -57,28 +63,91 @@ class SettingsDataStore constructor(
         const val THEME_LIGHT = "light"
         const val THEME_DARK = "dark"
         const val MAX_RECENT_SERVERS = 5
+
+        // Migration flag
+        private val KEY_CREDENTIALS_MIGRATED = booleanPreferencesKey("credentials_migrated_v1")
     }
 
     @Volatile
     private var cachedServerUrl: String = DEFAULT_LOCAL_URL
     @Volatile
     private var cachedUsername: String? = null
-    @Volatile
-    private var cachedPassword: String? = null
 
     init {
-        // Preload cache from DataStore to avoid stale values on first access
+        // Preload cache from DataStore + run one-time credential migration
         runBlocking {
             val prefs = context.dataStore.data.first()
             cachedServerUrl = prefs[KEY_SERVER_URL] ?: DEFAULT_LOCAL_URL
             cachedUsername = prefs[KEY_USERNAME]
-            cachedPassword = prefs[KEY_PASSWORD]
+
+            // One-time migration from plaintext DataStore to CredentialStore
+            @Suppress("DEPRECATION")
+            if (prefs[KEY_CREDENTIALS_MIGRATED] != true) {
+                migrateCredentials(prefs)
+            }
         }
+    }
+
+    /**
+     * Migrate plaintext passwords from DataStore to CredentialStore.
+     * Idempotent: checks KEY_CREDENTIALS_MIGRATED flag before acting.
+     */
+    @Suppress("DEPRECATION")
+    private suspend fun migrateCredentials(prefs: Preferences) {
+        AppLog.d(TAG, "Starting credential migration to encrypted storage")
+
+        // 1. Migrate the active/last-connection password
+        val legacyPassword = prefs[KEY_PASSWORD_LEGACY]
+        val serverUrl = prefs[KEY_SERVER_URL]
+        credentialStore.migrateFromPlaintext(legacyPassword, serverUrl)
+
+        // 2. Migrate recent server passwords
+        val storedServers = prefs[KEY_RECENT_SERVERS] ?: ""
+        if (storedServers.startsWith("[")) {
+            try {
+                val jsonItems = storedServers.removeSurrounding("[", "]")
+                    .split("},")
+                    .map { it.trim().removeSuffix("}") + "}" }
+                jsonItems.forEach { json ->
+                    val server = RecentServer.fromJson(json)
+                    if (server != null && !server.password.isNullOrBlank()) {
+                        credentialStore.migrateRecentServerPassword(server.url, server.password)
+                    }
+                }
+            } catch (e: Exception) {
+                AppLog.e(TAG, "Error parsing recent servers during migration", e)
+            }
+        }
+
+        // 3. Strip passwords from recent servers JSON and remove legacy password key
+        context.dataStore.edit { mutablePrefs ->
+            // Remove plaintext password
+            mutablePrefs.remove(KEY_PASSWORD_LEGACY)
+
+            // Rewrite recent servers without passwords
+            val stored = mutablePrefs[KEY_RECENT_SERVERS] ?: ""
+            if (stored.startsWith("[")) {
+                try {
+                    val jsonItems = stored.removeSurrounding("[", "]")
+                        .split("},")
+                        .map { it.trim().removeSuffix("}") + "}" }
+                    val cleaned = jsonItems.mapNotNull { RecentServer.fromJson(it) }
+                        .map { it.copy(password = null) }
+                    mutablePrefs[KEY_RECENT_SERVERS] = "[" + cleaned.joinToString(",") { it.toJson() } + "]"
+                } catch (e: Exception) {
+                    AppLog.e(TAG, "Error cleaning recent servers during migration", e)
+                }
+            }
+
+            // Mark migration as done
+            mutablePrefs[KEY_CREDENTIALS_MIGRATED] = true
+        }
+
+        AppLog.d(TAG, "Credential migration complete")
     }
 
     fun getCachedServerUrl(): String = cachedServerUrl
     fun getCachedUsername(): String? = cachedUsername
-    fun getCachedPassword(): String? = cachedPassword
 
     val serverUrl: Flow<String> = context.dataStore.data.map { prefs ->
         (prefs[KEY_SERVER_URL] ?: DEFAULT_LOCAL_URL).also { cachedServerUrl = it }
@@ -96,9 +165,7 @@ class SettingsDataStore constructor(
         prefs[KEY_USERNAME].also { cachedUsername = it }
     }
 
-    val password: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[KEY_PASSWORD].also { cachedPassword = it }
-    }
+    // password Flow REMOVED — use credentialStore.getActivePassword() instead
 
     val themeMode: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[KEY_THEME_MODE] ?: THEME_SYSTEM
@@ -134,6 +201,9 @@ class SettingsDataStore constructor(
         }
     }
 
+    /**
+     * Set credentials. Username goes to DataStore, password goes to CredentialStore.
+     */
     suspend fun setCredentials(username: String?, password: String?) {
         context.dataStore.edit { prefs ->
             if (username != null) {
@@ -141,12 +211,8 @@ class SettingsDataStore constructor(
             } else {
                 prefs.remove(KEY_USERNAME)
             }
-            if (password != null) {
-                prefs[KEY_PASSWORD] = password
-            } else {
-                prefs.remove(KEY_PASSWORD)
-            }
         }
+        credentialStore.setActivePassword(password)
     }
 
     suspend fun setThemeMode(mode: String) {
@@ -177,25 +243,35 @@ class SettingsDataStore constructor(
         }
     }
 
+    /**
+     * Save server config. Password is stored separately in CredentialStore.
+     */
     suspend fun setServerConfig(url: String, name: String, isLocal: Boolean, username: String? = null, password: String? = null) {
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = url
             prefs[KEY_SERVER_NAME] = name
             prefs[KEY_IS_LOCAL_SERVER] = isLocal
             if (username != null) prefs[KEY_USERNAME] = username else prefs.remove(KEY_USERNAME)
-            if (password != null) prefs[KEY_PASSWORD] = password else prefs.remove(KEY_PASSWORD)
+        }
+        // Password goes to encrypted storage
+        credentialStore.setActivePassword(password)
+        if (password != null) {
+            credentialStore.setServerPassword(url, password)
         }
         // Update cache AFTER successful write
         cachedServerUrl = url
         cachedUsername = username
-        cachedPassword = password
     }
 
     suspend fun clearAll() {
         context.dataStore.edit { it.clear() }
+        credentialStore.clearAll()
     }
 
-    suspend fun saveLastConnection(config: dev.blazelight.p4oc.core.network.ServerConfig) {
+    /**
+     * Save last connection config. Password stored in CredentialStore.
+     */
+    suspend fun saveLastConnection(config: dev.blazelight.p4oc.core.network.ServerConfig, password: String? = null) {
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = config.url
             prefs[KEY_SERVER_NAME] = config.name
@@ -205,29 +281,34 @@ class SettingsDataStore constructor(
             } else {
                 prefs.remove(KEY_USERNAME)
             }
-            if (config.password != null) {
-                prefs[KEY_PASSWORD] = config.password
-            } else {
-                prefs.remove(KEY_PASSWORD)
-            }
             prefs[KEY_ONBOARDING_COMPLETED] = true
+        }
+        // Store password encrypted
+        credentialStore.setActivePassword(password)
+        if (password != null) {
+            credentialStore.setServerPassword(config.url, password)
         }
         // Update cache after successful write
         cachedServerUrl = config.url
         cachedUsername = config.username
-        cachedPassword = config.password
     }
 
-    suspend fun getLastConnection(): dev.blazelight.p4oc.core.network.ServerConfig? {
+    /**
+     * Get last connection config. Password comes from CredentialStore.
+     * Returns a Pair of (ServerConfig, password?) so the caller can use the password
+     * without it being embedded in ServerConfig.
+     */
+    suspend fun getLastConnection(): Pair<dev.blazelight.p4oc.core.network.ServerConfig, String?>? {
         val prefs = context.dataStore.data.first()
         val url = prefs[KEY_SERVER_URL] ?: return null
-        return dev.blazelight.p4oc.core.network.ServerConfig(
+        val config = dev.blazelight.p4oc.core.network.ServerConfig(
             url = url,
             name = prefs[KEY_SERVER_NAME] ?: "",
             isLocal = prefs[KEY_IS_LOCAL_SERVER] ?: false,
-            username = prefs[KEY_USERNAME],
-            password = prefs[KEY_PASSWORD]
+            username = prefs[KEY_USERNAME]
         )
+        val password = credentialStore.getActivePassword()
+        return Pair(config, password)
     }
 
     suspend fun clearLastConnection() {
@@ -236,16 +317,14 @@ class SettingsDataStore constructor(
             prefs.remove(KEY_SERVER_NAME)
             prefs.remove(KEY_IS_LOCAL_SERVER)
             prefs.remove(KEY_USERNAME)
-            prefs.remove(KEY_PASSWORD)
         }
+        credentialStore.clearActivePassword()
     }
 
     val recentServers: Flow<List<RecentServer>> = context.dataStore.data.map { prefs ->
         val stored = prefs[KEY_RECENT_SERVERS] ?: return@map emptyList()
         try {
-            // Try JSON array format first (new format)
             if (stored.startsWith("[")) {
-                // Parse JSON array: [{"url":"...","name":"..."},...]
                 val jsonItems = stored.removeSurrounding("[", "]")
                     .split("},")
                     .map { it.trim().removeSuffix("}") + "}" }
@@ -264,13 +343,20 @@ class SettingsDataStore constructor(
         }
     }
 
+    /**
+     * Add a recent server. Password is stored in CredentialStore, not in the JSON.
+     */
     suspend fun addRecentServer(url: String, name: String, username: String? = null, password: String? = null) {
+        // Store password in encrypted storage (keyed by URL)
+        if (password != null) {
+            credentialStore.setServerPassword(url, password)
+        }
+
         context.dataStore.edit { prefs ->
             val stored = prefs[KEY_RECENT_SERVERS] ?: ""
             val existingServers = if (stored.isBlank()) {
                 mutableListOf()
             } else if (stored.startsWith("[")) {
-                // Parse JSON array format
                 val jsonItems = stored.removeSurrounding("[", "]")
                     .split("},")
                     .map { it.trim().removeSuffix("}") + "}" }
@@ -284,15 +370,19 @@ class SettingsDataStore constructor(
             }
             
             existingServers.removeAll { it.url == url }
-            existingServers.add(0, RecentServer(url, name, username, password))
+            // Note: password=null in RecentServer — it's in CredentialStore now
+            existingServers.add(0, RecentServer(url, name, username, password = null))
             val trimmed = existingServers.take(MAX_RECENT_SERVERS)
             
-            // Save as JSON array
+            // Save as JSON array (no passwords in JSON)
             prefs[KEY_RECENT_SERVERS] = "[" + trimmed.joinToString(",") { it.toJson() } + "]"
         }
     }
 
     suspend fun removeRecentServer(url: String) {
+        // Remove the associated password from encrypted storage
+        credentialStore.removeServerPassword(url)
+
         context.dataStore.edit { prefs ->
             val stored = prefs[KEY_RECENT_SERVERS] ?: return@edit
             val servers = if (stored.startsWith("[")) {
@@ -350,14 +440,12 @@ class SettingsDataStore constructor(
         val stored = prefs[KEY_RECENT_MODELS] ?: return@map emptyList()
         try {
             if (stored.startsWith("[")) {
-                // JSON array format: ["providerID/modelID", ...]
                 stored.removeSurrounding("[", "]")
                     .split(",")
                     .map { it.trim().removeSurrounding("\"") }
                     .filter { it.isNotBlank() }
                     .mapNotNull { it.toModelInput() }
             } else {
-                // Legacy ||| format - migrate on read
                 stored.split("|||").filter { it.isNotBlank() }.mapNotNull { it.toModelInput() }
             }
         } catch (e: Exception) {
@@ -384,19 +472,16 @@ class SettingsDataStore constructor(
             val existing = if (stored.isBlank()) {
                 mutableListOf()
             } else if (stored.startsWith("[")) {
-                // JSON array format
                 stored.removeSurrounding("[", "]")
                     .split(",")
                     .map { it.trim().removeSurrounding("\"") }
                     .filter { it.isNotBlank() }
                     .toMutableList()
             } else {
-                // Legacy format migration
                 stored.split("|||").filter { it.isNotBlank() }.toMutableList()
             }
             existing.remove(key)
             existing.add(0, key)
-            // Save as JSON array
             prefs[KEY_RECENT_MODELS] = "[" + existing.take(MAX_RECENT_MODELS).joinToString(",") { "\"$it\"" } + "]"
         }
     }
@@ -434,7 +519,7 @@ data class RecentServer(
     val url: String,
     val name: String,
     val username: String? = null,
-    val password: String? = null
+    val password: String? = null  // DEPRECATED: kept for migration parsing only, never written
 ) {
     fun toJson(): String {
         val parts = mutableListOf(
@@ -442,17 +527,17 @@ data class RecentServer(
             """"name":"${name.replace("\"", "\\\"")}""""
         )
         username?.let { parts.add(""""username":"${it.replace("\"", "\\\"")}"""") }
-        password?.let { parts.add(""""password":"${it.replace("\"", "\\\"")}"""") }
+        // password intentionally NOT serialized to JSON
         return "{${parts.joinToString(",")}}"
     }
     
     companion object {
         fun fromJson(json: String): RecentServer? {
             return try {
-                // Simple JSON parsing without external library
                 val urlMatch = """"url"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
                 val nameMatch = """"name"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
                 val usernameMatch = """"username"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
+                // Still parse password for migration purposes
                 val passwordMatch = """"password"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex().find(json)
                 if (urlMatch != null && nameMatch != null) {
                     RecentServer(
