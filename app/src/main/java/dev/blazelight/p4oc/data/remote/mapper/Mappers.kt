@@ -16,8 +16,7 @@ import kotlinx.serialization.json.contentOrNull
 // Project Mapper
 // ============================================================================
 
-
-class ProjectMapper constructor() {
+object ProjectMapper {
     fun mapToDomain(dto: ProjectDto): Project = Project(
         id = dto.id,
         worktree = dto.worktree,
@@ -43,8 +42,7 @@ class ProjectMapper constructor() {
 // Session Mapper
 // ============================================================================
 
-
-class SessionMapper constructor() {
+object SessionMapper {
     fun mapToDomain(dto: SessionDto): Session = Session(
         id = dto.id,
         projectID = dto.projectID,
@@ -94,7 +92,6 @@ class SessionMapper constructor() {
 // Message Mapper
 // ============================================================================
 
-
 class MessageMapper constructor(
     private val json: Json
 ) {
@@ -131,10 +128,10 @@ class MessageMapper constructor(
         )
     }
 
-    fun mapWrapperToDomain(dto: MessageWrapperDto, partMapper: PartMapper): MessageWithParts =
+    fun mapWrapperToDomain(dto: MessageWrapperDto): MessageWithParts =
         MessageWithParts(
             message = mapToDomain(dto.info),
-            parts = dto.parts.map { partMapper.mapToDomain(it) }
+            parts = dto.parts.map { PartMapper.mapToDomain(it) }
         )
 
     private fun mapTokensToDomain(dto: TokenUsageDto): TokenUsage = TokenUsage(
@@ -197,8 +194,7 @@ class MessageMapper constructor(
 // Part Mapper
 // ============================================================================
 
-
-class PartMapper constructor() {
+object PartMapper {
     fun mapToDomain(dto: PartDto): Part = when (dto.type) {
         "text" -> Part.Text(
             id = dto.id,
@@ -408,8 +404,7 @@ class PartMapper constructor() {
 // Provider Mapper
 // ============================================================================
 
-
-class ProviderMapper constructor() {
+object ProviderMapper {
     fun mapToDomain(dto: ProviderDto): Provider = Provider(
         id = dto.id,
         name = dto.name,
@@ -468,8 +463,7 @@ class ProviderMapper constructor() {
 // Agent Mapper
 // ============================================================================
 
-
-class AgentMapper constructor() {
+object AgentMapper {
     fun mapToDomain(dto: AgentDto): Agent = Agent(
         name = dto.name,
         description = dto.description,
@@ -490,8 +484,7 @@ class AgentMapper constructor() {
 // Command Mapper
 // ============================================================================
 
-
-class CommandMapper constructor() {
+object CommandMapper {
     fun mapToDomain(dto: CommandDto): Command = Command(
         name = dto.name,
         description = dto.description,
@@ -507,8 +500,7 @@ class CommandMapper constructor() {
 // Todo Mapper
 // ============================================================================
 
-
-class TodoMapper constructor() {
+object TodoMapper {
     fun mapToDomain(dto: TodoDto): Todo = Todo(
         id = dto.id,
         content = dto.content,
@@ -521,8 +513,7 @@ class TodoMapper constructor() {
 // Symbol Mapper
 // ============================================================================
 
-
-class SymbolMapper constructor() {
+object SymbolMapper {
     fun mapToDomain(dto: SymbolDto): Symbol = Symbol(
         name = dto.name,
         kind = dto.kind,
@@ -540,8 +531,7 @@ class SymbolMapper constructor() {
 // Status Mappers
 // ============================================================================
 
-
-class StatusMapper constructor() {
+object StatusMapper {
     fun mapLspStatusToDomain(dto: LspStatusDto): LspStatus = LspStatus(
         id = dto.id,
         name = dto.name,
@@ -565,13 +555,9 @@ class StatusMapper constructor() {
 // Event Mapper
 // ============================================================================
 
-
 class EventMapper constructor(
     private val json: Json,
-    private val sessionMapper: SessionMapper,
-    private val messageMapper: MessageMapper,
-    private val partMapper: PartMapper,
-    private val todoMapper: TodoMapper
+    private val messageMapper: MessageMapper
 ) {
     fun mapToEvent(dto: EventDataDto): OpenCodeEvent? = try {
         when (dto.type) {
@@ -582,7 +568,7 @@ class EventMapper constructor(
             "message.part.updated" -> {
                 val partDto = json.decodeFromJsonElement<PartUpdateDto>(dto.properties)
                 OpenCodeEvent.MessagePartUpdated(
-                    part = partMapper.mapToDomain(partDto.part),
+                    part = PartMapper.mapToDomain(partDto.part),
                     delta = partDto.delta
                 )
             }
@@ -596,28 +582,28 @@ class EventMapper constructor(
             }
             "session.created" -> {
                 val wrapper = json.decodeFromJsonElement<SessionEventDto>(dto.properties)
-                OpenCodeEvent.SessionCreated(sessionMapper.mapToDomain(wrapper.info))
+                OpenCodeEvent.SessionCreated(SessionMapper.mapToDomain(wrapper.info))
             }
             "session.updated" -> {
                 val wrapper = json.decodeFromJsonElement<SessionEventDto>(dto.properties)
-                OpenCodeEvent.SessionUpdated(sessionMapper.mapToDomain(wrapper.info))
+                OpenCodeEvent.SessionUpdated(SessionMapper.mapToDomain(wrapper.info))
             }
             "session.deleted" -> {
                 val wrapper = json.decodeFromJsonElement<SessionEventDto>(dto.properties)
-                OpenCodeEvent.SessionDeleted(sessionMapper.mapToDomain(wrapper.info))
+                OpenCodeEvent.SessionDeleted(SessionMapper.mapToDomain(wrapper.info))
             }
             "session.status" -> {
                 val statusDto = json.decodeFromJsonElement<SessionStatusEventDto>(dto.properties)
                 OpenCodeEvent.SessionStatusChanged(
                     sessionID = statusDto.sessionID,
-                    status = sessionMapper.mapStatusToDomain(statusDto.status)
+                    status = SessionMapper.mapStatusToDomain(statusDto.status)
                 )
             }
             "session.diff" -> {
                 val props = json.decodeFromJsonElement<SessionDiffPropertiesDto>(dto.properties)
                 OpenCodeEvent.SessionDiff(
                     sessionID = props.sessionID,
-                    diffs = props.diff.map { sessionMapper.mapFileDiffToDomain(it) }
+                    diffs = props.diff.map { SessionMapper.mapFileDiffToDomain(it) }
                 )
             }
             "session.error" -> {
@@ -679,7 +665,7 @@ class EventMapper constructor(
                 val props = json.decodeFromJsonElement<TodoEventPropertiesDto>(dto.properties)
                 OpenCodeEvent.TodoUpdated(
                     sessionID = props.sessionID,
-                    todos = props.todos.map { todoMapper.mapToDomain(it) }
+                    todos = props.todos.map { TodoMapper.mapToDomain(it) }
                 )
             }
             "file.edited" -> {

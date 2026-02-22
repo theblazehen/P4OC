@@ -23,8 +23,7 @@ import kotlinx.coroutines.coroutineScope
 
 class SessionListViewModel constructor(
     private val connectionManager: ConnectionManager,
-    private val directoryManager: DirectoryManager,
-    private val sessionMapper: SessionMapper
+    private val directoryManager: DirectoryManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SessionListUiState())
@@ -121,7 +120,7 @@ class SessionListViewModel constructor(
                         when (result) {
                             is ApiResult.Success -> result.data.map { dto ->
                                 SessionWithProject(
-                                    session = sessionMapper.mapToDomain(dto),
+                                    session = SessionMapper.mapToDomain(dto),
                                     projectId = null,
                                     projectName = null
                                 )
@@ -140,7 +139,7 @@ class SessionListViewModel constructor(
                             when (result) {
                                 is ApiResult.Success -> result.data.map { dto ->
                                     SessionWithProject(
-                                        session = sessionMapper.mapToDomain(dto),
+                                        session = SessionMapper.mapToDomain(dto),
                                         projectId = project.id,
                                         projectName = project.name
                                     )
@@ -201,7 +200,7 @@ class SessionListViewModel constructor(
 
             when (result) {
                 is ApiResult.Success -> {
-                    val session = sessionMapper.mapToDomain(result.data)
+                    val session = SessionMapper.mapToDomain(result.data)
                     
                     // Find project info if directory matches a project
                     val project = _uiState.value.projects.find { it.worktree == directory }

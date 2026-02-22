@@ -24,9 +24,8 @@ import dev.blazelight.p4oc.data.remote.dto.QuestionReplyRequest
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.mapper.CommandMapper
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
-import dev.blazelight.p4oc.data.remote.mapper.TodoMapper
-import dev.blazelight.p4oc.data.remote.mapper.PartMapper
 import dev.blazelight.p4oc.data.remote.mapper.SessionMapper
+import dev.blazelight.p4oc.data.remote.mapper.TodoMapper
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.domain.model.SessionConnectionState as TabConnectionState
 import dev.blazelight.p4oc.ui.components.chat.SelectedFile
@@ -47,11 +46,7 @@ class ChatViewModel constructor(
     private val savedStateHandle: SavedStateHandle,
     private val connectionManager: ConnectionManager,
     private val directoryManager: DirectoryManager,
-    private val sessionMapper: SessionMapper,
     private val messageMapper: MessageMapper,
-    private val partMapper: PartMapper,
-    private val commandMapper: CommandMapper,
-    private val todoMapper: TodoMapper,
     private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
@@ -237,7 +232,7 @@ class ChatViewModel constructor(
             val result = safeApiCall { api.getSession(sessionId, sessionDirectory ?: directoryManager.getDirectory()) }
             when (result) {
                 is ApiResult.Success -> {
-                    val session = sessionMapper.mapToDomain(result.data)
+                    val session = SessionMapper.mapToDomain(result.data)
                     _uiState.update { it.copy(session = session) }
                     if (sessionDirectory == null && session.directory.isNotBlank()) {
                         directoryManager.setDirectory(session.directory)
@@ -267,7 +262,7 @@ class ChatViewModel constructor(
                 is ApiResult.Success -> {
                     AppLog.d(TAG, "Loaded ${result.data.size} messages")
                     result.data.forEach { dto ->
-                        val msg = messageMapper.mapWrapperToDomain(dto, partMapper)
+                        val msg = messageMapper.mapWrapperToDomain(dto)
                         _messagesMap[msg.message.id] = msg
                     }
                     _uiState.update { it.copy(isLoading = false) }
@@ -754,7 +749,7 @@ class ChatViewModel constructor(
             when (result) {
                 is ApiResult.Success -> {
                     AppLog.d(TAG, "loadCommands: Got ${result.data.size} commands from API")
-                    val apiCommands = result.data.map { commandMapper.mapToDomain(it) }
+                    val apiCommands = result.data.map { CommandMapper.mapToDomain(it) }
                     // Merge with built-in commands (API doesn't return these)
                     val allCommands = (BUILTIN_COMMANDS + apiCommands).distinctBy { it.name }
                     _uiState.update { it.copy(commands = allCommands, isLoadingCommands = false) }
@@ -808,7 +803,7 @@ class ChatViewModel constructor(
             val result = safeApiCall { api.getSessionTodos(sessionId, getDirectory()) }
             when (result) {
                 is ApiResult.Success -> {
-                    val todos = result.data.map { todoMapper.mapToDomain(it) }
+                    val todos = result.data.map { TodoMapper.mapToDomain(it) }
                     _uiState.update { it.copy(todos = todos, isLoadingTodos = false) }
                 }
                 is ApiResult.Error -> {
