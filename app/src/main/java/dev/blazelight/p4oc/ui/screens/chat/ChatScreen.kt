@@ -7,7 +7,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,17 +20,13 @@ import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ConnectionState
-import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.model.Part
-import dev.blazelight.p4oc.domain.model.Permission
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
-import dev.blazelight.p4oc.ui.components.chat.ChatMessage
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
 import dev.blazelight.p4oc.ui.components.chat.JumpToBottomButton
 import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
-import dev.blazelight.p4oc.ui.components.chat.PermissionDialogEnhanced
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
@@ -59,9 +54,21 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val sessionConnectionState by viewModel.sessionConnectionState.collectAsStateWithLifecycle()
-    val favoriteModels by viewModel.favoriteModels.collectAsStateWithLifecycle()
-    val recentModels by viewModel.recentModels.collectAsStateWithLifecycle()
     val visualSettings by viewModel.visualSettings.collectAsStateWithLifecycle()
+
+    // Sub-manager state
+    val pendingQuestion by viewModel.dialogManager.pendingQuestion.collectAsStateWithLifecycle()
+    val pendingPermissionsByCallId by viewModel.dialogManager.pendingPermissionsByCallId.collectAsStateWithLifecycle()
+    val availableAgents by viewModel.modelAgentManager.availableAgents.collectAsStateWithLifecycle()
+    val selectedAgent by viewModel.modelAgentManager.selectedAgent.collectAsStateWithLifecycle()
+    val availableModels by viewModel.modelAgentManager.availableModels.collectAsStateWithLifecycle()
+    val selectedModel by viewModel.modelAgentManager.selectedModel.collectAsStateWithLifecycle()
+    val favoriteModels by viewModel.modelAgentManager.favoriteModels.collectAsStateWithLifecycle()
+    val recentModels by viewModel.modelAgentManager.recentModels.collectAsStateWithLifecycle()
+    val attachedFiles by viewModel.filePickerManager.attachedFiles.collectAsStateWithLifecycle()
+    val pickerFiles by viewModel.filePickerManager.pickerFiles.collectAsStateWithLifecycle()
+    val pickerCurrentPath by viewModel.filePickerManager.pickerCurrentPath.collectAsStateWithLifecycle()
+    val isPickerLoading by viewModel.filePickerManager.isPickerLoading.collectAsStateWithLifecycle()
     
     // Notify parent when session is loaded
     LaunchedEffect(uiState.session) {
@@ -171,15 +178,15 @@ fun ChatScreen(
                     .navigationBarsPadding()
             ) {
                 ModelAgentSelectorBar(
-                    availableAgents = uiState.availableAgents,
-                    selectedAgent = uiState.selectedAgent,
-                    onAgentSelected = viewModel::selectAgent,
-                    availableModels = uiState.availableModels,
-                    selectedModel = uiState.selectedModel,
-                    onModelSelected = viewModel::selectModel,
+                    availableAgents = availableAgents,
+                    selectedAgent = selectedAgent,
+                    onAgentSelected = viewModel.modelAgentManager::selectAgent,
+                    availableModels = availableModels,
+                    selectedModel = selectedModel,
+                    onModelSelected = viewModel.modelAgentManager::selectModel,
                     favoriteModels = favoriteModels,
                     recentModels = recentModels,
-                    onToggleFavorite = viewModel::toggleFavoriteModel
+                    onToggleFavorite = viewModel.modelAgentManager::toggleFavoriteModel
                 )
                 ChatInputBar(
                     value = uiState.inputText,
@@ -192,16 +199,16 @@ fun ChatScreen(
                     },
                     onSend = viewModel::sendMessage,
                     isLoading = uiState.isSending,
-                    enabled = connectionState is ConnectionState.Connected,  // Keep input enabled while sending
+                    enabled = connectionState is ConnectionState.Connected,
                     isBusy = uiState.isBusy,
                     hasQueuedMessage = uiState.queuedMessage != null,
                     onQueueMessage = viewModel::queueMessage,
-                    attachedFiles = uiState.attachedFiles,
+                    attachedFiles = attachedFiles,
                     onAttachClick = {
-                        viewModel.loadPickerFiles()
+                        viewModel.filePickerManager.loadPickerFiles()
                         showFilePicker = true
                     },
-                    onRemoveAttachment = viewModel::detachFile,
+                    onRemoveAttachment = viewModel.filePickerManager::detachFile,
                     commands = uiState.commands,
                     onCommandSelected = { /* Command text is already updated via onValueChange */ },
                     requestFocus = isActiveTab
@@ -214,16 +221,11 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Use isBusy as a proxy for "has content or is loading"
-            // We don't observe streamingState here to avoid recomposition
             val hasContent = messages.isNotEmpty() || uiState.isBusy
             
             if (!hasContent && !uiState.isLoading) {
                 EmptyChatView(modifier = Modifier.align(Alignment.Center))
             } else {
-                // Group consecutive messages into blocks for display
-                // User messages are their own block, consecutive assistant messages merge into one block
-                // This only recomputes when the messages list changes (not during streaming)
                 val messageBlocks = remember(messages) {
                     groupMessagesIntoBlocks(messages)
                 }
@@ -237,7 +239,7 @@ fun ChatScreen(
                         reverseLayout = true
                     ) {
                         // Inline question card at the bottom (top in reversed layout)
-                        uiState.pendingQuestion?.let { questionRequest ->
+                        pendingQuestion?.let { questionRequest ->
                             item(key = "pending_question_${questionRequest.id}") {
                                 InlineQuestionCard(
                                     questionData = dev.blazelight.p4oc.domain.model.QuestionData(questionRequest.questions),
@@ -267,7 +269,7 @@ fun ChatScreen(
                                 onToolAlways = { viewModel.respondToPermission(it, "always") },
                                 onOpenSubSession = onOpenSubSession,
                                 defaultToolWidgetState = defaultToolWidgetState,
-                                pendingPermissionsByCallId = uiState.pendingPermissionsByCallId
+                                pendingPermissionsByCallId = pendingPermissionsByCallId
                             )
                         }
                     }
@@ -286,16 +288,6 @@ fun ChatScreen(
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
             }
-
-            // Inline permission handling via tool widgets - no modal dialog needed
-            // uiState.pendingPermission?.let { permission ->
-            //     PermissionDialogEnhanced(
-            //         permission = permission,
-            //         onAllow = { viewModel.respondToPermission(permission.id, "once") },
-            //         onDeny = { viewModel.respondToPermission(permission.id, "reject") },
-            //         onAlways = { viewModel.respondToPermission(permission.id, "always") }
-            //     )
-            // }
 
             uiState.error?.let { error ->
                 Snackbar(
@@ -320,7 +312,7 @@ fun ChatScreen(
                     coroutineScope.launch {
                         userScrolledAway = false
                         hasNewContentWhileAway = false
-                        listState.scrollToItem(0)  // In reversed layout, 0 is bottom
+                        listState.scrollToItem(0)
                     }
                 },
                 modifier = Modifier
@@ -352,17 +344,17 @@ fun ChatScreen(
 
     if (showFilePicker) {
         FilePickerDialog(
-            files = uiState.pickerFiles,
-            currentPath = uiState.pickerCurrentPath,
-            isLoading = uiState.isPickerLoading,
-            selectedFiles = uiState.attachedFiles,
-            onNavigateTo = { path -> viewModel.loadPickerFiles(path.ifBlank { "." }) },
+            files = pickerFiles,
+            currentPath = pickerCurrentPath,
+            isLoading = isPickerLoading,
+            selectedFiles = attachedFiles,
+            onNavigateTo = { path -> viewModel.filePickerManager.loadPickerFiles(path.ifBlank { "." }) },
             onNavigateUp = {
-                val parent = uiState.pickerCurrentPath.substringBeforeLast("/", "")
-                viewModel.loadPickerFiles(parent.ifBlank { "." })
+                val parent = pickerCurrentPath.substringBeforeLast("/", "")
+                viewModel.filePickerManager.loadPickerFiles(parent.ifBlank { "." })
             },
-            onFileSelected = { viewModel.attachFile(it) },
-            onFileDeselected = { viewModel.detachFile(it) },
+            onFileSelected = { viewModel.filePickerManager.attachFile(it) },
+            onFileDeselected = { viewModel.filePickerManager.detachFile(it) },
             onConfirm = { showFilePicker = false },
             onDismiss = { showFilePicker = false }
         )
