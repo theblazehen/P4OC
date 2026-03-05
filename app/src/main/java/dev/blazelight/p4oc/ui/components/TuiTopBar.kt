@@ -21,8 +21,10 @@ import dev.blazelight.p4oc.ui.theme.Spacing
  * Replaces both custom Surface+Row bars and stock Material3 TopAppBar
  * with a single consistent height across Chat, Files, Terminal, Settings, etc.
  *
- * Height is determined by content + Spacing.xs vertical padding (~44-48dp),
- * not the stock TopAppBar's hardcoded 64dp minimum.
+ * Handles status bar insets internally via a Spacer. When used inside
+ * MainTabScreen (which consumes status bar insets upstream), the Spacer
+ * collapses to 0dp. When used standalone, it pushes content below the
+ * status bar while the Surface background extends behind it.
  */
 @Composable
 fun TuiTopBar(
@@ -38,40 +40,44 @@ fun TuiTopBar(
         color = theme.backgroundElement,
         tonalElevation = 0.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (onNavigateBack != null) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    modifier = Modifier.size(Sizing.iconButtonMd)
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.cd_back),
-                        modifier = Modifier.size(Sizing.iconLg)
+        Column {
+            Spacer(Modifier.windowInsetsPadding(WindowInsets.statusBars))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (onNavigateBack != null) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier.size(Sizing.iconButtonMd)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back),
+                            modifier = Modifier.size(Sizing.iconLg)
+                        )
+                    }
+                }
+
+                if (titleContent != null) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        titleContent()
+                    }
+                } else {
+                    Text(
+                        text = title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium
                     )
                 }
-            }
 
-            if (titleContent != null) {
-                Box(modifier = Modifier.weight(1f)) {
-                    titleContent()
-                }
-            } else {
-                Text(
-                    text = title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium
-                )
+                actions()
             }
-
-            actions()
         }
     }
 }

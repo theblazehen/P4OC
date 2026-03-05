@@ -21,6 +21,12 @@ class SettingsViewModel constructor(
         settingsDataStore.connectionSettings
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConnectionSettings())
 
+    /** Whether the app is currently connected to an OpenCode server. */
+    val isConnected: StateFlow<Boolean> =
+        connectionManager.connectionState
+            .map { it.isConnected }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     init {
         viewModelScope.launch {
             combine(

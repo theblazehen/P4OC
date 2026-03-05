@@ -18,6 +18,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.ui.components.TuiStepper
+import dev.blazelight.p4oc.ui.components.TuiSwitch
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -61,15 +63,39 @@ fun ConnectionSettingsScreen(
             )
 
             if (connectionSettings.autoReconnect) {
-                ConnectionSlider(
-                    title = stringResource(R.string.settings_reconnect_timeout),
-                    icon = Icons.Default.Timer,
-                    value = connectionSettings.reconnectTimeoutSeconds,
-                    valueRange = 15..120,
-                    steps = 20,
-                    valueLabel = "${connectionSettings.reconnectTimeoutSeconds}s",
-                    onValueChange = { viewModel.updateReconnectTimeout(it) },
-                    testTag = "settings_reconnect_timeout_slider"
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
+                ) {
+                    Icon(
+                        Icons.Default.Timer,
+                        contentDescription = null,
+                        modifier = Modifier.size(Sizing.iconMd),
+                        tint = theme.textMuted
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_reconnect_timeout),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = theme.text
+                        )
+                        Spacer(Modifier.height(Spacing.sm))
+                        TuiStepper(
+                            value = connectionSettings.reconnectTimeoutSeconds,
+                            onValueChange = { viewModel.updateReconnectTimeout(it) },
+                            range = 15..120,
+                            step = 5,
+                            valueLabel = "${connectionSettings.reconnectTimeoutSeconds}s",
+                            modifier = Modifier.testTag("settings_reconnect_timeout_stepper")
+                        )
+                    }
+                }
+                HorizontalDivider(
+                    thickness = Sizing.dividerThickness,
+                    color = theme.borderSubtle
                 )
             }
         }
@@ -131,76 +157,12 @@ private fun ConnectionSwitch(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Switch(
+        TuiSwitch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = { onCheckedChange(!checked) },
             enabled = enabled,
             modifier = Modifier.testTag(testTag)
         )
-    }
-    HorizontalDivider(
-        thickness = Sizing.dividerThickness,
-        color = theme.borderSubtle
-    )
-}
-
-@Composable
-private fun ConnectionSlider(
-    title: String,
-    icon: ImageVector,
-    value: Int,
-    valueRange: IntRange,
-    steps: Int,
-    valueLabel: String,
-    onValueChange: (Int) -> Unit,
-    testTag: String
-) {
-    val theme = LocalOpenCodeTheme.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(Sizing.iconMd),
-            tint = theme.textMuted
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = theme.text
-                )
-                Text(
-                    text = valueLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = theme.accent
-                )
-            }
-            Slider(
-                value = value.toFloat(),
-                onValueChange = { onValueChange(it.toInt()) },
-                valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
-                steps = steps,
-                colors = SliderDefaults.colors(
-                    thumbColor = theme.accent,
-                    activeTrackColor = theme.accent,
-                    inactiveTrackColor = theme.borderSubtle,
-                    activeTickColor = theme.accent,
-                    inactiveTickColor = theme.textMuted
-                ),
-                modifier = Modifier.testTag(testTag)
-            )
-        }
     }
     HorizontalDivider(
         thickness = Sizing.dividerThickness,

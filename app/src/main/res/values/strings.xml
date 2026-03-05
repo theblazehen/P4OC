@@ -71,6 +71,7 @@
     <string name="settings_agents_desc">Configure AI agents</string>
     <string name="settings_skills">Skills</string>
     <string name="settings_skills_desc">Manage MCP servers and skills</string>
+    <string name="settings_requires_connection">Requires active server connection</string>
     <string name="settings_visual">Visual Settings</string>
     <string name="settings_visual_desc">Theme, font size, and display options</string>
     <string name="settings_about">About</string>
@@ -540,4 +541,12 @@
     <string name="settings_auto_reconnect">Auto-reconnect</string>
     <string name="settings_auto_reconnect_desc">Automatically reconnect when connection drops</string>
     <string name="settings_reconnect_timeout">Reconnect timeout</string>
+
+    <!-- Notification permissions -->
+    <string name="notification_permission_required">Permission Required</string>
+    <string name="notification_permission_denied_message">Notification permission was denied. To receive notifications when the AI needs your input, enable notifications in your device settings.</string>
+    <string name="notification_open_settings">Open Settings</string>
+    <string name="notification_permission_not_granted">Notification permission not granted</string>
+    <string name="notification_permission_tap_to_grant">Tap to request permission</string>
+    <string name="notification_grant">Grant</string>
 </resources>

@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -46,6 +47,7 @@ fun SettingsScreen(
     onConnectionSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -77,28 +79,44 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.SmartToy,
                 title = stringResource(R.string.settings_provider_model),
-                subtitle = stringResource(R.string.settings_provider_model_desc),
-                onClick = onProviderConfig,
-                showChevron = true,
+                subtitle = if (isConnected) {
+                    stringResource(R.string.settings_provider_model_desc)
+                } else {
+                    stringResource(R.string.settings_requires_connection)
+                },
+                onClick = if (isConnected) onProviderConfig else null,
+                showChevron = isConnected,
+                enabled = isConnected,
                 testTag = "settings_provider_item"
             )
 
             SettingsItem(
                 icon = Icons.Default.Groups,
                 title = stringResource(R.string.settings_agents),
-                subtitle = stringResource(R.string.settings_agents_desc),
-                onClick = onAgentsConfig,
-                showChevron = true
+                subtitle = if (isConnected) {
+                    stringResource(R.string.settings_agents_desc)
+                } else {
+                    stringResource(R.string.settings_requires_connection)
+                },
+                onClick = if (isConnected) onAgentsConfig else null,
+                showChevron = isConnected,
+                enabled = isConnected
             )
 
             SettingsItem(
                 icon = Icons.Default.Extension,
                 title = stringResource(R.string.settings_skills),
-                subtitle = stringResource(R.string.settings_skills_desc),
-                onClick = onSkills,
-                showChevron = true
+                subtitle = if (isConnected) {
+                    stringResource(R.string.settings_skills_desc)
+                } else {
+                    stringResource(R.string.settings_requires_connection)
+                },
+                onClick = if (isConnected) onSkills else null,
+                showChevron = isConnected,
+                enabled = isConnected
             )
 
+            // These don't require connection
             SettingsItem(
                 icon = Icons.Default.Palette,
                 title = stringResource(R.string.settings_visual),
@@ -137,14 +155,16 @@ fun SettingsScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // Disconnect button
-            SettingsItem(
-                icon = Icons.AutoMirrored.Filled.Logout,
-                title = stringResource(R.string.settings_disconnect),
-                onClick = { showDisconnectDialog = true },
-                tint = theme.error,
-                testTag = "settings_disconnect_button"
-            )
+            // Disconnect button — only show when connected
+            if (isConnected) {
+                SettingsItem(
+                    icon = Icons.AutoMirrored.Filled.Logout,
+                    title = stringResource(R.string.settings_disconnect),
+                    onClick = { showDisconnectDialog = true },
+                    tint = theme.error,
+                    testTag = "settings_disconnect_button"
+                )
+            }
         }
     }
 
@@ -216,11 +236,13 @@ private fun SettingsItem(
     onClick: (() -> Unit)? = null,
     showChevron: Boolean = false,
     tint: androidx.compose.ui.graphics.Color? = null,
+    enabled: Boolean = true,
     testTag: String? = null
 ) {
     val theme = LocalOpenCodeTheme.current
-    val iconColor = tint ?: theme.textMuted
-    val titleColor = tint ?: theme.text
+    val contentAlpha = if (enabled) 1f else 0.4f
+    val iconColor = (tint ?: theme.textMuted).copy(alpha = contentAlpha)
+    val titleColor = (tint ?: theme.text).copy(alpha = contentAlpha)
 
     Surface(
         modifier = modifier
@@ -232,7 +254,11 @@ private fun SettingsItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+                .then(
+                    if (onClick != null && enabled) {
+                        Modifier.clickable(role = Role.Button, onClick = onClick)
+                    } else Modifier
+                )
                 .padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
@@ -255,7 +281,7 @@ private fun SettingsItem(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = theme.textMuted,
+                        color = theme.textMuted.copy(alpha = contentAlpha),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -265,7 +291,7 @@ private fun SettingsItem(
                 Text(
                     text = "→",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = theme.textMuted
+                    color = theme.textMuted.copy(alpha = contentAlpha)
                 )
             }
         }

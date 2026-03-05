@@ -1,8 +1,11 @@
 package dev.blazelight.p4oc.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.ripple
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,10 +14,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -823,4 +829,198 @@ fun TuiSnackbar(
         shape = RectangleShape,
         content = content
     )
+}
+
+// =============================================================================
+// SWITCHES
+// =============================================================================
+
+/**
+ * TUI-style toggle switch rendered as [ON] / [OFF] text.
+ *
+ * Drop-in replacement for Material3 Switch with identical parameters.
+ * Uses monospace-style text labels inside a bordered rectangular container.
+ */
+@Composable
+fun TuiSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val theme = LocalOpenCodeTheme.current
+    val contentAlpha = if (enabled) 1f else 0.38f
+
+    val labelColor = if (checked) {
+        theme.accent.copy(alpha = contentAlpha)
+    } else {
+        theme.textMuted.copy(alpha = contentAlpha)
+    }
+    val borderColor = if (checked) {
+        theme.accent.copy(alpha = contentAlpha)
+    } else {
+        theme.borderSubtle.copy(alpha = contentAlpha)
+    }
+    val bgColor = if (checked) {
+        theme.accent.copy(alpha = 0.1f * contentAlpha)
+    } else {
+        theme.background
+    }
+
+    val label = if (checked) "ON" else "OFF"
+
+    Box(
+        modifier = modifier
+            .height(Sizing.buttonHeightSm)
+            .border(
+                width = Sizing.strokeMd,
+                color = borderColor,
+                shape = RectangleShape
+            )
+            .background(bgColor, RectangleShape)
+            .then(
+                if (onCheckedChange != null && enabled) {
+                    Modifier.toggleable(
+                        value = checked,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(),
+                        role = Role.Switch,
+                        onValueChange = onCheckedChange
+                    )
+                } else Modifier
+            )
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontFamily = FontFamily.Monospace
+            ),
+            color = labelColor
+        )
+    }
+}
+
+// =============================================================================
+// STEPPERS
+// =============================================================================
+
+/**
+ * TUI-style integer stepper: [−] value [+]
+ *
+ * Renders as three adjacent rectangular cells sharing borders,
+ * like a terminal spin-box widget. Use instead of Slider for
+ * small discrete integer ranges.
+ */
+@Composable
+fun TuiStepper(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange,
+    modifier: Modifier = Modifier,
+    step: Int = 1,
+    valueLabel: String = value.toString(),
+    enabled: Boolean = true
+) {
+    val theme = LocalOpenCodeTheme.current
+    val contentAlpha = if (enabled) 1f else 0.38f
+    val borderColor = theme.borderSubtle.copy(alpha = contentAlpha)
+
+    val canDecrement = enabled && value - step >= range.first
+    val canIncrement = enabled && value + step <= range.last
+
+    Row(
+        modifier = modifier
+            .height(Sizing.buttonHeightMd)
+            .border(
+                width = Sizing.strokeMd,
+                color = borderColor,
+                shape = RectangleShape
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // [−] button
+        StepperButton(
+            label = "−",
+            enabled = canDecrement,
+            onClick = { onValueChange((value - step).coerceAtLeast(range.first)) }
+        )
+
+        // Vertical divider
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(Sizing.strokeMd)
+                .background(borderColor)
+        )
+
+        // Value display
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .defaultMinSize(minWidth = Sizing.panelWidthSm)
+                .background(theme.backgroundElement.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = valueLabel,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontFamily = FontFamily.Monospace
+                ),
+                color = theme.accent.copy(alpha = contentAlpha),
+                textAlign = TextAlign.Center
+            )
+        }
+
+        // Vertical divider
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(Sizing.strokeMd)
+                .background(borderColor)
+        )
+
+        // [+] button
+        StepperButton(
+            label = "+",
+            enabled = canIncrement,
+            onClick = { onValueChange((value + step).coerceAtMost(range.last)) }
+        )
+    }
+}
+
+@Composable
+private fun StepperButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val theme = LocalOpenCodeTheme.current
+    val textColor = if (enabled) theme.text else theme.textMuted.copy(alpha = 0.38f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(Sizing.buttonHeightMd)
+            .then(
+                if (enabled) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(),
+                        role = Role.Button,
+                        onClick = onClick
+                    )
+                } else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontFamily = FontFamily.Monospace
+            ),
+            color = textColor
+        )
+    }
 }

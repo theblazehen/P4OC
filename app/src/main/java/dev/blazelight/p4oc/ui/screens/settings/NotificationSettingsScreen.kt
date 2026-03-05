@@ -1,5 +1,11 @@
 package dev.blazelight.p4oc.ui.screens.settings
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,14 +16,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.NotificationSettings
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
+import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiButton
+import dev.blazelight.p4oc.ui.components.TuiSwitch
+import dev.blazelight.p4oc.ui.components.TuiTextButton
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -43,8 +57,8 @@ class NotificationSettingsViewModel constructor(
         }
     }
 
-    fun toggleEnabled() {
-        val new = _settings.value.copy(enabled = !_settings.value.enabled)
+    fun setEnabled(enabled: Boolean) {
+        val new = _settings.value.copy(enabled = enabled)
         _settings.value = new
         viewModelScope.launch { settingsDataStore.updateNotificationSettings(new) }
     }
@@ -70,6 +84,45 @@ fun NotificationSettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val theme = LocalOpenCodeTheme.current
+    val context = LocalContext.current
+
+    var hasPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    var showPermissionDeniedDialog by remember { mutableStateOf(false) }
+
+    // Re-check permission when screen resumes (e.g., returning from system settings)
+    LifecycleResumeEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        onPauseOrDispose { }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasPermission = granted
+        if (granted) {
+            viewModel.setEnabled(true)
+        } else {
+            viewModel.setEnabled(false)
+            showPermissionDeniedDialog = true
+        }
+    }
 
     Scaffold(
         containerColor = theme.background,
@@ -86,6 +139,15 @@ fun NotificationSettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
+            // Permission warning banner (when denied on API 33+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasPermission) {
+                PermissionWarningBanner(
+                    onRequestPermission = {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                )
+            }
+
             // General section
             SectionHeader(title = stringResource(R.string.notification_general))
 
@@ -94,7 +156,17 @@ fun NotificationSettingsScreen(
                 subtitle = stringResource(R.string.notification_enable_desc),
                 icon = Icons.Default.Notifications,
                 checked = settings.enabled,
-                onCheckedChange = { viewModel.toggleEnabled() },
+                onCheckedChange = { shouldEnable ->
+                    if (!shouldEnable) {
+                        viewModel.setEnabled(false)
+                        return@NotificationSwitch
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasPermission) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        viewModel.setEnabled(true)
+                    }
+                },
                 enabled = true,
                 testTag = "notification_enable_switch"
             )
@@ -121,6 +193,83 @@ fun NotificationSettingsScreen(
                 enabled = settings.enabled,
                 testTag = "notification_questions_switch"
             )
+        }
+    }
+
+    if (showPermissionDeniedDialog) {
+        TuiAlertDialog(
+            onDismissRequest = { showPermissionDeniedDialog = false },
+            title = stringResource(R.string.notification_permission_required),
+            icon = Icons.Default.NotificationsOff,
+            confirmButton = {
+                TuiButton(
+                    onClick = {
+                        showPermissionDeniedDialog = false
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text(stringResource(R.string.notification_open_settings))
+                }
+            },
+            dismissButton = {
+                TuiTextButton(onClick = { showPermissionDeniedDialog = false }) {
+                    Text(stringResource(R.string.button_cancel))
+                }
+            }
+        ) {
+            Text(
+                text = stringResource(R.string.notification_permission_denied_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.textMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun PermissionWarningBanner(
+    onRequestPermission: () -> Unit
+) {
+    val theme = LocalOpenCodeTheme.current
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+        color = theme.warning.copy(alpha = 0.1f),
+        shape = RectangleShape
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = theme.warning,
+                modifier = Modifier.size(Sizing.iconMd)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.notification_permission_not_granted),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.text
+                )
+                Text(
+                    text = stringResource(R.string.notification_permission_tap_to_grant),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted
+                )
+            }
+            TuiButton(onClick = onRequestPermission) {
+                Text(stringResource(R.string.notification_grant))
+            }
         }
     }
 }
@@ -180,9 +329,9 @@ private fun NotificationSwitch(
                 )
             }
         }
-        Switch(
+        TuiSwitch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = { onCheckedChange(!checked) },
             enabled = enabled,
             modifier = Modifier.testTag(testTag)
         )

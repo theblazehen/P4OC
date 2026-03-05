@@ -34,6 +34,8 @@ import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiTopBar
+import dev.blazelight.p4oc.ui.components.TuiStepper
+import dev.blazelight.p4oc.ui.components.TuiSwitch
 
 
 class VisualSettingsViewModel constructor(
@@ -293,32 +295,18 @@ private fun FontSizeSlider(
     onValueChange: (Int) -> Unit,
     range: IntRange
 ) {
-    val theme = LocalOpenCodeTheme.current
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "${value}sp",
-                style = MaterialTheme.typography.labelMedium,
-                color = theme.accent
-            )
-        }
-        Slider(
-            value = value.toFloat(),
-            onValueChange = { onValueChange(it.toInt()) },
-            valueRange = range.first.toFloat()..range.last.toFloat(),
-            steps = range.last - range.first - 1,
-            colors = SliderDefaults.colors(
-                thumbColor = theme.accent,
-                activeTrackColor = theme.accent,
-                inactiveTrackColor = theme.borderSubtle,
-                activeTickColor = theme.accent,
-                inactiveTickColor = theme.textMuted
-            )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        TuiStepper(
+            value = value,
+            onValueChange = onValueChange,
+            range = range,
+            step = 1,
+            valueLabel = "${value}sp"
         )
     }
 }
@@ -425,7 +413,7 @@ private fun SettingsSwitch(
                 )
             }
         }
-        Switch(
+        TuiSwitch(
             checked = checked,
             onCheckedChange = onCheckedChange
         )

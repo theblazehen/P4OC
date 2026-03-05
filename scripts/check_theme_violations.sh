@@ -102,7 +102,27 @@ else
 	echo "  OK No raw Slider without explicit colors"
 fi
 
-# 5. Hardcoded RoundedCornerShape outside Theme.kt
+# 5. Raw Switch usage (should use TuiSwitch)
+echo "> Checking raw Switch usage..."
+VIOLATIONS=$(grep -rn "[^a-zA-Z]Switch(" --include="*.kt" "$SRC" |
+	grep -v "TuiComponents.kt" |
+	grep -v "TuiSwitch" |
+	grep -v "SettingsSwitch" |
+	grep -v "NotificationSwitch" |
+	grep -v "ConnectionSwitch" |
+	grep -v "import " |
+	grep -v "SwitchDefaults" |
+	grep -v "// " || true)
+
+if [ -n "$VIOLATIONS" ]; then
+	echo "  WARN Raw Switch( found (should use TuiSwitch):"
+	echo "$VIOLATIONS" | sed 's/^/    /'
+	ERRORS=$((ERRORS + 1))
+else
+	echo "  OK No raw Switch usage"
+fi
+
+# 6. Hardcoded RoundedCornerShape outside Theme.kt
 echo "> Checking hardcoded RoundedCornerShape..."
 VIOLATIONS=$(grep -rn "RoundedCornerShape" --include="*.kt" "$SRC" |
 	grep -v "Theme.kt" |
