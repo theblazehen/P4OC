@@ -7,6 +7,7 @@ import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.PtyWebSocketClient
 import dev.blazelight.p4oc.core.notification.NotificationEventObserver
 import dev.blazelight.p4oc.core.notification.NotificationHelper
+
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.ui.screens.chat.ChatViewModel
@@ -18,6 +19,7 @@ import dev.blazelight.p4oc.ui.screens.settings.ModelControlsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.SkillsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.VisualSettingsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.SettingsViewModel
+import dev.blazelight.p4oc.ui.screens.settings.NotificationSettingsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.ProviderConfigViewModel
 import dev.blazelight.p4oc.ui.screens.projects.ProjectsViewModel
 import dev.blazelight.p4oc.ui.screens.terminal.TerminalViewModel
@@ -46,10 +48,12 @@ val appModule = module {
     // Core services
     single { SettingsDataStore(androidContext(), get()) }
     single { NotificationHelper(androidContext()) }
-    single { NotificationEventObserver(get(), get()) }
+    single { NotificationEventObserver(get(), get(), get()) }
 
     // Tab management (singleton for app lifetime)
     single { TabManager() }
+
+
 }
 
 val networkModule = module {
@@ -72,6 +76,7 @@ val viewModelModule = module {
     viewModelOf(::VisualSettingsViewModel)
     viewModelOf(::SkillsViewModel)
     viewModelOf(::SettingsViewModel)
+    viewModelOf(::NotificationSettingsViewModel)
     viewModelOf(::ProviderConfigViewModel)
     viewModelOf(::ProjectsViewModel)
     viewModel { params -> ChatViewModel(params.get(), get(), get(), get(), get()) }

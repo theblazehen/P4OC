@@ -91,7 +91,7 @@ class SessionListViewModel constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
+                _uiState.update { it.copy(isLoading = false) }
                 return@launch
             }
 

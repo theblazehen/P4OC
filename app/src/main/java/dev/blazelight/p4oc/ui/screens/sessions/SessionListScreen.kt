@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,8 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,6 +43,8 @@ import kotlinx.datetime.toLocalDateTime
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.ui.components.TuiCard
+import dev.blazelight.p4oc.ui.components.TuiSnackbar
 
 private data class SessionNode(
     val sessionWithProject: SessionWithProject,
@@ -63,6 +68,7 @@ fun SessionListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showNewSessionDialog by remember { mutableStateOf(false) }
+    var showNewSessionCustomDir by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Session?>(null) }
     
     val displayedSessions = remember(uiState.sessions, filterProjectId) {
@@ -92,7 +98,7 @@ fun SessionListScreen(
         containerColor = theme.background,
         topBar = {
             TuiTopBar(
-                title = projectName ?: "Sessions",
+                title = projectName ?: stringResource(R.string.sessions_title_default),
                 onNavigateBack = onNavigateBack,
                 actions = {
                     // Always show folder icon for project navigation
@@ -110,57 +116,87 @@ fun SessionListScreen(
                     }
                     IconButton(
                         onClick = onSettings,
-                        modifier = Modifier.size(Sizing.iconButtonMd)
+                        modifier = Modifier.size(Sizing.iconButtonMd).testTag("sessions_settings_button")
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings), modifier = Modifier.size(Sizing.iconAction))
                     }
                 }
             )
         },
-        floatingActionButton = {
-            SmallFloatingActionButton(
-                onClick = { showNewSessionDialog = true },
-                containerColor = theme.backgroundElement,
-                contentColor = theme.text
-            ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_new_session), modifier = Modifier.size(Sizing.iconAction))
-            }
-        }
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when {
-                uiState.isLoading && displayedSessions.isEmpty() -> {
-                    TuiLoadingScreen(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+            if (uiState.isLoading && displayedSessions.isEmpty()) {
+                TuiLoadingScreen(
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                val expandedSessions = remember { mutableStateMapOf<String, Boolean>() }
+
+                val sessionTree = remember(displayedSessions) {
+                    buildSessionTree(displayedSessions)
                 }
-                displayedSessions.isEmpty() -> {
-                    EmptySessionsView(
-                        modifier = Modifier.align(Alignment.Center),
-                        onCreateSession = { showNewSessionDialog = true }
-                    )
-                }
-                else -> {
-                    val expandedSessions = remember { mutableStateMapOf<String, Boolean>() }
-                    
-                    val sessionTree = remember(displayedSessions) {
-                        buildSessionTree(displayedSessions)
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().testTag("sessions_list"),
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    // Pinned quick actions (only on unfiltered list)
+                    if (filterProjectId == null) {
+                        item(key = "quick_action_global") {
+                            QuickActionCard(
+                                icon = "\u25C6",
+                                title = stringResource(R.string.sessions_quick_global),
+                                subtitle = stringResource(R.string.sessions_quick_global_desc),
+                                onClick = {
+                                    viewModel.createSession(title = null, directory = null)
+                                },
+                                modifier = Modifier.testTag("quick_action_global")
+                            )
+                        }
+
+                        item(key = "quick_action_custom") {
+                            QuickActionCard(
+                                icon = "\u25C7",
+                                title = stringResource(R.string.sessions_quick_custom),
+                                subtitle = stringResource(R.string.sessions_quick_custom_desc),
+                                onClick = {
+                                    showNewSessionCustomDir = true
+                                    showNewSessionDialog = true
+                                },
+                                modifier = Modifier.testTag("quick_action_custom")
+                            )
+                        }
                     }
-                    
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(Spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
-                    ) {
+
+                    if (displayedSessions.isEmpty() && filterProjectId == null) {
+                        item(key = "empty_hint") {
+                            Text(
+                                text = stringResource(R.string.sessions_empty_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = theme.textMuted,
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.lg)
+                            )
+                        }
+                    } else if (displayedSessions.isEmpty()) {
+                        item(key = "empty_hint") {
+                            Text(
+                                text = stringResource(R.string.sessions_empty_title),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = theme.textMuted,
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.lg)
+                            )
+                        }
+                    } else {
                         items(
                             items = sessionTree,
                             key = { it.sessionWithProject.session.id }
                         ) { node ->
-                        SessionTreeNode(
+                            SessionTreeNode(
                                 node = node,
                                 depth = 0,
                                 expandedSessions = expandedSessions,
@@ -179,7 +215,7 @@ fun SessionListScreen(
             }
 
             uiState.error?.let { error ->
-                Snackbar(
+                TuiSnackbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(Spacing.md),
@@ -199,10 +235,15 @@ fun SessionListScreen(
         NewSessionDialog(
             projects = uiState.projects,
             defaultProjectId = filterProjectId,
-            onDismiss = { showNewSessionDialog = false },
+            initialUseCustomDirectory = showNewSessionCustomDir,
+            onDismiss = {
+                showNewSessionDialog = false
+                showNewSessionCustomDir = false
+            },
             onCreate = { title, directory ->
                 viewModel.createSession(title, directory)
                 showNewSessionDialog = false
+                showNewSessionCustomDir = false
             }
         )
     }
@@ -359,7 +400,7 @@ private fun SessionCard(
                 ) {
                     Icon(
                         if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        contentDescription = if (isExpanded) stringResource(R.string.cd_collapse) else stringResource(R.string.cd_expand),
                         modifier = Modifier.size(Sizing.iconSm),
                         tint = theme.textMuted
                     )
@@ -534,33 +575,56 @@ private fun SessionStatusIndicator(status: SessionStatus?) {
 }
 
 @Composable
-private fun EmptySessionsView(
-    modifier: Modifier = Modifier,
-    onCreateSession: () -> Unit
+private fun QuickActionCard(
+    icon: String,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val theme = LocalOpenCodeTheme.current
-    Column(
-        modifier = modifier.padding(Spacing.lg),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick),
+        color = theme.background,
+        shape = RectangleShape
     ) {
-        Text(
-            text = "◇",
-            style = MaterialTheme.typography.displayMedium,
-            color = theme.textMuted
-        )
-        Text(
-            text = stringResource(R.string.sessions_empty_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = theme.text
-        )
-        Text(
-            text = stringResource(R.string.sessions_empty_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = theme.textMuted
-        )
-        TuiButton(onClick = onCreateSession) {
-            Text("+ ${stringResource(R.string.sessions_new)}")
+        Row(
+            modifier = Modifier
+                .border(Sizing.strokeThin, theme.accent, RectangleShape)
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Text(
+                text = "+",
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.accent
+            )
+            Text(
+                text = icon,
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.accent
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.text
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted
+                )
+            }
+            Text(
+                text = "\u2192",
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.textMuted
+            )
         }
     }
 }
@@ -570,24 +634,34 @@ private fun EmptySessionsView(
 private fun NewSessionDialog(
     projects: List<ProjectInfo>,
     defaultProjectId: String? = null,
+    initialUseCustomDirectory: Boolean = false,
     onDismiss: () -> Unit,
     onCreate: (String?, String?) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     // Default to null (Global) unless a specific project is requested
     var selectedProject by remember(defaultProjectId, projects) { 
-        mutableStateOf(if (defaultProjectId != null) projects.find { it.id == defaultProjectId } else null) 
+        mutableStateOf(if (defaultProjectId != null && !initialUseCustomDirectory) projects.find { it.id == defaultProjectId } else null) 
     }
     var expanded by remember { mutableStateOf(false) }
+    var useCustomDirectory by remember { mutableStateOf(initialUseCustomDirectory) }
+    var customDirectory by remember { mutableStateOf("") }
 
     val globalText = stringResource(R.string.sessions_global)
+    val customText = stringResource(R.string.sessions_custom_directory)
+    
+    // Resolve the effective directory for session creation
+    val effectiveDirectory = when {
+        useCustomDirectory -> customDirectory.takeIf { it.isNotBlank() }
+        else -> selectedProject?.worktree
+    }
     
     TuiAlertDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.sessions_new),
         confirmButton = {
             TuiButton(
-                onClick = { onCreate(title.takeIf { it.isNotBlank() }, selectedProject?.worktree) }
+                onClick = { onCreate(title.takeIf { it.isNotBlank() }, effectiveDirectory) }
             ) {
                 Text(stringResource(R.string.sessions_create))
             }
@@ -603,7 +677,11 @@ private fun NewSessionDialog(
             onExpandedChange = { expanded = it }
         ) {
             OutlinedTextField(
-                value = selectedProject?.name ?: globalText,
+                value = when {
+                    useCustomDirectory -> customText
+                    selectedProject != null -> selectedProject!!.name
+                    else -> globalText
+                },
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(stringResource(R.string.sessions_project)) },
@@ -631,6 +709,7 @@ private fun NewSessionDialog(
                     },
                     onClick = {
                         selectedProject = null
+                        useCustomDirectory = false
                         expanded = false
                     }
                 )
@@ -650,11 +729,43 @@ private fun NewSessionDialog(
                         },
                         onClick = {
                             selectedProject = project
+                            useCustomDirectory = false
                             expanded = false
                         }
                     )
                 }
+                
+                // Custom directory option
+                DropdownMenuItem(
+                    text = { 
+                        Column {
+                            Text(stringResource(R.string.sessions_custom_directory), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                stringResource(R.string.sessions_custom_directory_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = theme.textMuted
+                            )
+                        }
+                    },
+                    onClick = {
+                        useCustomDirectory = true
+                        selectedProject = null
+                        expanded = false
+                    }
+                )
             }
+        }
+        
+        // Show custom directory text field when selected
+        if (useCustomDirectory) {
+            OutlinedTextField(
+                value = customDirectory,
+                onValueChange = { customDirectory = it },
+                label = { Text(stringResource(R.string.sessions_directory_path)) },
+                placeholder = { Text(stringResource(R.string.sessions_directory_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         
         OutlinedTextField(

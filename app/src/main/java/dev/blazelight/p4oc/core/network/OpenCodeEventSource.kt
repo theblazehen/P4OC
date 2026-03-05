@@ -34,7 +34,7 @@ class OpenCodeEventSource(
 ) {
     companion object {
         private const val TAG = "OpenCodeEventSource"
-        private const val MAX_CONSECUTIVE_ERRORS = 5
+        private const val MAX_CONSECUTIVE_ERRORS = 15
     }
 
     private val _events = MutableSharedFlow<OpenCodeEvent>(
@@ -115,6 +115,11 @@ class OpenCodeEventSource(
         }
         toClose?.closeSafely()
         besRef.start()
+    }
+
+    /** Reset error counter — call on foreground resume before reconnect. */
+    fun resetConsecutiveErrors() {
+        consecutiveErrors = 0
     }
 
     fun shutdown() {
@@ -233,9 +238,14 @@ class OpenCodeEventSource(
      */
     private inner class SseEventHandler(private val gen: Long) : BackgroundEventHandler {
 
+        // Track whether onError already fired for this failure cycle to avoid double-counting.
+        // FaultEvent sequence: onError → onClosed → ConnectionErrorHandler for one failure.
+        private var errorFiredSinceOpen = false
+
         override fun onOpen() {
             if (!isActiveGeneration(gen)) return
             AppLog.d(TAG, "SSE connected (onOpen)")
+            errorFiredSinceOpen = false
             consecutiveErrors = 0
             _connectionState.value = ConnectionState.Connected
             emitEvent(OpenCodeEvent.Connected)
@@ -254,18 +264,27 @@ class OpenCodeEventSource(
 
         override fun onClosed() {
             if (!isActiveGeneration(gen)) return
+            // If onError already fired for this failure cycle, don't double-count.
+            // The library calls onError → onClosed for the same FaultEvent.
+            if (errorFiredSinceOpen) {
+                AppLog.d(TAG, "SSE stream closed (onClosed) after onError – skipping duplicate count")
+                errorFiredSinceOpen = false
+                return
+            }
+            // Clean close without preceding error (e.g., server shutdown)
             consecutiveErrors++
             if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
                 AppLog.w(TAG, "SSE stream closed (onClosed), $consecutiveErrors consecutive errors – escalating to Disconnected")
                 _connectionState.value = ConnectionState.Disconnected
             } else {
                 AppLog.d(TAG, "SSE stream closed (onClosed), consecutiveErrors=$consecutiveErrors, library may auto-reconnect")
-                _connectionState.value = ConnectionState.Error("Stream closed")
+                // Don't set Error state here to avoid UI flicker during auto-retries
             }
         }
 
         override fun onError(t: Throwable) {
             if (!isActiveGeneration(gen)) return
+            errorFiredSinceOpen = true
             consecutiveErrors++
             if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
                 AppLog.e(TAG, "SSE error (onError): ${t.message}, $consecutiveErrors consecutive errors – escalating to Disconnected", t)

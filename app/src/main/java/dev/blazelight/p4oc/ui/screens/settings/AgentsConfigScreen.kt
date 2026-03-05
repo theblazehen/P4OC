@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -98,16 +99,8 @@ class AgentsConfigViewModel constructor(
     }
     
     fun toggleAgent(agentName: String) {
-        _state.update { state ->
-            val updatedAgents = state.agents.map { agent ->
-                if (agent.name == agentName) {
-                    agent.copy(isEnabled = !agent.isEnabled)
-                } else {
-                    agent
-                }
-            }
-            state.copy(agents = updatedAgents)
-        }
+        // No-op: server API does not support toggling agents from client.
+        // Toggle removed from UI — agents show read-only status.
     }
     
     fun clearError() {
@@ -288,7 +281,7 @@ private fun AgentCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = MaterialTheme.shapes.small,
+                    shape = RectangleShape,
                     color = getAgentColor(agent.name).copy(alpha = 0.2f)
                 ) {
                     Icon(
@@ -339,11 +332,6 @@ private fun AgentCard(
                     }
                 }
             }
-            
-            Switch(
-                checked = agent.isEnabled,
-                onCheckedChange = { onToggle() }
-            )
         }
     }
 }

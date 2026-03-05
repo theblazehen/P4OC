@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,9 +77,18 @@ class SkillsViewModel constructor(
             when (result) {
                 is ApiResult.Success -> {
                     val skills = result.data.map { (name, status) ->
+                        val description = when {
+                            status.error != null -> status.error
+                            status.status == "connected" -> "Connected"
+                            status.status == "disabled" -> "Disabled"
+                            status.status == "failed" -> "Connection failed"
+                            status.status == "needs_auth" -> "Authentication required"
+                            status.status == "needs_client_registration" -> "Client registration required"
+                            else -> status.status.replaceFirstChar { it.uppercase() }
+                        }
                         SkillInfo(
                             name = name,
-                            description = "MCP Server: $name",
+                            description = description,
                             source = "mcp",
                             isEnabled = status.status == "connected",
                             tools = emptyList(),
@@ -100,16 +110,8 @@ class SkillsViewModel constructor(
     }
     
     fun toggleSkill(skillName: String) {
-        _state.update { state ->
-            val updatedSkills = state.skills.map { skill ->
-                if (skill.name == skillName) {
-                    skill.copy(isEnabled = !skill.isEnabled)
-                } else {
-                    skill
-                }
-            }
-            state.copy(skills = updatedSkills)
-        }
+        // No-op: server API does not support toggling skills from client.
+        // Skills show read-only connection status from server.
     }
     
     fun clearError() {
@@ -262,7 +264,7 @@ private fun SkillCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = MaterialTheme.shapes.small,
+                    shape = RectangleShape,
                     color = if (skill.isEnabled) 
                         theme.success.copy(alpha = 0.2f)
                     else 
@@ -290,7 +292,7 @@ private fun SkillCard(
                             fontWeight = FontWeight.Medium
                         )
                         Surface(
-                            shape = MaterialTheme.shapes.small,
+                            shape = RectangleShape,
                             color = if (skill.isEnabled) 
                                 theme.success.copy(alpha = 0.2f)
                             else 
@@ -335,10 +337,7 @@ private fun SkillCard(
                 }
             }
             
-            Switch(
-                checked = skill.isEnabled,
-                onCheckedChange = { onToggle() }
-            )
+            // Read-only status — server API does not support toggling skills from client
         }
     }
 }

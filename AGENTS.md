@@ -58,12 +58,17 @@ export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 - Add `Modifier.testTag(...)` to key interactive elements for UI testing
 - Package: `dev.blazelight.p4oc`
 
+## Skills
+
+| Skill | Invocation | What it does |
+|-------|-----------|--------------|
+| Play Release | `/p:play-release [version]` | Full Play Store release prep: preflight checks, version bump, changelog, signed AAB/APK build, git tag |
+
 ## Quick reference
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
+tk ready              # Find available work
+tk show <id>          # View issue details
+tk start <id>         # Claim work
+tk close <id>         # Complete work
 ```

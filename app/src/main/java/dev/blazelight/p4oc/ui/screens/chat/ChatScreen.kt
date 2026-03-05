@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +36,7 @@ import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
+import dev.blazelight.p4oc.ui.components.TuiSnackbar
 import kotlinx.coroutines.launch
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -296,15 +299,8 @@ fun ChatScreen(
                 )
             }
 
-            if (connectionState !is ConnectionState.Connected) {
-                ConnectionBanner(
-                    state = connectionState,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
-            }
-
             uiState.error?.let { error ->
-                Snackbar(
+                TuiSnackbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(Spacing.md),
@@ -401,7 +397,7 @@ private fun ChatTopBar(
             if (isBusy) {
                 IconButton(
                     onClick = onAbort,
-                    modifier = Modifier.size(Sizing.iconButtonMd)
+                    modifier = Modifier.size(Sizing.iconButtonMd).testTag("chat_abort_button")
                 ) {
                     Icon(
                         Icons.Default.Stop,
@@ -438,7 +434,7 @@ private fun ChatTopBar(
             
             IconButton(
                 onClick = onCommands,
-                modifier = Modifier.size(Sizing.iconButtonMd)
+                modifier = Modifier.size(Sizing.iconButtonMd).testTag("chat_commands_button")
             ) {
                 Icon(Icons.Default.Code, contentDescription = stringResource(R.string.cd_commands), modifier = Modifier.size(Sizing.iconAction))
             }
@@ -450,7 +446,7 @@ private fun ChatTopBar(
             }
             IconButton(
                 onClick = onFiles,
-                modifier = Modifier.size(Sizing.iconButtonMd)
+                modifier = Modifier.size(Sizing.iconButtonMd).testTag("chat_files_button")
             ) {
                 Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_files), modifier = Modifier.size(Sizing.iconAction))
             }
@@ -461,45 +457,50 @@ private fun ChatTopBar(
 @Composable
 private fun ConnectionIndicator(state: ConnectionState) {
     val theme = LocalOpenCodeTheme.current
+    var showDetail by remember { mutableStateOf(false) }
+
     val (color, description) = when (state) {
-        ConnectionState.Connected -> theme.success to "Connected"
-        ConnectionState.Connecting -> theme.warning to "Connecting"
-        ConnectionState.Disconnected -> theme.textMuted to "Disconnected"
-        is ConnectionState.Error -> theme.error to "Error"
+        ConnectionState.Connected -> theme.success to stringResource(R.string.connection_status_connected)
+        ConnectionState.Connecting -> theme.warning to stringResource(R.string.connection_status_connecting)
+        ConnectionState.Disconnected -> theme.textMuted to stringResource(R.string.connection_status_disconnected)
+        is ConnectionState.Error -> theme.error to sanitizeErrorMessage(state.message)
     }
 
-    Icon(
-        Icons.Default.Circle,
-        contentDescription = description,
-        tint = color,
-        modifier = Modifier.size(Sizing.iconXxs)
-    )
+    Box(
+        modifier = Modifier.size(Sizing.iconButtonMd),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.Circle,
+            contentDescription = description,
+            tint = color,
+            modifier = Modifier
+                .size(Sizing.iconXxs)
+                .clickable(role = Role.Button) { showDetail = !showDetail }
+        )
+        DropdownMenu(
+            expanded = showDetail,
+            onDismissRequest = { showDetail = false }
+        ) {
+            Text(
+                text = description,
+                modifier = Modifier.padding(Spacing.md),
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.text
+            )
+        }
+    }
 }
 
 @Composable
-private fun ConnectionBanner(
-    state: ConnectionState,
-    modifier: Modifier = Modifier
-) {
-    val theme = LocalOpenCodeTheme.current
-    val (text, color) = when (state) {
-        ConnectionState.Connecting -> "Connecting..." to theme.warning.copy(alpha = 0.2f)
-        ConnectionState.Disconnected -> "Disconnected" to theme.error.copy(alpha = 0.2f)
-        is ConnectionState.Error -> "Connection error: ${state.message}" to theme.error.copy(alpha = 0.2f)
-        ConnectionState.Connected -> return
-    }
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = color
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(Spacing.md),
-            style = MaterialTheme.typography.bodySmall,
-            color = theme.text
-        )
-    }
+private fun sanitizeErrorMessage(raw: String?): String = when {
+    raw == null -> stringResource(R.string.connection_error_generic)
+    raw.contains("stream closed", ignoreCase = true) -> stringResource(R.string.connection_error_stream_closed)
+    raw.contains("timeout", ignoreCase = true) -> stringResource(R.string.connection_error_timeout)
+    raw.contains("refused", ignoreCase = true) -> stringResource(R.string.connection_error_refused)
+    raw.contains("reset", ignoreCase = true) -> stringResource(R.string.connection_error_reset)
+    raw.contains("unreachable", ignoreCase = true) -> stringResource(R.string.connection_error_refused)
+    else -> stringResource(R.string.connection_error_generic)
 }
 
 @Composable

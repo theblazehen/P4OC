@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -451,7 +452,7 @@ fun SyntaxHighlightedCode(
     Surface(
         modifier = modifier,
         color = theme.backgroundElement,
-        shape = MaterialTheme.shapes.medium
+        shape = RectangleShape
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
             // Line numbers
@@ -517,7 +518,7 @@ fun CodeSnippet(
     Surface(
         modifier = modifier,
         color = theme.backgroundElement,
-        shape = MaterialTheme.shapes.small
+        shape = RectangleShape
     ) {
         Text(
             text = highlightedCode,

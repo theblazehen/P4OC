@@ -180,7 +180,7 @@ fun AttachmentMenu(
         modifier = modifier
     ) {
         DropdownMenuItem(
-            text = { Text("Files") },
+            text = { Text(stringResource(R.string.attachment_files)) },
             leadingIcon = { Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = stringResource(R.string.cd_file_type)) },
             onClick = {
                 onSelectFiles()
@@ -188,7 +188,7 @@ fun AttachmentMenu(
             }
         )
         DropdownMenuItem(
-            text = { Text("Images") },
+            text = { Text(stringResource(R.string.attachment_images)) },
             leadingIcon = { Icon(Icons.Default.Image, contentDescription = stringResource(R.string.cd_image_type)) },
             onClick = {
                 onSelectImages()
@@ -196,7 +196,7 @@ fun AttachmentMenu(
             }
         )
         DropdownMenuItem(
-            text = { Text("From Project") },
+            text = { Text(stringResource(R.string.attachment_from_project)) },
             leadingIcon = { Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_folder_type)) },
             onClick = {
                 onSelectFromProject()

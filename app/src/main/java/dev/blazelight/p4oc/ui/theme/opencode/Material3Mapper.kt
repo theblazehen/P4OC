@@ -44,6 +44,14 @@ fun OpenCodeTheme.toMaterial3ColorScheme(): ColorScheme {
             inverseOnSurface = background,
             inversePrimary = primary,
             
+            surfaceContainerLowest = background,
+            surfaceContainerLow = backgroundPanel,
+            surfaceContainer = backgroundPanel,
+            surfaceContainerHigh = backgroundElement,
+            surfaceContainerHighest = backgroundElement,
+            surfaceBright = backgroundPanel,
+            surfaceDim = background,
+            
             outline = border,
             outlineVariant = borderSubtle,
             
@@ -83,6 +91,14 @@ fun OpenCodeTheme.toMaterial3ColorScheme(): ColorScheme {
             inverseSurface = text,
             inverseOnSurface = background,
             inversePrimary = primary,
+            
+            surfaceContainerLowest = background,
+            surfaceContainerLow = backgroundPanel,
+            surfaceContainer = backgroundPanel,
+            surfaceContainerHigh = backgroundElement,
+            surfaceContainerHighest = backgroundElement,
+            surfaceBright = backgroundPanel,
+            surfaceDim = background,
             
             outline = border,
             outlineVariant = borderSubtle,

@@ -1,6 +1,6 @@
 ---
 id: oa-ina0
-status: in_progress
+status: closed
 deps: [oa-gs5t]
 links: []
 created: 2026-02-22T11:59:36Z

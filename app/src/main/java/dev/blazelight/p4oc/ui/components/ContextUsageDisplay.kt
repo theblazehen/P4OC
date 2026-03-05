@@ -188,20 +188,20 @@ private fun ExpandedContextIndicator(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 TokenStat(
-                    label = "Input",
+                    label = stringResource(R.string.context_input),
                     value = usage.inputTokens,
                     icon = "→",
                     color = theme.accent
                 )
                 TokenStat(
-                    label = "Output",
+                    label = stringResource(R.string.context_output),
                     value = usage.outputTokens,
                     icon = "←",
                     color = theme.info
                 )
                 if (usage.cachedTokens > 0) {
                     TokenStat(
-                        label = "Cached",
+                        label = stringResource(R.string.context_cached),
                         value = usage.cachedTokens,
                         icon = "◎",
                         color = theme.success

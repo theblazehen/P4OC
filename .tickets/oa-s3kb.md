@@ -1,6 +1,6 @@
 ---
 id: oa-s3kb
-status: in_progress
+status: closed
 deps: [oa-ina0]
 links: []
 created: 2026-02-22T12:01:13Z

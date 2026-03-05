@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,7 @@ fun TabBar(
     }
     
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().testTag("tab_bar"),
         color = theme.background,
         tonalElevation = 0.dp
     ) {
@@ -95,7 +96,7 @@ fun TabBar(
             // Add button
             IconButton(
                 onClick = onAddClick,
-                modifier = Modifier.size(Sizing.iconLg)
+                modifier = Modifier.size(Sizing.iconLg).testTag("tab_bar_add_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,

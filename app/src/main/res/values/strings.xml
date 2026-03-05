@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Pocket Code</string>
+    <string name="app_name">OpenCode</string>
     
     <!-- Server Screen -->
     <string name="server_connect_title">Connect to Server</string>
@@ -32,7 +32,7 @@
     <string name="termux_step1_description">Termux provides a Linux environment on Android. Install it from F-Droid (not Play Store).</string>
     <string name="termux_get_from_fdroid">Get Termux from F-Droid</string>
     <string name="termux_step2_title">Step 2: Enable External Apps</string>
-    <string name="termux_step2_description">Termux needs permission to receive commands from Pocket Code. Tap below to run the setup script.</string>
+    <string name="termux_step2_description">Termux needs permission to receive commands from OpenCode. Tap below to run the setup script.</string>
     <string name="termux_run_setup">Run Setup Script</string>
     <string name="termux_step2_note">After running the script, restart Termux and return here.</string>
     <string name="termux_step3_title">Step 3: Install OpenCode</string>
@@ -74,7 +74,10 @@
     <string name="settings_visual">Visual Settings</string>
     <string name="settings_visual_desc">Theme, font size, and display options</string>
     <string name="settings_about">About</string>
-    <string name="settings_version">Pocket Code v0.1.0</string>
+    <string name="settings_version_format">OpenCode v%s</string>
+    <string name="settings_about_github">View on GitHub</string>
+    <string name="settings_about_github_url">https://github.com/sst/opencode</string>
+    <string name="settings_about_build_info">Build: %1$s (%2$d)</string>
     <string name="settings_disconnect">Disconnect</string>
     <string name="settings_disconnect_confirm">Are you sure you want to disconnect from the server?</string>
     <string name="button_cancel">Cancel</string>
@@ -82,7 +85,7 @@
     <!-- Sessions Screen -->
     <string name="sessions_title">Sessions</string>
     <string name="sessions_empty_title">No sessions yet</string>
-    <string name="sessions_empty_description">Start a new conversation with your AI assistant</string>
+    <string name="sessions_empty_hint">Tap above to start a new session</string>
     <string name="sessions_new">New Session</string>
     <string name="sessions_delete">Delete</string>
     <string name="sessions_delete_title">Delete Session</string>
@@ -94,6 +97,14 @@
     <string name="sessions_project">Project</string>
     <string name="sessions_global">Global</string>
     <string name="sessions_no_project_context">No project context</string>
+    <string name="sessions_custom_directory">Custom directory</string>
+    <string name="sessions_custom_directory_desc">Enter a directory path on the server</string>
+    <string name="sessions_directory_path">Directory path</string>
+    <string name="sessions_directory_hint">/home/user/my-project</string>
+    <string name="sessions_quick_global">New global session</string>
+    <string name="sessions_quick_global_desc">No project context</string>
+    <string name="sessions_quick_custom">New with custom directory</string>
+    <string name="sessions_quick_custom_desc">Specify a directory on the server</string>
     
     <!-- Chat Screen -->
     <string name="chat_empty_title">Start a conversation</string>
@@ -112,6 +123,19 @@
     <string name="dismiss">Dismiss</string>
     <string name="search">Search</string>
     <string name="all">All</string>
+    
+    <!-- File Attachment -->
+    <string name="attachment_files">Files</string>
+    <string name="attachment_images">Images</string>
+    <string name="attachment_from_project">From Project</string>
+    
+    <!-- Context Usage -->
+    <string name="context_input">Input</string>
+    <string name="context_output">Output</string>
+    <string name="context_cached">Cached</string>
+    
+    <!-- Expanded Widgets -->
+    <string name="open_sub_agent">Open Sub-Agent</string>
     
     <!-- File Explorer Screen -->
     <string name="files_search_placeholder">Search files…</string>
@@ -164,10 +188,10 @@
     <string name="cd_dismiss">Dismiss</string>
     
     <!-- Setup Screen -->
-    <string name="setup_welcome_title">Welcome to Pocket Code</string>
+    <string name="setup_welcome_title">Welcome to OpenCode</string>
     <string name="setup_welcome_subtitle">Your AI coding assistant, now on Android</string>
     <string name="setup_run_locally_title">Run OpenCode Locally</string>
-    <string name="setup_run_locally_description">Pocket Code can run OpenCode directly on your device using Termux. This lets you use AI coding assistance without a separate server.</string>
+    <string name="setup_run_locally_description">OpenCode can run directly on your device using Termux. This lets you use AI coding assistance without a separate server.</string>
     <string name="setup_requirements">Requirements:</string>
     
     <!-- Terminal Screen -->
@@ -481,4 +505,39 @@
     <string name="cd_tab_icon">Tab icon</string>
     <string name="cd_remove_attachment">Remove attachment</string>
     <string name="cd_custom_answer">Type custom answer</string>
+
+    <!-- Notification Settings (Feature 2) -->
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_desc">Control notification behavior</string>
+    <string name="notification_general">General</string>
+    <string name="notification_enable">Enable notifications</string>
+    <string name="notification_enable_desc">Show notifications when app is in background</string>
+    <string name="notification_types">Notification Types</string>
+    <string name="notification_permission_requests">Permission requests</string>
+    <string name="notification_permission_requests_desc">Notify when a tool needs approval</string>
+    <string name="notification_questions">AI questions</string>
+    <string name="notification_questions_desc">Notify when the AI asks a question</string>
+
+    <!-- Connection Status -->
+    <string name="connection_status_connected">Connected</string>
+    <string name="connection_status_connecting">Reconnecting…</string>
+    <string name="connection_status_disconnected">Disconnected</string>
+
+    <!-- Connection error messages (sanitized) -->
+    <string name="connection_error_generic">Connection error</string>
+    <string name="connection_error_stream_closed">Server connection lost</string>
+    <string name="connection_error_timeout">Connection timed out</string>
+    <string name="connection_error_refused">Server unreachable</string>
+    <string name="connection_error_reset">Connection reset</string>
+
+    <!-- Session list -->
+    <string name="sessions_title_default">Sessions</string>
+
+    <!-- Connection Settings (Feature 3) -->
+    <string name="settings_connection">Connection</string>
+    <string name="settings_connection_desc">Auto-reconnect and timeout settings</string>
+    <string name="connection_section_general">General</string>
+    <string name="settings_auto_reconnect">Auto-reconnect</string>
+    <string name="settings_auto_reconnect_desc">Automatically reconnect when connection drops</string>
+    <string name="settings_reconnect_timeout">Reconnect timeout</string>
 </resources>

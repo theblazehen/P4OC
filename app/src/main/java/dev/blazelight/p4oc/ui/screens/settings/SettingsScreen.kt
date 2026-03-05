@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,8 +17,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.net.Uri
 import org.koin.androidx.compose.koinViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.blazelight.p4oc.BuildConfig
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -36,11 +41,15 @@ fun SettingsScreen(
     onProviderConfig: () -> Unit = {},
     onVisualSettings: () -> Unit = {},
     onAgentsConfig: () -> Unit = {},
-    onSkills: () -> Unit = {}
+    onSkills: () -> Unit = {},
+    onNotificationSettings: () -> Unit = {},
+    onConnectionSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDisconnectDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val theme = LocalOpenCodeTheme.current
 
     Scaffold(
@@ -70,7 +79,8 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_provider_model),
                 subtitle = stringResource(R.string.settings_provider_model_desc),
                 onClick = onProviderConfig,
-                showChevron = true
+                showChevron = true,
+                testTag = "settings_provider_item"
             )
 
             SettingsItem(
@@ -94,13 +104,35 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_visual),
                 subtitle = stringResource(R.string.settings_visual_desc),
                 onClick = onVisualSettings,
-                showChevron = true
+                showChevron = true,
+                testTag = "settings_visual_item"
+            )
+
+            SettingsItem(
+                icon = Icons.Default.Notifications,
+                title = stringResource(R.string.settings_notifications),
+                subtitle = stringResource(R.string.settings_notifications_desc),
+                onClick = onNotificationSettings,
+                showChevron = true,
+                testTag = "settings_notifications_item"
+            )
+
+            SettingsItem(
+                icon = Icons.Default.Sync,
+                title = stringResource(R.string.settings_connection),
+                subtitle = stringResource(R.string.settings_connection_desc),
+                onClick = onConnectionSettings,
+                showChevron = true,
+                testTag = "settings_connection_item"
             )
 
             SettingsItem(
                 icon = Icons.Default.Info,
                 title = stringResource(R.string.settings_about),
-                subtitle = stringResource(R.string.settings_version)
+                subtitle = stringResource(R.string.settings_version_format, BuildConfig.VERSION_NAME),
+                onClick = { showAboutDialog = true },
+                showChevron = true,
+                testTag = "settings_about_item"
             )
 
             Spacer(Modifier.weight(1f))
@@ -110,7 +142,8 @@ fun SettingsScreen(
                 icon = Icons.AutoMirrored.Filled.Logout,
                 title = stringResource(R.string.settings_disconnect),
                 onClick = { showDisconnectDialog = true },
-                tint = theme.error
+                tint = theme.error,
+                testTag = "settings_disconnect_button"
             )
         }
     }
@@ -131,6 +164,47 @@ fun SettingsScreen(
             isDestructive = true
         )
     }
+
+    if (showAboutDialog) {
+        dev.blazelight.p4oc.ui.components.TuiAlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            icon = Icons.Default.Info,
+            title = stringResource(R.string.settings_about),
+            confirmButton = {
+                dev.blazelight.p4oc.ui.components.TuiTextButton(onClick = { showAboutDialog = false }) {
+                    Text(stringResource(R.string.close))
+                }
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text(
+                    text = stringResource(R.string.settings_version_format, BuildConfig.VERSION_NAME),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = theme.text
+                )
+                Text(
+                    text = stringResource(R.string.settings_about_build_info, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted
+                )
+                if (uiState.serverUrl.isNotEmpty()) {
+                    Text(
+                        text = "${stringResource(R.string.server)}: ${uiState.serverUrl}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.textMuted
+                    )
+                }
+                dev.blazelight.p4oc.ui.components.TuiButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(context.getString(R.string.settings_about_github_url)))
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text(stringResource(R.string.settings_about_github))
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -141,21 +215,24 @@ private fun SettingsItem(
     subtitle: String? = null,
     onClick: (() -> Unit)? = null,
     showChevron: Boolean = false,
-    tint: androidx.compose.ui.graphics.Color? = null
+    tint: androidx.compose.ui.graphics.Color? = null,
+    testTag: String? = null
 ) {
     val theme = LocalOpenCodeTheme.current
     val iconColor = tint ?: theme.textMuted
     val titleColor = tint ?: theme.text
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
         color = theme.background,
         shape = RectangleShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
                 .padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.lg)

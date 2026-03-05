@@ -186,7 +186,7 @@ fun ProjectsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
-                    contentPadding = PaddingValues(8.dp),
+                    contentPadding = PaddingValues(Spacing.sm),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
                     items(uiState.projects, key = { it.id }) { project ->

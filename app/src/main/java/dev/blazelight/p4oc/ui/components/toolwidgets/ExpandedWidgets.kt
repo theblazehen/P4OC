@@ -557,7 +557,7 @@ fun TaskWidgetExpanded(
                     modifier = Modifier.size(Sizing.iconSm)
                 )
                 Spacer(Modifier.width(Spacing.sm))
-                Text("Open Sub-Agent", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.open_sub_agent), style = MaterialTheme.typography.labelSmall)
             }
         }
         

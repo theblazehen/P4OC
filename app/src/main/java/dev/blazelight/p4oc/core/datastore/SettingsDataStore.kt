@@ -61,6 +61,15 @@ class SettingsDataStore constructor(
         private val KEY_RECENT_MODELS = stringPreferencesKey("recent_models")
         private const val MAX_RECENT_MODELS = 10
         
+        // Notification settings keys
+        private val KEY_NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        private val KEY_NOTIFY_PERMISSIONS = booleanPreferencesKey("notify_permissions")
+        private val KEY_NOTIFY_QUESTIONS = booleanPreferencesKey("notify_questions")
+
+        // Connection settings keys
+        private val KEY_AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
+        private val KEY_RECONNECT_TIMEOUT_SECONDS = intPreferencesKey("reconnect_timeout_seconds")
+
         // Project directory persistence
         private val KEY_PROJECT_WORKTREE = stringPreferencesKey("project_worktree")
 
@@ -444,6 +453,40 @@ class SettingsDataStore constructor(
         }
     }
 
+    // ── Notification settings ──
+
+    val notificationSettings: Flow<NotificationSettings> = context.dataStore.data.map { prefs ->
+        NotificationSettings(
+            enabled = prefs[KEY_NOTIFICATIONS_ENABLED] ?: true,
+            permissionRequests = prefs[KEY_NOTIFY_PERMISSIONS] ?: true,
+            questions = prefs[KEY_NOTIFY_QUESTIONS] ?: true
+        )
+    }
+
+    suspend fun updateNotificationSettings(settings: NotificationSettings) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_NOTIFICATIONS_ENABLED] = settings.enabled
+            prefs[KEY_NOTIFY_PERMISSIONS] = settings.permissionRequests
+            prefs[KEY_NOTIFY_QUESTIONS] = settings.questions
+        }
+    }
+
+    // ── Connection settings ──
+
+    val connectionSettings: Flow<ConnectionSettings> = context.dataStore.data.map { prefs ->
+        ConnectionSettings(
+            autoReconnect = prefs[KEY_AUTO_RECONNECT] ?: true,
+            reconnectTimeoutSeconds = prefs[KEY_RECONNECT_TIMEOUT_SECONDS] ?: 45
+        )
+    }
+
+    suspend fun updateConnectionSettings(settings: ConnectionSettings) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_AUTO_RECONNECT] = settings.autoReconnect
+            prefs[KEY_RECONNECT_TIMEOUT_SECONDS] = settings.reconnectTimeoutSeconds
+        }
+    }
+
     val favoriteModels: Flow<Set<ModelInput>> = context.dataStore.data.map { prefs ->
         (prefs[KEY_FAVORITE_MODELS] ?: emptySet()).mapNotNull { it.toModelInput() }.toSet()
     }
@@ -625,4 +668,15 @@ data class VisualSettings(
     val highContrastMode: Boolean = false,
     val reasoningExpandedByDefault: Boolean = false,
     val toolWidgetDefaultState: String = "compact" // "oneline", "compact", or "expanded"
+)
+
+data class NotificationSettings(
+    val enabled: Boolean = true,
+    val permissionRequests: Boolean = true,
+    val questions: Boolean = true
+)
+
+data class ConnectionSettings(
+    val autoReconnect: Boolean = true,
+    val reconnectTimeoutSeconds: Int = 45
 )

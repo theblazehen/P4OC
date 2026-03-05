@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.VisualTransformation
@@ -478,7 +479,7 @@ fun TuiSection(
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
+            color = LocalOpenCodeTheme.current.accent,
             modifier = Modifier.padding(horizontal = Spacing.screenPadding, vertical = Spacing.xs)
         )
         Column(
@@ -524,9 +525,15 @@ fun TuiAlertDialog(
     dismissButton: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val theme = LocalOpenCodeTheme.current
     AlertDialog(
         onDismissRequest = onDismissRequest,
         modifier = modifier,
+        containerColor = theme.backgroundPanel,
+        iconContentColor = theme.accent,
+        titleContentColor = theme.text,
+        textContentColor = theme.textMuted,
+        shape = RectangleShape,
         icon = icon?.let { { Icon(it, contentDescription = null, modifier = Modifier.size(Sizing.iconLg)) } },
         title = {
             Text(
@@ -741,7 +748,7 @@ fun TuiBadge(
         modifier = modifier,
         color = containerColor,
         contentColor = contentColor,
-        shape = MaterialTheme.shapes.extraSmall
+        shape = RectangleShape
     ) {
         Text(
             text = text,
@@ -790,3 +797,30 @@ val TuiContentPadding: PaddingValues
  */
 val TuiListArrangement: Arrangement.Vertical
     get() = Arrangement.spacedBy(Spacing.listItemSpacing)
+
+// =============================================================================
+// SNACKBARS
+// =============================================================================
+
+/**
+ * TUI-style snackbar with themed colors and rectangular shape.
+ * Use instead of raw Snackbar() to ensure consistent theming.
+ */
+@Composable
+fun TuiSnackbar(
+    modifier: Modifier = Modifier,
+    action: @Composable (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    val theme = LocalOpenCodeTheme.current
+    Snackbar(
+        modifier = modifier,
+        action = action,
+        containerColor = theme.backgroundElement,
+        contentColor = theme.text,
+        actionContentColor = theme.accent,
+        dismissActionContentColor = theme.accent,
+        shape = RectangleShape,
+        content = content
+    )
+}

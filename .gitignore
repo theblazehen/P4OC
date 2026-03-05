@@ -55,8 +55,8 @@ temp_opencode_analysis/
 # Serena (AI tool config)
 .serena/
 
-# Beads (issue tracker)
-.beads/
+# tk (issue tracker)
+.tk/
 
 # OpenSpec (AI spec system)
 openspec/

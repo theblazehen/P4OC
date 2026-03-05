@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
@@ -67,7 +68,10 @@ fun ServerScreen(
                     ) 
                 },
                 actions = {
-                    IconButton(onClick = onSettings) {
+                    IconButton(
+                        onClick = onSettings,
+                        modifier = Modifier.testTag("server_settings_button")
+                    ) {
                         Text(
                             text = "⚙",
                             color = theme.textMuted,
@@ -183,7 +187,7 @@ private fun RemoteServerSection(
                 label = { Text(stringResource(R.string.field_server_url), fontFamily = FontFamily.Monospace) },
                 placeholder = { Text(stringResource(R.string.field_server_url_placeholder), fontFamily = FontFamily.Monospace) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("server_url_input"),
                 shape = RectangleShape,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = theme.accent,
@@ -231,7 +235,7 @@ private fun RemoteServerSection(
             Button(
                 onClick = onConnect,
                 enabled = url.isNotBlank() && !isConnecting,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("server_connect_button"),
                 shape = RectangleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = theme.accent,

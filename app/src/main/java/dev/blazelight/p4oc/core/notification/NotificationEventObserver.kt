@@ -4,6 +4,8 @@ import dev.blazelight.p4oc.core.log.AppLog
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import dev.blazelight.p4oc.core.datastore.NotificationSettings
+import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
 import kotlinx.coroutines.CoroutineScope
@@ -18,7 +20,8 @@ import kotlinx.coroutines.launch
 
 class NotificationEventObserver constructor(
     private val connectionManager: ConnectionManager,
-    private val notificationHelper: NotificationHelper
+    private val notificationHelper: NotificationHelper,
+    private val settingsDataStore: SettingsDataStore
 ) : DefaultLifecycleObserver {
     
     companion object {
@@ -27,10 +30,14 @@ class NotificationEventObserver constructor(
     
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var isInForeground = true
+
+    @Volatile
+    private var cachedSettings = NotificationSettings()
     
     fun start() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         observeEvents()
+        observeSettings()
     }
     
     fun stop() {
@@ -45,6 +52,14 @@ class NotificationEventObserver constructor(
     
     override fun onStop(owner: LifecycleOwner) {
         isInForeground = false
+    }
+
+    private fun observeSettings() {
+        scope.launch {
+            settingsDataStore.notificationSettings.collect { settings ->
+                cachedSettings = settings
+            }
+        }
     }
     
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -62,8 +77,11 @@ class NotificationEventObserver constructor(
     }
     
     private fun handleEventInBackground(event: OpenCodeEvent) {
+        if (!cachedSettings.enabled) return
+
         when (event) {
             is OpenCodeEvent.PermissionRequested -> {
+                if (!cachedSettings.permissionRequests) return
                 AppLog.d(TAG, "Permission requested in background: ${event.permission.title}")
                 notificationHelper.showPermissionNotification(
                     sessionId = event.permission.sessionID,
@@ -71,6 +89,7 @@ class NotificationEventObserver constructor(
                 )
             }
             is OpenCodeEvent.QuestionAsked -> {
+                if (!cachedSettings.questions) return
                 val firstQuestion = event.request.questions.firstOrNull()?.question ?: "AI has a question"
                 AppLog.d(TAG, "Question asked in background: $firstQuestion")
                 notificationHelper.showQuestionNotification(

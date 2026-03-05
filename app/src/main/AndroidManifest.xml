@@ -9,6 +9,8 @@
     <!-- Notification permission (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+
+
     <!-- Termux integration permission -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 

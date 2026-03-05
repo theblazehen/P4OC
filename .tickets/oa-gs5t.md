@@ -1,6 +1,6 @@
 ---
 id: oa-gs5t
-status: in_progress
+status: closed
 deps: [oa-b388]
 links: []
 created: 2026-02-22T11:58:58Z

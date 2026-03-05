@@ -38,6 +38,8 @@ import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.components.TuiTopBar
+import dev.blazelight.p4oc.ui.components.TuiIconButton
+import dev.blazelight.p4oc.ui.components.TuiSnackbar
 
 data class ModelInfo(
     val id: String,
@@ -272,7 +274,7 @@ fun ModelControlsScreen(
     }
     
     state.error?.let { error ->
-        Snackbar(
+        TuiSnackbar(
             modifier = Modifier.padding(Spacing.xl),
             action = {
                 TextButton(onClick = viewModel::clearError) {

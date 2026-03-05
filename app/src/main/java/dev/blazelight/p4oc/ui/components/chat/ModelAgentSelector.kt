@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
@@ -229,7 +230,7 @@ fun ModelPickerDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.85f),
-            shape = MaterialTheme.shapes.medium,
+            shape = RectangleShape,
             color = theme.background,
             border = androidx.compose.foundation.BorderStroke(Sizing.strokeMd, theme.border)
         ) {
@@ -437,7 +438,7 @@ private fun TuiFilterTab(
     Surface(
         onClick = onClick,
         color = if (selected) theme.accent.copy(alpha = 0.15f) else Color.Transparent,
-        shape = MaterialTheme.shapes.extraSmall,
+        shape = RectangleShape,
         border = if (selected) {
             androidx.compose.foundation.BorderStroke(Sizing.strokeMd, theme.accent.copy(alpha = 0.5f))
         } else null

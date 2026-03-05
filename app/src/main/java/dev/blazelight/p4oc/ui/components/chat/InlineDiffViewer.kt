@@ -156,7 +156,7 @@ private fun InlineDiffLineRow(line: DiffLine) {
                 fontFamily = FontFamily.Monospace,
                 fontSize = TuiCodeFontSize.md,
                 color = theme.textMuted,
-                modifier = Modifier.width(32.dp)
+                modifier = Modifier.width(Sizing.diffGutterWidth)
             )
         }
         Text(

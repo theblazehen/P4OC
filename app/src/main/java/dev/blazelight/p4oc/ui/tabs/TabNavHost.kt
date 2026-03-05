@@ -265,6 +265,12 @@ fun TabNavHost(
                 },
                 onSkills = {
                     navController.navigate(Screen.Skills.route)
+                },
+                onNotificationSettings = {
+                    navController.navigate(Screen.NotificationSettings.route)
+                },
+                onConnectionSettings = {
+                    navController.navigate(Screen.ConnectionSettings.route)
                 }
             )
         }
@@ -295,6 +301,18 @@ fun TabNavHost(
 
         composable(Screen.Skills.route) {
             SkillsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.NotificationSettings.route) {
+            NotificationSettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.ConnectionSettings.route) {
+            ConnectionSettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

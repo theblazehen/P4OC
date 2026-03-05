@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -31,6 +32,8 @@ class PtyWebSocketClient constructor(
 ) : java.io.Closeable {
     companion object {
         private const val TAG = "PtyWebSocketClient"
+        private const val MAX_RECONNECT_ATTEMPTS = 5
+        private val RECONNECT_DELAYS_MS = listOf(1_000L, 2_000L, 4_000L, 8_000L, 15_000L)
     }
 
     private val supervisorJob = SupervisorJob()
@@ -44,6 +47,11 @@ class PtyWebSocketClient constructor(
 
     private var currentWebSocket: WebSocket? = null
     private var currentPtyId: String? = null
+    
+    // Track the last PTY ID for reconnection after background disconnect
+    private var lastPtyId: String? = null
+    private var reconnectAttempts: Int = 0
+    private var userDisconnected: Boolean = false
     
     // Lock to prevent race conditions in connect/disconnect
     private val connectionLock = Any()
@@ -86,6 +94,8 @@ class PtyWebSocketClient constructor(
 
             _connectionState.value = ConnectionState.Connecting
             currentPtyId = ptyId
+            lastPtyId = ptyId
+            userDisconnected = false
 
             val baseUrl = connection.config.url
             // Convert http(s):// to ws(s)://
@@ -105,6 +115,7 @@ class PtyWebSocketClient constructor(
             currentWebSocket = wsClient.newWebSocket(request, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     AppLog.d(TAG, "WebSocket connected to $ptyId")
+                    reconnectAttempts = 0
                     _connectionState.value = ConnectionState.Connected(ptyId)
                 }
 
@@ -122,19 +133,31 @@ class PtyWebSocketClient constructor(
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     AppLog.d(TAG, "WebSocket closed: $code $reason")
+                    val ptyIdForReconnect: String?
                     synchronized(connectionLock) {
-                        _connectionState.value = ConnectionState.Disconnected
                         currentWebSocket = null
+                        ptyIdForReconnect = currentPtyId
                         currentPtyId = null
+                        _connectionState.value = ConnectionState.Disconnected
+                    }
+                    // Attempt reconnection if not user-initiated
+                    if (!userDisconnected && ptyIdForReconnect != null) {
+                        scheduleReconnect(ptyIdForReconnect)
                     }
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     AppLog.e(TAG, "WebSocket error: ${t.message}", t)
+                    val ptyIdForReconnect: String?
                     synchronized(connectionLock) {
-                        _connectionState.value = ConnectionState.Error(t.message ?: "Unknown error")
                         currentWebSocket = null
+                        ptyIdForReconnect = currentPtyId
                         currentPtyId = null
+                        _connectionState.value = ConnectionState.Error(t.message ?: "Unknown error")
+                    }
+                    // Attempt reconnection if not user-initiated
+                    if (!userDisconnected && ptyIdForReconnect != null) {
+                        scheduleReconnect(ptyIdForReconnect)
                     }
                 }
             })
@@ -151,9 +174,49 @@ class PtyWebSocketClient constructor(
         return ws.send(data)
     }
 
+    private fun scheduleReconnect(ptyId: String) {
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            AppLog.w(TAG, "Max reconnect attempts reached for $ptyId, giving up")
+            reconnectAttempts = 0
+            return
+        }
+        val delayMs = RECONNECT_DELAYS_MS[reconnectAttempts.coerceAtMost(RECONNECT_DELAYS_MS.lastIndex)]
+        reconnectAttempts++
+        AppLog.d(TAG, "Scheduling reconnect attempt $reconnectAttempts for $ptyId in ${delayMs}ms")
+        scope.launch {
+            delay(delayMs)
+            if (!userDisconnected && currentWebSocket == null) {
+                AppLog.d(TAG, "Attempting reconnect to $ptyId (attempt $reconnectAttempts)")
+                connect(ptyId)
+            }
+        }
+    }
+
+    /**
+     * Reconnect to the last known PTY session.
+     * Called on foreground resume to recover terminal sessions lost during background.
+     */
+    fun reconnect() {
+        val ptyId = lastPtyId
+        if (ptyId == null) {
+            AppLog.d(TAG, "reconnect() called but no lastPtyId")
+            return
+        }
+        if (isConnected() && currentPtyId == ptyId) {
+            AppLog.d(TAG, "reconnect() called but already connected to $ptyId")
+            return
+        }
+        AppLog.d(TAG, "reconnect() to last PTY: $ptyId")
+        userDisconnected = false
+        reconnectAttempts = 0
+        connect(ptyId)
+    }
+
     fun disconnect() {
         synchronized(connectionLock) {
             AppLog.d(TAG, "Disconnecting from $currentPtyId")
+            userDisconnected = true
+            reconnectAttempts = 0
             currentWebSocket?.close(1000, "User disconnected")
             currentWebSocket = null
             currentPtyId = null

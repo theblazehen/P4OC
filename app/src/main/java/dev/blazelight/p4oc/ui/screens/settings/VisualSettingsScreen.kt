@@ -105,14 +105,6 @@ class VisualSettingsViewModel constructor(
         persistSettings(_settings.value.copy(fontSize = size.coerceIn(10, 24)))
     }
     
-    fun updateLineSpacing(spacing: Float) {
-        persistSettings(_settings.value.copy(lineSpacing = spacing.coerceIn(1f, 2.5f)))
-    }
-    
-    fun updateFontFamily(family: String) {
-        persistSettings(_settings.value.copy(fontFamily = family))
-    }
-    
     fun updateCodeBlockFontSize(size: Int) {
         persistSettings(_settings.value.copy(codeBlockFontSize = size.coerceIn(8, 20)))
     }
@@ -123,14 +115,6 @@ class VisualSettingsViewModel constructor(
     
     fun toggleWordWrap() {
         persistSettings(_settings.value.copy(wordWrap = !_settings.value.wordWrap))
-    }
-    
-    fun toggleCompactMode() {
-        persistSettings(_settings.value.copy(compactMode = !_settings.value.compactMode))
-    }
-    
-    fun updateMessageSpacing(spacing: Int) {
-        persistSettings(_settings.value.copy(messageSpacing = spacing.coerceIn(0, 24)))
     }
     
     fun toggleHighContrast() {
@@ -181,7 +165,7 @@ fun VisualSettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            SettingsSection(title = "Theme") {
+            SettingsSection(title = stringResource(R.string.visual_settings_theme)) {
                 ThemeModeSelector(
                     selected = themeMode,
                     onSelect = viewModel::updateThemeMode
@@ -196,61 +180,61 @@ fun VisualSettingsScreen(
                 )
             }
             
-            SettingsSection(title = "Text") {
+            SettingsSection(title = stringResource(R.string.visual_settings_text)) {
                 FontSizeSlider(
-                    label = "Message Font Size",
+                    label = stringResource(R.string.visual_settings_message_font_size),
                     value = settings.fontSize,
                     onValueChange = viewModel::updateFontSize,
                     range = 10..24
                 )
                 
                 FontSizeSlider(
-                    label = "Code Block Font Size",
+                    label = stringResource(R.string.visual_settings_code_font_size),
                     value = settings.codeBlockFontSize,
                     onValueChange = viewModel::updateCodeBlockFontSize,
                     range = 8..20
                 )
             }
             
-            SettingsSection(title = "Code Display") {
+            SettingsSection(title = stringResource(R.string.visual_settings_code_display)) {
                 SettingsSwitch(
-                    title = "Show Line Numbers",
-                    subtitle = "Display line numbers in code blocks",
+                    title = stringResource(R.string.visual_settings_show_line_numbers),
+                    subtitle = stringResource(R.string.visual_settings_show_line_numbers_desc),
                     checked = settings.showLineNumbers,
                     onCheckedChange = { viewModel.toggleLineNumbers() },
                     icon = Icons.Default.FormatListNumbered
                 )
                 
                 SettingsSwitch(
-                    title = "Word Wrap",
-                    subtitle = "Wrap long lines in code blocks",
+                    title = stringResource(R.string.visual_settings_word_wrap),
+                    subtitle = stringResource(R.string.visual_settings_word_wrap_desc),
                     checked = settings.wordWrap,
                     onCheckedChange = { viewModel.toggleWordWrap() },
                     icon = Icons.AutoMirrored.Filled.WrapText
                 )
             }
             
-            SettingsSection(title = "Accessibility") {
+            SettingsSection(title = stringResource(R.string.visual_settings_accessibility)) {
                 SettingsSwitch(
-                    title = "High Contrast Mode",
-                    subtitle = "Increase contrast for better visibility",
+                    title = stringResource(R.string.visual_settings_high_contrast),
+                    subtitle = stringResource(R.string.visual_settings_high_contrast_desc),
                     checked = settings.highContrastMode,
                     onCheckedChange = { viewModel.toggleHighContrast() },
                     icon = Icons.Default.Contrast
                 )
             }
             
-            SettingsSection(title = "Message Display") {
+            SettingsSection(title = stringResource(R.string.visual_settings_message_display)) {
                 SettingsSwitch(
-                    title = "Expand Reasoning by Default",
-                    subtitle = "Show reasoning/thinking content expanded",
+                    title = stringResource(R.string.visual_settings_expand_reasoning),
+                    subtitle = stringResource(R.string.visual_settings_expand_reasoning_desc),
                     checked = settings.reasoningExpandedByDefault,
                     onCheckedChange = { viewModel.toggleReasoningExpanded() },
                     icon = Icons.Default.Psychology
                 )
             }
             
-            SettingsSection(title = "Tool Call Display") {
+            SettingsSection(title = stringResource(R.string.visual_settings_tool_mode_label)) {
                 ToolWidgetStateSelector(
                     selected = settings.toolWidgetDefaultState,
                     onSelect = viewModel::updateToolWidgetDefaultState
@@ -327,7 +311,14 @@ private fun FontSizeSlider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = range.first.toFloat()..range.last.toFloat(),
-            steps = range.last - range.first - 1
+            steps = range.last - range.first - 1,
+            colors = SliderDefaults.colors(
+                thumbColor = theme.accent,
+                activeTrackColor = theme.accent,
+                inactiveTrackColor = theme.borderSubtle,
+                activeTickColor = theme.accent,
+                inactiveTickColor = theme.textMuted
+            )
         )
     }
 }
@@ -464,7 +455,7 @@ private fun PreviewCard(settings: VisualSettings) {
             
             Surface(
                 color = theme.accent.copy(alpha = 0.2f),
-                shape = MaterialTheme.shapes.medium
+                shape = RectangleShape
             ) {
                 Text(
                     text = stringResource(R.string.visual_settings_sample_message),
@@ -475,7 +466,7 @@ private fun PreviewCard(settings: VisualSettings) {
             
             Surface(
                 color = theme.backgroundPanel,
-                shape = MaterialTheme.shapes.medium
+                shape = RectangleShape
             ) {
                 Text(
                     "fun example(): String {\n    return \"Hello\"\n}",

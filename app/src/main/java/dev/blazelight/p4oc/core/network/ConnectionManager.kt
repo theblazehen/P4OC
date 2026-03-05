@@ -51,6 +51,9 @@ class ConnectionManager constructor(
     val isConnected: Boolean
         get() = _connection.value != null && _connectionState.value is ConnectionState.Connected
 
+    val hasConnection: Boolean
+        get() = _connection.value != null
+
     fun requireApi(): OpenCodeApi {
         return _connection.value?.api
             ?: throw IllegalStateException("Not connected to any server")
@@ -125,6 +128,25 @@ class ConnectionManager constructor(
             _authOkHttpClient.value = null
             Result.failure(e)
         }
+    }
+
+    /**
+     * Lightweight SSE-only reconnect — reuses existing OkHttpClient (with auth baked in).
+     * Sets state to Connecting, calls eventSource.reconnect(), and lets the existing
+     * SSE state forwarding job handle the transition back to Connected or Error.
+     *
+     * Use this for background-resume recovery instead of full connect() which requires password.
+     */
+    fun reconnectSse(reason: String = "unknown"): Boolean {
+        val connection = _connection.value
+        if (connection == null) {
+            AppLog.w(TAG, "reconnectSse($reason) called with no connection – ignoring")
+            return false
+        }
+        AppLog.d(TAG, "reconnectSse($reason) – lightweight SSE restart")
+        _connectionState.value = ConnectionState.Connecting
+        connection.eventSource.reconnect()
+        return true
     }
 
     fun disconnect() {

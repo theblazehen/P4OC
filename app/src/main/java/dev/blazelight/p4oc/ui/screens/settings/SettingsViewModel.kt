@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.blazelight.p4oc.core.datastore.ConnectionSettings
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import kotlinx.coroutines.flow.*
@@ -15,6 +16,10 @@ class SettingsViewModel constructor(
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    val connectionSettings: StateFlow<ConnectionSettings> =
+        settingsDataStore.connectionSettings
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConnectionSettings())
 
     init {
         viewModelScope.launch {
@@ -37,6 +42,24 @@ class SettingsViewModel constructor(
     fun setThemeMode(mode: String) {
         viewModelScope.launch {
             settingsDataStore.setThemeMode(mode)
+        }
+    }
+
+    fun toggleAutoReconnect() {
+        viewModelScope.launch {
+            val current = connectionSettings.value
+            settingsDataStore.updateConnectionSettings(
+                current.copy(autoReconnect = !current.autoReconnect)
+            )
+        }
+    }
+
+    fun updateReconnectTimeout(seconds: Int) {
+        viewModelScope.launch {
+            val current = connectionSettings.value
+            settingsDataStore.updateConnectionSettings(
+                current.copy(reconnectTimeoutSeconds = seconds.coerceIn(15, 120))
+            )
         }
     }
 

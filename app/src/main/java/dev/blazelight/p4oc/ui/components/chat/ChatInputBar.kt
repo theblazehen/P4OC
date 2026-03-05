@@ -156,7 +156,7 @@ fun ChatInputBar(
                     IconButton(
                         onClick = onAttachClick,
                         enabled = enabled,
-                        modifier = Modifier.size(Sizing.iconButtonMd)
+                        modifier = Modifier.size(Sizing.iconButtonMd).testTag("chat_attach_button")
                     ) {
                         Text(
                             text = "+",
@@ -216,7 +216,7 @@ fun ChatInputBar(
                                 focusRequester.requestFocus()
                             },
                             enabled = canQueue,
-                            modifier = Modifier.size(Sizing.iconButtonMd)
+                            modifier = Modifier.size(Sizing.iconButtonMd).testTag("chat_queue_button")
                         ) {
                             Text(
                                 text = "⊕",

@@ -54,6 +54,10 @@ sealed class Screen(val route: String) {
     data object AgentsConfig : Screen("settings/agents")
     
     data object Skills : Screen("settings/skills")
+
+    data object NotificationSettings : Screen("settings/notifications")
+    
+    data object ConnectionSettings : Screen("settings/connection")
     
     data object Projects : Screen("projects")
 }

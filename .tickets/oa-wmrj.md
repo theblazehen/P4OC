@@ -1,6 +1,6 @@
 ---
 id: oa-wmrj
-status: in_progress
+status: closed
 deps: [oa-s3kb]
 links: []
 created: 2026-02-22T12:01:37Z
