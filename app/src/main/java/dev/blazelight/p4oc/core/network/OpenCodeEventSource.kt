@@ -24,6 +24,8 @@ import okhttp3.OkHttpClient
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.min
+import kotlin.random.Random
 
 class OpenCodeEventSource(
     private val okHttpClient: OkHttpClient,
@@ -36,6 +38,21 @@ class OpenCodeEventSource(
     companion object {
         private const val TAG = "OpenCodeEventSource"
         private const val MAX_CONSECUTIVE_ERRORS = 15
+    }
+
+    /**
+     * Compute exponential backoff with jitter for SSE retry delay.
+     * Base 2000ms doubled per tier, capped to 60000ms, with ±20% jitter.
+     */
+    private fun computeRetryDelayMs(): Long {
+        val errors = consecutiveErrors.get().coerceAtLeast(0)
+        val tier = min(errors / 2, 5) // grow every 2 consecutive errors, cap exponent
+        val base = (2000L shl tier).coerceAtMost(60_000L)
+        val minMs = (base * 0.8).toLong().coerceAtLeast(0)
+        val maxMs = (base * 1.2).toLong().coerceAtLeast(minMs + 1)
+        val jittered = Random.nextLong(minMs, maxMs)
+        AppLog.d(TAG, "SSE retry backoff: errors=$errors, tier=$tier, base=${base}ms, jittered=${jittered}ms")
+        return jittered
     }
 
     private val _events = MutableSharedFlow<OpenCodeEvent>(
@@ -162,9 +179,10 @@ class OpenCodeEventSource(
             .httpClient(okHttpClient)
             .readTimeout(0, TimeUnit.SECONDS)
 
+        val retryMs = computeRetryDelayMs()
         val eventSourceBuilder = EventSource.Builder(connectStrategy)
             .errorStrategy(ErrorStrategy.alwaysContinue())
-            .retryDelay(3, TimeUnit.SECONDS)
+            .retryDelay(retryMs, TimeUnit.MILLISECONDS)
 
         val handler = SseEventHandler(gen)
 
