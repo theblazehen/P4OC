@@ -15,9 +15,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,33 +60,31 @@ fun TabBar(
         }
     }
     
-    Surface(
-        modifier = modifier.fillMaxWidth().testTag("tab_bar"),
-        color = theme.background,
-        tonalElevation = 0.dp
+    // Tab bar: background color, tabs sit on top with rounded corners
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(theme.background)
+            .testTag("tab_bar")
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(Sizing.chipHeight)
-                .padding(horizontal = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(start = Spacing.xs, end = Spacing.xs, top = 5.dp, bottom = 0.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
             LazyRow(
                 state = listState,
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
-                items(
-                    items = tabs,
-                    key = { it.id }
-                ) { tab ->
+                items(items = tabs, key = { it.id }) { tab ->
                     val isActive = tab.id == activeTabId
                     val title = tabTitles[tab.id] ?: "Tab"
                     val icon = tabIcons[tab.id] ?: Icons.Default.Tab
                     val connectionState = tabConnectionStates[tab.id]
-                    
+
                     TabIndicator(
                         title = title,
                         icon = icon,
@@ -92,17 +95,27 @@ fun TabBar(
                     )
                 }
             }
-            
-            // Add button
-            IconButton(
-                onClick = onAddClick,
-                modifier = Modifier.size(Sizing.iconLg).testTag("tab_bar_add_button")
+
+            // Add tab button — aligned bottom
+            Box(
+                modifier = Modifier
+                    .padding(start = 4.dp, bottom = 2.dp)
+                    .height(28.dp)
+                    .width(28.dp)
+                    .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp))
+                    .background(theme.backgroundPanel.copy(alpha = 0.5f))
+                    .border(1.dp, theme.border.copy(alpha = 0.25f), RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp))
+                    .clickable(role = Role.Button, onClick = onAddClick)
+                    .testTag("tab_bar_add_button"),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "New tab",
-                    modifier = Modifier.size(Sizing.iconSm),
-                    tint = theme.textMuted
+                Text(
+                    text = "+",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp
+                    ),
+                    color = theme.textMuted
                 )
             }
         }
@@ -140,85 +153,94 @@ private fun TabIndicator(
     val indicatorColor = SessionStateColors.forStateOrNull(connectionState)
     val needsAttention = connectionState?.showsAttentionBadge == true
     
-    val backgroundColor = when {
-        needsAttention && !isActive -> theme.warning.copy(alpha = if (shouldPulse) pulseAlpha * 0.15f else 0.15f)
-        isActive -> theme.backgroundElement
-        else -> theme.background
+    val tabShape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+    val activeTabBg = theme.backgroundElement
+    val inactiveTabBg = theme.background
+    val attentionBg = theme.warning.copy(alpha = if (shouldPulse) pulseAlpha * 0.12f else 0.12f)
+
+    val tabBg = when {
+        needsAttention && !isActive -> attentionBg
+        isActive -> activeTabBg
+        else -> inactiveTabBg
     }
-    
-    Surface(
+    val textColor = when {
+        needsAttention -> theme.warning
+        isActive -> theme.text
+        else -> theme.textMuted
+    }
+    val borderColor = when {
+        isActive -> theme.accent.copy(alpha = 0.45f)
+        else -> theme.border.copy(alpha = 0.18f)
+    }
+
+    Box(
         modifier = modifier
-            .height(Sizing.tabHeight)
-            .clickable(onClick = onClick, role = Role.Tab),
-        shape = RectangleShape,
-        color = backgroundColor
+            .height(30.dp)
+            .clip(tabShape)
+            .background(tabBg)
+            .border(width = 1.dp, color = borderColor, shape = tabShape)
+            .clickable(onClick = onClick, role = Role.Tab)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = Spacing.xs),
+            modifier = Modifier.padding(start = 8.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xxs)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // State indicator dot (only for chat tabs with connection state)
+            // State dot or icon
             if (indicatorColor != null) {
                 Box(
                     modifier = Modifier
-                        .size(if (isActive) Sizing.indicatorDotActive else Sizing.indicatorDot)
+                        .size(Sizing.indicatorDotActive)
                         .alpha(if (shouldPulse) pulseAlpha else 1f),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Circle,
                         contentDescription = connectionState?.name,
-                        modifier = Modifier.size(if (isActive) Sizing.indicatorDotActive else Sizing.indicatorDot),
+                        modifier = Modifier.size(Sizing.indicatorDotActive),
                         tint = indicatorColor
                     )
-                    
-                    // Badge for AWAITING_INPUT
                     if (connectionState?.showsAttentionBadge == true) {
                         Icon(
                             imageVector = Icons.Default.PriorityHigh,
                             contentDescription = "Needs attention",
-                            modifier = Modifier
-                                .size(5.dp) // Tiny badge dot, no token
-                                .offset(x = 3.dp, y = (-3).dp),
+                            modifier = Modifier.size(5.dp).offset(x = 3.dp, y = (-3).dp),
                             tint = theme.warning
                         )
                     }
                 }
             } else {
-                // Icon for non-chat tabs
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
-                    modifier = Modifier.size(Sizing.iconXs),
-                    tint = if (isActive) theme.text else theme.textMuted
+                    modifier = Modifier.size(12.dp),
+                    tint = textColor
                 )
             }
-            
-            // Truncated title
+
+            // Title
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = when {
-                    needsAttention -> theme.warning
-                    isActive -> theme.text
-                    else -> theme.textMuted
-                },
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp
+                ),
+                color = textColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = Sizing.panelWidthSm)
             )
-            
-            // Close button
-            // Close button - only show on active tab
+
+            // Close ×
             if (isActive) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close tab",
-                    modifier = Modifier
-                        .size(Sizing.iconXs)
-                        .clickable(onClick = onClose, role = Role.Button),
-                    tint = theme.textMuted
+                Text(
+                    text = "×",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp
+                    ),
+                    color = theme.textMuted,
+                    modifier = Modifier.clickable(onClick = onClose, role = Role.Button)
                 )
             }
         }

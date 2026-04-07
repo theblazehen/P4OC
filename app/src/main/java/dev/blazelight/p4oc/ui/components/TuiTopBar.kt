@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -8,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
@@ -46,7 +48,7 @@ fun TuiTopBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                    .padding(start = Spacing.xs, end = Spacing.sm, top = Spacing.xs, bottom = Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (onNavigateBack != null) {
@@ -57,7 +59,8 @@ fun TuiTopBar(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.cd_back),
-                            modifier = Modifier.size(Sizing.iconLg)
+                            modifier = Modifier.size(Sizing.iconLg),
+                            tint = theme.text
                         )
                     }
                 }
@@ -72,12 +75,22 @@ fun TuiTopBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = theme.text
                     )
                 }
 
                 actions()
             }
+            // Thin separator — visually connects with tab bar below
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(Spacing.hairline)
+                    .background(theme.border.copy(alpha = 0.4f))
+            )
         }
     }
 }
