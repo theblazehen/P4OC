@@ -67,55 +67,48 @@ fun BashWidgetExpanded(
         modifier = modifier
             .fillMaxWidth()
             .clip(cardShape)
+            .background(terminalBg)
             .border(1.dp, promptColor.copy(alpha = 0.25f), cardShape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
     ) {
-        // Terminal prompt bar
+        // Tab bar
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(terminalBg)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().background(terminalBg)
+                .padding(start = 10.dp, end = 10.dp, top = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Traffic light dots (decorative terminal look)
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFFFF5F57)))
-                Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFFFFBD2E)))
-                Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF28CA41)))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
+                    .background(promptColor.copy(alpha = 0.14f))
+                    .border(1.dp, promptColor.copy(alpha = 0.22f), RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(">_  bash", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp), color = promptColor, fontWeight = FontWeight.SemiBold)
             }
-            // Prompt prefix
-            Text(
-                text = "$ ",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp
-                ),
-                color = promptColor,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = command,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp
-                ),
-                color = terminalFg,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            Spacer(Modifier.weight(1f))
             if (state is ToolState.Running) TuiLoadingIndicator()
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(promptColor.copy(alpha = 0.18f)))
+        // Prompt line
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("~", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = Color(0xFF58A6FF), fontWeight = FontWeight.Medium)
+            Text("❯", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = promptColor, fontWeight = FontWeight.Bold)
+            Text(command, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = terminalFg, modifier = Modifier.weight(1f))
         }
 
         // Output pane
         if (!output.isNullOrBlank()) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 160.dp)
-                    .background(terminalBg.copy(alpha = 0.85f))
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Text(
