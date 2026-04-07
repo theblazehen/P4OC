@@ -480,148 +480,115 @@ private fun ChatTopBar(
     val theme = LocalOpenCodeTheme.current
     var showOverflow by remember { mutableStateOf(false) }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = theme.backgroundElement,
-        tonalElevation = 0.dp
-    ) {
-        Column {
-            Spacer(Modifier.windowInsetsPadding(WindowInsets.statusBars))
-            // ── Row 1: back + title + connection + abort ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack, modifier = Modifier.size(Sizing.iconButtonMd)) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.cd_back),
-                        modifier = Modifier.size(Sizing.iconLg),
-                        tint = theme.text
+    TuiTopBar(
+        title = title,
+        onNavigateBack = onBack,
+        actions = {
+            // Connection dot
+            ConnectionDot(state = connectionState)
+
+            // Branch chip
+            branchName?.let { branch ->
+                Spacer(Modifier.width(4.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(theme.success.copy(alpha = 0.10f))
+                        .border(1.dp, theme.success.copy(alpha = 0.22f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("⎇", color = theme.success, fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        text = branch,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                        color = theme.success,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = Sizing.panelWidthSm)
                     )
                 }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontFamily = FontFamily.Monospace),
-                    color = theme.text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                // Connection dot
-                ConnectionDot(state = connectionState)
-                Spacer(Modifier.width(6.dp))
-                // Abort pill — only when busy
-                if (isBusy) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(theme.error.copy(alpha = 0.14f))
-                            .border(1.dp, theme.error.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
-                            .clickable(role = Role.Button) { onAbort() }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                            .testTag("chat_abort_button"),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text("■", color = theme.error, fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.labelSmall)
-                        Text("Stop", color = theme.error, fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.labelSmall)
-                    }
+            }
+
+            Spacer(Modifier.width(4.dp))
+
+            // Todos badge
+            if (todoCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(theme.accent.copy(alpha = 0.12f))
+                        .border(1.dp, theme.accent.copy(alpha = 0.25f), RoundedCornerShape(20.dp))
+                        .clickable(role = Role.Button) { onTodos() }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text("☐ $todoCount", color = theme.accent, fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+                Spacer(Modifier.width(4.dp))
+            }
+
+            // Abort pill — only when busy
+            if (isBusy) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(theme.error.copy(alpha = 0.14f))
+                        .border(1.dp, theme.error.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                        .clickable(role = Role.Button) { onAbort() }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .testTag("chat_abort_button"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("■", color = theme.error, fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.labelSmall)
+                    Text("Stop", color = theme.error, fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+                Spacer(Modifier.width(4.dp))
+            }
+
+            // Overflow menu — full submenu restored
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(Sizing.iconButtonMd)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(theme.accent.copy(alpha = 0.08f))
+                        .clickable(role = Role.Button) { showOverflow = true }
+                        .testTag("chat_overflow_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("≡", color = theme.accent, fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.titleMedium)
+                }
+                DropdownMenu(
+                    expanded = showOverflow,
+                    onDismissRequest = { showOverflow = false }
+                ) {
+                    TuiDropdownMenuItem(
+                        text = "± ${stringResource(R.string.sessions_view_changes)}",
+                        onClick = { showOverflow = false; onViewChanges() }
+                    )
+                    TuiDropdownMenuItem(
+                        text = "/ ${stringResource(R.string.cd_commands)}",
+                        onClick = { showOverflow = false; onCommands() }
+                    )
+                    TuiDropdownMenuItem(
+                        text = ">_ ${stringResource(R.string.cd_terminal)}",
+                        onClick = { showOverflow = false; onTerminal() }
+                    )
+                    TuiDropdownMenuItem(
+                        text = "▤ ${stringResource(R.string.cd_files)}",
+                        onClick = { showOverflow = false; onFiles() }
+                    )
                 }
             }
-            // ── Row 2: branch + quick actions + todos + overflow ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Branch chip
-                branchName?.let { branch ->
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(theme.success.copy(alpha = 0.10f))
-                            .border(1.dp, theme.success.copy(alpha = 0.25f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 7.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text("⎇", color = theme.success, fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.labelSmall)
-                        Text(
-                            text = branch,
-                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                            color = theme.success,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = Sizing.panelWidthSm)
-                        )
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                // Quick action pills
-                @Composable
-                fun ActionChip(label: String, color: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(color.copy(alpha = 0.08f))
-                            .border(1.dp, color.copy(alpha = 0.20f), RoundedCornerShape(4.dp))
-                            .clickable(role = Role.Button, onClick = onClick)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(label, color = color, fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                ActionChip("±", theme.warning, onViewChanges)
-                ActionChip(">_", theme.accent, onTerminal)
-                ActionChip("▤", theme.secondary, onFiles)
-                // Todos badge
-                if (todoCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(theme.accent.copy(alpha = 0.12f))
-                            .border(1.dp, theme.accent.copy(alpha = 0.25f), RoundedCornerShape(4.dp))
-                            .clickable(role = Role.Button) { onTodos() }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text("☐ $todoCount", color = theme.accent, fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                // Overflow (commands only now)
-                Box {
-                    Box(
-                        modifier = Modifier
-                            .size(Sizing.iconButtonMd)
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable(role = Role.Button) { showOverflow = true }
-                            .testTag("chat_overflow_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("≡", color = theme.textMuted, fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.titleMedium)
-                    }
-                    DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
-                        TuiDropdownMenuItem(
-                            text = "/ ${stringResource(R.string.cd_commands)}",
-                            onClick = { showOverflow = false; onCommands() }
-                        )
-                    }
-                }
-            }
-            // Bottom border line
-            Box(Modifier.fillMaxWidth().height(1.dp).background(theme.border.copy(alpha = 0.5f)))
         }
-    }
+    )
 }
 
 /**
