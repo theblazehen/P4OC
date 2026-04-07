@@ -23,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import dev.blazelight.p4oc.ui.components.TuiDropdownMenu
+import dev.blazelight.p4oc.ui.components.TuiDropdownMenuItem
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -408,29 +410,25 @@ private fun TuiFileItem(
             }
         }
         
-        DropdownMenu(
+        TuiDropdownMenu(
             expanded = showContextMenu,
             onDismissRequest = { showContextMenu = false }
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.files_copy_path), color = theme.text) },
+            TuiDropdownMenuItem(
+                text = stringResource(R.string.files_copy_path),
                 onClick = {
                     clipboardManager.setText(AnnotatedString(file.path))
                     showContextMenu = false
                 },
-                leadingIcon = {
-                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.files_copy_path), tint = theme.textMuted)
-                }
+                leadingIcon = Icons.Default.ContentCopy
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.files_copy_name), color = theme.text) },
+            TuiDropdownMenuItem(
+                text = stringResource(R.string.files_copy_name),
                 onClick = {
                     clipboardManager.setText(AnnotatedString(file.name))
                     showContextMenu = false
                 },
-                leadingIcon = {
-                    Icon(Icons.Default.TextFields, contentDescription = stringResource(R.string.files_copy_name), tint = theme.textMuted)
-                }
+                leadingIcon = Icons.Default.TextFields
             )
         }
     }

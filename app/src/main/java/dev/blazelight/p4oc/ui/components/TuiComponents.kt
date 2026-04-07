@@ -14,7 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -669,6 +671,29 @@ fun TuiInputDialog(
 // =============================================================================
 
 /**
+ * TUI-style dropdown menu with rounded card shape and border.
+ * Wrap DropdownMenu calls with this for consistent styling.
+ */
+@Composable
+fun TuiDropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val theme = LocalOpenCodeTheme.current
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(theme.backgroundElement)
+            .border(1.dp, theme.border.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
+        content = content
+    )
+}
+
+/**
  * TUI-style dropdown menu item with compact padding.
  */
 @Composable
@@ -680,17 +705,32 @@ fun TuiDropdownMenuItem(
     trailingIcon: ImageVector? = null,
     enabled: Boolean = true
 ) {
+    val theme = LocalOpenCodeTheme.current
     DropdownMenuItem(
-        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+        text = {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                color = if (enabled) theme.text else theme.textMuted
+            )
+        },
         onClick = onClick,
         modifier = modifier,
         leadingIcon = leadingIcon?.let {
-            { Icon(it, contentDescription = null, modifier = Modifier.size(Sizing.iconMd)) }
+            { Icon(it, contentDescription = null, modifier = Modifier.size(Sizing.iconMd), tint = theme.textMuted) }
         },
         trailingIcon = trailingIcon?.let {
-            { Icon(it, contentDescription = null, modifier = Modifier.size(Sizing.iconMd)) }
+            { Icon(it, contentDescription = null, modifier = Modifier.size(Sizing.iconMd), tint = theme.textMuted) }
         },
         enabled = enabled,
+        colors = MenuItemColors(
+            textColor = if (enabled) theme.text else theme.textMuted,
+            leadingIconColor = theme.textMuted,
+            trailingIconColor = theme.textMuted,
+            disabledTextColor = theme.textMuted,
+            disabledLeadingIconColor = theme.textMuted,
+            disabledTrailingIconColor = theme.textMuted
+        ),
         contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.sm)
     )
 }

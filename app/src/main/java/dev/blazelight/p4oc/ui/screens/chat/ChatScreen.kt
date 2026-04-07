@@ -39,6 +39,7 @@ import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
+import dev.blazelight.p4oc.ui.components.TuiDropdownMenu
 import dev.blazelight.p4oc.ui.components.TuiDropdownMenuItem
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
@@ -565,7 +566,7 @@ private fun ChatTopBar(
                     Text("≡", color = theme.accent, fontFamily = FontFamily.Monospace,
                         style = MaterialTheme.typography.titleMedium)
                 }
-                DropdownMenu(
+                TuiDropdownMenu(
                     expanded = showOverflow,
                     onDismissRequest = { showOverflow = false }
                 ) {
@@ -636,7 +637,7 @@ private fun ConnectionIndicator(state: ConnectionState) {
                 .size(Sizing.iconXxs)
                 .clickable(role = Role.Button) { showDetail = !showDetail }
         )
-        DropdownMenu(
+        TuiDropdownMenu(
             expanded = showDetail,
             onDismissRequest = { showDetail = false }
         ) {

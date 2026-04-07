@@ -45,6 +45,7 @@ import dev.blazelight.p4oc.ui.components.TuiAlertDialog
 import dev.blazelight.p4oc.ui.components.TuiInputDialog
 import dev.blazelight.p4oc.ui.components.TuiButton
 import dev.blazelight.p4oc.ui.components.TuiTextButton
+import dev.blazelight.p4oc.ui.components.TuiDropdownMenu
 import dev.blazelight.p4oc.ui.components.TuiDropdownMenuItem
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
@@ -593,7 +594,7 @@ private fun SessionCard(
     }
 
     // Long-press context menu
-    DropdownMenu(
+    TuiDropdownMenu(
         expanded = showContextMenu,
         onDismissRequest = { showContextMenu = false }
     ) {

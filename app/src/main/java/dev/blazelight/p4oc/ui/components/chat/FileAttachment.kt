@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.RectangleShape
+import dev.blazelight.p4oc.ui.components.TuiDropdownMenu
+import dev.blazelight.p4oc.ui.components.TuiDropdownMenuItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
@@ -174,34 +176,25 @@ fun AttachmentMenu(
     onSelectFromProject: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    DropdownMenu(
+    TuiDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         modifier = modifier
     ) {
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.attachment_files)) },
-            leadingIcon = { Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = stringResource(R.string.cd_file_type)) },
-            onClick = {
-                onSelectFiles()
-                onDismiss()
-            }
+        TuiDropdownMenuItem(
+            text = stringResource(R.string.attachment_files),
+            leadingIcon = Icons.AutoMirrored.Filled.InsertDriveFile,
+            onClick = { onSelectFiles(); onDismiss() }
         )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.attachment_images)) },
-            leadingIcon = { Icon(Icons.Default.Image, contentDescription = stringResource(R.string.cd_image_type)) },
-            onClick = {
-                onSelectImages()
-                onDismiss()
-            }
+        TuiDropdownMenuItem(
+            text = stringResource(R.string.attachment_images),
+            leadingIcon = Icons.Default.Image,
+            onClick = { onSelectImages(); onDismiss() }
         )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.attachment_from_project)) },
-            leadingIcon = { Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_folder_type)) },
-            onClick = {
-                onSelectFromProject()
-                onDismiss()
-            }
+        TuiDropdownMenuItem(
+            text = stringResource(R.string.attachment_from_project),
+            leadingIcon = Icons.Default.Folder,
+            onClick = { onSelectFromProject(); onDismiss() }
         )
     }
 }
