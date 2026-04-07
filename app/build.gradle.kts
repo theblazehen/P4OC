@@ -160,6 +160,9 @@ dependencies {
     // Splash Screen
     implementation(libs.splashscreen)
 
+    // Baseline Profiles installer for improved startup performance (no-op on debug)
+    implementation(libs.profileinstaller)
+
     // Terminal Emulator (Termux)
     implementation(libs.termux.view)
     implementation(libs.termux.emulator)

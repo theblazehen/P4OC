@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "PocketCode"
 include(":app")
+include(":macrobenchmark")

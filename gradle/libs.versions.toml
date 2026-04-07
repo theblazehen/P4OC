@@ -23,6 +23,9 @@ kotlin = "2.3.0"
 kotlinx-datetime = "0.7.1"
 # Serialization
 kotlinx-serialization = "1.10.0"
+baselineprofile = "1.3.1"
+benchmark = "1.2.3"
+profileinstaller = "1.3.1"
 
 lifecycle = "2.10.0"
 # Markdown
@@ -93,10 +96,15 @@ splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "spla
 termux-emulator = { module = "com.termux.termux-app:terminal-emulator", version.ref = "termux" }
 # Terminal
 termux-view = { module = "com.termux.termux-app:terminal-view", version.ref = "termux" }
+benchmark-macro = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
+uiautomator = { module = "androidx.test.uiautomator:uiautomator", version = "2.3.0" }
+profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
+android-test = { id = "com.android.test", version.ref = "agp" }
 

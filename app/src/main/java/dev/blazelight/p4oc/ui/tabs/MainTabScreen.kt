@@ -32,6 +32,7 @@ import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import kotlin.random.Random
 
 private const val TAG = "MainTabScreen"
 
@@ -60,6 +61,13 @@ fun MainTabScreen(
     val connectionState by connectionManager.connectionState.collectAsState()
     
     var wasEverConnected by remember { mutableStateOf(false) }
+
+fun jitterDelay(baseMs: Long, jitterRatio: Double = 0.2): Long {
+    if (baseMs <= 0) return 0
+    val min = (baseMs * (1.0 - jitterRatio)).toLong().coerceAtLeast(0)
+    val max = (baseMs * (1.0 + jitterRatio)).toLong().coerceAtLeast(min + 1)
+    return Random.nextLong(min, max)
+}
     var reconnectAttempted by remember { mutableStateOf(false) }
 
     // Foreground resume: lightweight SSE reconnect without isConnected guard.
@@ -95,9 +103,10 @@ fun MainTabScreen(
                 if (tabs.isNotEmpty()) {
                     if (!reconnectAttempted && connectionManager.hasConnection && connSettings.autoReconnect) {
                         reconnectAttempted = true
-                        AppLog.w(TAG, "Disconnected state – attempting final SSE reconnect")
+                        val waitMs = jitterDelay(20_000)
+                        AppLog.w(TAG, "Disconnected state – attempting final SSE reconnect after ${waitMs}ms (jitter)")
                         connectionManager.reconnectSse(reason = "disconnected_recovery")
-                        delay(20_000)
+                        delay(waitMs)
                         val currentState = connectionManager.connectionState.value
                         if (currentState !is ConnectionState.Connected) {
                             AppLog.e(TAG, "Final reconnect failed (state=$currentState), navigating to server screen")
@@ -120,14 +129,18 @@ fun MainTabScreen(
                     return@LaunchedEffect
                 }
                 // Transient error — SSE library is auto-retrying.
-                // Wait for the configured timeout before escalating.
-                delay(connSettings.reconnectTimeoutSeconds * 1000L)
+                // Wait for the configured timeout (with jitter) before escalating.
+                val baseMs = connSettings.reconnectTimeoutSeconds * 1000L
+                val waitMs = jitterDelay(baseMs)
+                AppLog.d(TAG, "Error state – waiting ${waitMs}ms (jitter from ${baseMs}ms) before escalation")
+                delay(waitMs)
                 val currentState = connectionManager.connectionState.value
                 if (currentState is ConnectionState.Error || currentState is ConnectionState.Disconnected) {
                     // Still failing — try one explicit reconnect
                     if (connectionManager.hasConnection) {
+                        val retryWait = jitterDelay(10_000)
                         connectionManager.reconnectSse(reason = "error_recovery")
-                        delay(10_000)
+                        delay(retryWait)
                         val finalState = connectionManager.connectionState.value
                         if (finalState !is ConnectionState.Connected) {
                             connectionManager.disconnect()
