@@ -198,7 +198,13 @@ class ServerViewModel constructor(
     }
 
     fun startDiscovery() {
-        mdnsDiscoveryManager.startDiscovery()
+        val state = _uiState.value
+        val seeds = buildList {
+            addAll(state.recentServers.map { it.url })
+            val ru = state.remoteUrl.trim()
+            if (ru.isNotBlank()) add(ru)
+        }
+        mdnsDiscoveryManager.startDiscovery(seeds)
     }
 
     fun stopDiscovery() {

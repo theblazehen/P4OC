@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
@@ -69,6 +70,16 @@ fun ServerScreen(
                 onNavigateToProjects()
             }
             null -> { /* waiting for connection */ }
+        }
+    }
+
+    // Restart discovery when Remote URL changes so seeds (manual IP/MagicDNS) are used
+    LaunchedEffect(uiState.remoteUrl) {
+        val url = uiState.remoteUrl.trim()
+        if (url.isNotEmpty() && !uiState.isConnecting) {
+            viewModel.stopDiscovery()
+            delay(150)
+            viewModel.startDiscovery()
         }
     }
 
@@ -116,7 +127,8 @@ fun ServerScreen(
                     servers = uiState.discoveredServers,
                     discoveryState = uiState.discoveryState,
                     isConnecting = uiState.isConnecting,
-                    onServerClick = viewModel::connectToDiscoveredServer
+                    onServerClick = viewModel::connectToDiscoveredServer,
+                    onStopClick = viewModel::stopDiscovery
                 )
             }
 
@@ -494,7 +506,8 @@ private fun DiscoveredServersSection(
     servers: List<DiscoveredServer>,
     discoveryState: DiscoveryState,
     isConnecting: Boolean,
-    onServerClick: (DiscoveredServer) -> Unit
+    onServerClick: (DiscoveredServer) -> Unit,
+    onStopClick: () -> Unit
 ) {
     val theme = LocalOpenCodeTheme.current
 
@@ -518,7 +531,19 @@ private fun DiscoveredServersSection(
                     color = theme.text
                 )
                 if (discoveryState == DiscoveryState.SCANNING) {
-                    ScanningIndicator()
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = theme.textMuted
+                        )
+                        TextButton(onClick = onStopClick, modifier = Modifier.testTag("stop_discovery_button")) {
+                            Text("Stop", color = theme.textMuted, fontFamily = FontFamily.Monospace)
+                        }
+                    }
                 }
             }
 

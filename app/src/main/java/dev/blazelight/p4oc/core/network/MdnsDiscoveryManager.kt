@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.net.Inet4Address
 import java.net.Inet6Address
+import java.net.InetAddress
+import java.net.URI
+import java.net.NetworkInterface
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -33,6 +36,12 @@ import okhttp3.Request
 private const val TAG = "MdnsDiscovery"
 private const val SERVICE_TYPE = "_http._tcp."
 private const val SERVICE_NAME_PREFIX = "opencode-"
+private val PROBE_PORTS = intArrayOf(4096, 443, 8080, 80, 9000)
+// Common hostnames for MagicDNS/local discovery
+private val COMMON_HOSTNAMES = arrayOf(
+    "opencode", "code-server", "vscode", "coder", "code",
+    "dev", "devserver", "workspace", "ide", "server"
+)
 
 /**
  * A discovered OpenCode server on the local network.
@@ -67,6 +76,80 @@ class MdnsDiscoveryManager(private val context: Context) {
         context.getSystemService(Context.NSD_SERVICE) as NsdManager
     }
 
+    private fun addInterfaceTargets(out: MutableSet<String>) {
+        runCatching {
+            val ifaces = NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+            ifaces.forEach { nif ->
+                val name = nif.name?.lowercase() ?: ""
+                val looksVpn = name.contains("tailscale") || name.contains("ts") || name.contains("tun")
+                if (!looksVpn) return@forEach
+                nif.inetAddresses.toList().forEach { ia ->
+                    val v4 = ia as? Inet4Address ?: return@forEach
+                    if (!isPrivateIpv4(v4)) return@forEach
+                    out.add(v4.hostAddress)
+                    // Aggressive sweep for VPN: full /24 (254 hosts) for CGNAT
+                    val isCgnat = isCgnatIp(v4)
+                    addIpv4CidrTargets(v4, 24, out, maxHosts = if (isCgnat) 254 else 512)
+                }
+            }
+        }.onFailure {
+            // ignore — not critical, some devices restrict enumeration
+        }
+    }
+
+    private fun addMagicDnsTargets(out: MutableSet<String>) {
+        // Attempt to resolve common hostnames via MagicDNS or local DNS
+        COMMON_HOSTNAMES.forEach { hostname ->
+            runCatching {
+                val addrs = InetAddress.getAllByName(hostname)
+                addrs.forEach { inet ->
+                    val v4 = inet as? Inet4Address ?: return@forEach
+                    if (!isPrivateIpv4(v4)) return@forEach
+                    out.add(v4.hostAddress)
+                    AppLog.d(TAG, "MagicDNS resolved: $hostname -> ${v4.hostAddress}")
+                }
+            }.onFailure {
+                // hostname not found — normal, continue
+            }
+        }
+    }
+
+    private fun addDnsServerTargets(lp: LinkProperties, out: MutableSet<String>) {
+        // DNS servers in Tailscale/VPN often near peers; probe them
+        runCatching {
+            lp.dnsServers.forEach { dns ->
+                val v4 = dns as? Inet4Address ?: return@forEach
+                if (!isPrivateIpv4(v4)) return@forEach
+                out.add(v4.hostAddress)
+                // Sample /28 around DNS server (16 IPs)
+                addIpv4CidrTargets(v4, 28, out, maxHosts = 16)
+            }
+        }.onFailure { }
+    }
+
+    private fun addSeedTargets(urlStr: String, out: MutableSet<String>) {
+        runCatching {
+            val uri = URI(urlStr)
+            val host = uri.host ?: return
+            val port = if (uri.port != -1) uri.port else 4096
+            // Resolve host (MagicDNS through VPN DNS if active)
+            val addrs = InetAddress.getAllByName(host)
+            addrs.forEach { inet ->
+                val v4 = inet as? Inet4Address ?: return@forEach
+                out.add(v4.hostAddress)
+                // Aggressive /24 for CGNAT, normal for others
+                val isCgnat = isCgnatIp(v4)
+                addIpv4CidrTargets(v4, 24, out, maxHosts = if (isCgnat) 254 else 512)
+            }
+            // also remember port in case it differs (handled during probe)
+            if (port != 4096 && !PROBE_PORTS.contains(port)) {
+                // no-op: we keep static ports for now; future: make configurable
+            }
+        }.onFailure {
+            // ignore malformed seed
+        }
+    }
+
     private val _discoveredServers = MutableStateFlow<List<DiscoveredServer>>(emptyList())
     val discoveredServers: StateFlow<List<DiscoveredServer>> = _discoveredServers.asStateFlow()
 
@@ -99,7 +182,7 @@ class MdnsDiscoveryManager(private val context: Context) {
      * Start browsing for OpenCode servers on the local network.
      * If already scanning, stops the previous scan first.
      */
-    fun startDiscovery() {
+    fun startDiscovery(seeds: List<String> = emptyList()) {
         // Stop any existing discovery first (handles rapid stop/start)
         if (activeListener != null) {
             AppLog.d(TAG, "Stopping previous discovery before restarting")
@@ -164,7 +247,7 @@ class MdnsDiscoveryManager(private val context: Context) {
         }
 
         // Start extended sweep in parallel (useful over VPN/Ethernet as mDNS may not traverse)
-        startExtendedSweep()
+        startExtendedSweep(seeds)
     }
 
     /**
@@ -276,7 +359,7 @@ class MdnsDiscoveryManager(private val context: Context) {
     // -------------------------------------------------------------------------
     // Extended discovery over VPN/Ethernet/Wi‑Fi: fast HTTP health probes
     // -------------------------------------------------------------------------
-    private fun startExtendedSweep() {
+    private fun startExtendedSweep(seeds: List<String>) {
         if (sweepActive) return
         sweepActive = true
 
@@ -284,7 +367,23 @@ class MdnsDiscoveryManager(private val context: Context) {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val targets = mutableSetOf<String>()
 
-            cm.allNetworks.forEach { network ->
+            // 0) Add IPv4s from local interfaces (tailscale/tun) if visible to JVM
+            addInterfaceTargets(targets)
+
+            // 0b) Try common hostnames via MagicDNS / local DNS
+            addMagicDnsTargets(targets)
+
+            // 1) Add seed hosts (recent servers) — resolves MagicDNS if VPN active
+            if (seeds.isNotEmpty()) {
+                AppLog.d(TAG, "Extended sweep: seeds=${seeds.size}")
+                seeds.forEach { url ->
+                    addSeedTargets(url, targets)
+                }
+            }
+
+            val networks = cm.allNetworks
+            AppLog.d(TAG, "Extended sweep: networks=${networks.size}")
+            networks.forEach { network ->
                 val caps = cm.getNetworkCapabilities(network)
                 val lp: LinkProperties = cm.getLinkProperties(network) ?: return@forEach
 
@@ -293,6 +392,13 @@ class MdnsDiscoveryManager(private val context: Context) {
                 val isWifi = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
 
                 if (isVpn || isEth || isWifi) {
+                    AppLog.d(
+                        TAG,
+                        "net transports: vpn=${isVpn} eth=${isEth} wifi=${isWifi}; addrs=${lp.linkAddresses.size} routes=${lp.routes.size}"
+                    )
+                    // Add DNS server targets (near peers in Tailscale)
+                    addDnsServerTargets(lp, targets)
+                    
                     lp.linkAddresses.forEach { la ->
                         addIpv4PrefixTargets(la, targets)
                     }
@@ -313,7 +419,7 @@ class MdnsDiscoveryManager(private val context: Context) {
             val capped = targets.take(512)
             val semaphore = Semaphore(32)
 
-            AppLog.d(TAG, "Extended sweep: probing ${capped.size} hosts")
+            AppLog.d(TAG, "Extended sweep: probing ${capped.size} hosts on ports=${PROBE_PORTS.joinToString()}")
 
             val jobs = capped.map { ip ->
                 async {
@@ -339,21 +445,8 @@ class MdnsDiscoveryManager(private val context: Context) {
         // Accept larger prefixes too; sample up to 512 hosts evenly (/16.. /30)
         if (prefix < 16 || prefix > 30) return
 
-        val base = ipv4ToInt(addr) and subnetMask(prefix)
-        val low = base + 1
-        val high = (base or invMask(prefix)) - 1
-
-        val span = (high - low + 1).coerceAtLeast(1)
-        val maxHosts = 512
-        val step = (span / maxHosts).coerceAtLeast(1)
-
-        var added = 0
-        var ipInt = low
-        while (ipInt <= high && added < maxHosts) {
-            out.add(intToIpv4(ipInt))
-            ipInt += step
-            added += 1
-        }
+        val isCgnat = isCgnatIp(addr)
+        addIpv4CidrTargets(addr, prefix, out, maxHosts = if (isCgnat) 254 else 512)
     }
 
     private fun addIpv4RouteTargets(route: RouteInfo, out: MutableSet<String>) {
@@ -363,12 +456,16 @@ class MdnsDiscoveryManager(private val context: Context) {
         if (!isPrivateIpv4(addr)) return
         if (prefix < 16 || prefix > 30) return
 
+        val isCgnat = isCgnatIp(addr)
+        addIpv4CidrTargets(addr, prefix, out, maxHosts = if (isCgnat) 254 else 512)
+    }
+
+    private fun addIpv4CidrTargets(addr: Inet4Address, prefix: Int, out: MutableSet<String>, maxHosts: Int = 512) {
         val base = ipv4ToInt(addr) and subnetMask(prefix)
         val low = base + 1
         val high = (base or invMask(prefix)) - 1
 
         val span = (high - low + 1).coerceAtLeast(1)
-        val maxHosts = 512
         val step = (span / maxHosts).coerceAtLeast(1)
 
         var added = 0
@@ -381,48 +478,112 @@ class MdnsDiscoveryManager(private val context: Context) {
     }
 
     private suspend fun probeIp(ip: String) {
-        val url = "http://$ip:4096/global/health"
-        val req = Request.Builder()
-            .url(url)
-            .header("Accept", "application/json")
-            .build()
-
-        withContext(Dispatchers.IO) {
-            runCatching {
-                probeClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return@use
-                    val body = resp.body?.string() ?: return@use
-                    if (body.contains("\"healthy\":true")) {
-                        val server = DiscoveredServer(
-                            serviceName = "opencode-$ip",
-                            host = ip,
-                            port = 4096,
-                            url = "http://$ip:4096"
-                        )
-                        _discoveredServers.update { servers ->
-                            if (servers.any { it.url == server.url }) servers else servers + server
-                        }
-                        AppLog.d(TAG, "Extended sweep: $url healthy")
-                    }
-                }
-            }.onFailure {
-                // Ignore failures – host not an OpenCode server or unreachable
-            }
+        // Pre-filter with fast TCP connect check on primary port (longer timeout for VPN)
+        val tcpOk = tcpConnectCheck(ip, 4096, timeoutMs = 800)
+        if (!tcpOk) {
+            return // No server listening on primary port, skip HTTP probes
         }
+        AppLog.d(TAG, "TCP check passed for $ip:4096, trying HTTP probes")
+        // Try each port with both HTTP and HTTPS
+        for (port in PROBE_PORTS) {
+            val found = probeHealth(ip, port, "http") || probeHealth(ip, port, "https")
+            if (found) return
+        }
+    }
+
+    private suspend fun probeHealth(ip: String, port: Int, scheme: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = "$scheme://$ip:$port/global/health"
+            val req = Request.Builder().url(url).build()
+            probeClient.newCall(req).execute().use { resp ->
+                val code = resp.code
+                val body = resp.body?.string() ?: ""
+                val headers = resp.headers
+                
+                
+                // Enhanced detection: multiple strategies
+                val is200Healthy = code == 200 && body.contains("healthy", ignoreCase = true)
+                val is401Json = code == 401 && (body.startsWith("{") || body.startsWith("["))
+                // Accept 401 with 'Unauthorized' text (common OpenCode response)
+                val is401Unauthorized = code == 401 && body.trim().lowercase() == "unauthorized"
+                // Also accept 401/403 if headers suggest code-server or similar
+                val serverHeader = headers["Server"]?.lowercase() ?: ""
+                val poweredBy = headers["X-Powered-By"]?.lowercase() ?: ""
+                val hasCodeServerHeaders = serverHeader.contains("code-server") || 
+                                          serverHeader.contains("opencode") ||
+                                          poweredBy.contains("code-server") ||
+                                          poweredBy.contains("opencode")
+                val is401Auth = (code == 401 || code == 403) && hasCodeServerHeaders
+                // Also check 404 with relevant headers (some servers return 404 on /global/health)
+                val is404CodeServer = code == 404 && hasCodeServerHeaders
+                
+                if (is200Healthy || is401Json || is401Unauthorized || is401Auth || is404CodeServer) {
+                    // Reverse DNS lookup for hostname validation
+                    val hostname = reverseResolveHostname(ip)
+                    val serviceName = if (hostname != null && hostname != ip) {
+                        "opencode-$hostname"
+                    } else {
+                        "opencode-$ip"
+                    }
+                    val finalUrl = "$scheme://$ip:$port"
+                    val server = DiscoveredServer(
+                        serviceName = serviceName,
+                        host = ip,
+                        port = port,
+                        url = finalUrl
+                    )
+                    AppLog.d(TAG, "Sweep found: $finalUrl (HTTP $code) hostname=$hostname")
+                    _discoveredServers.update { servers ->
+                        val existing = servers.indexOfFirst { it.serviceName == serviceName }
+                        if (existing >= 0) {
+                            servers.toMutableList().apply { this[existing] = server }
+                        } else {
+                            servers + server
+                        }
+                    }
+                    return@withContext true
+                }
+            }
+        }.onFailure {
+            // connection failed — normal, host not listening
+        }
+        false
+    }
+
+    private fun reverseResolveHostname(ip: String): String? {
+        return runCatching {
+            val addr = InetAddress.getByName(ip)
+            val hostname = addr.canonicalHostName
+            if (hostname != ip) hostname else null
+        }.getOrNull()
+    }
+
+    private fun tcpConnectCheck(ip: String, port: Int, timeoutMs: Int): Boolean {
+        return runCatching {
+            java.net.Socket().use { socket ->
+                socket.connect(java.net.InetSocketAddress(ip, port), timeoutMs)
+                true
+            }
+        }.onFailure {
+            // Log only for debugging critical IPs
+            // TCP connect failed — normal for most IPs
+        }.getOrDefault(false)
     }
 
     // IPv4 helpers
     private fun isPrivateIpv4(addr: Inet4Address): Boolean {
-        val b = addr.address
-        val b0 = b[0].toInt() and 0xFF
-        val b1 = b[1].toInt() and 0xFF
-        return when (b0) {
-            10 -> true // 10.0.0.0/8
-            172 -> b1 in 16..31 // 172.16.0.0/12
-            192 -> b1 == 168 // 192.168.0.0/16
-            100 -> b1 in 64..127 // 100.64.0.0/10 (CGNAT) — used by Tailscale
-            else -> false
-        }
+        val bytes = addr.address
+        // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10 (CGNAT)
+        return (bytes[0] == 10.toByte()) ||
+               (bytes[0] == 172.toByte() && (bytes[1].toInt() and 0xF0) == 16) ||
+               (bytes[0] == 192.toByte() && bytes[1] == 168.toByte()) ||
+               (bytes[0] == 100.toByte() && (bytes[1].toInt() and 0xC0) == 64)
+    }
+
+    private fun isCgnatIp(addr: Inet4Address): Boolean {
+        val bytes = addr.address
+        // 100.64.0.0/10 (CGNAT used by Tailscale)
+        return bytes[0] == 100.toByte() && (bytes[1].toInt() and 0xC0) == 64
     }
 
     private fun ipv4ToInt(addr: Inet4Address): Int {
