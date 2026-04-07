@@ -5,6 +5,8 @@ import android.net.ConnectivityManager
 import android.net.LinkAddress
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
+import android.net.RouteInfo
+import android.net.wifi.WifiManager
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import dev.blazelight.p4oc.core.log.AppLog
@@ -85,11 +87,13 @@ class MdnsDiscoveryManager(private val context: Context) {
     private var sweepJob: Job? = null
     private val probeClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(300, TimeUnit.MILLISECONDS)
-            .readTimeout(300, TimeUnit.MILLISECONDS)
-            .callTimeout(700, TimeUnit.MILLISECONDS)
+            .connectTimeout(800, TimeUnit.MILLISECONDS)
+            .readTimeout(800, TimeUnit.MILLISECONDS)
+            .callTimeout(1600, TimeUnit.MILLISECONDS)
             .build()
     }
+
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     /**
      * Start browsing for OpenCode servers on the local network.
@@ -146,6 +150,12 @@ class MdnsDiscoveryManager(private val context: Context) {
         activeListener = listener
 
         try {
+            // Acquire multicast lock to improve mDNS reception on some Wi‑Fi APs
+            if (multicastLock == null) {
+                val wm = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                multicastLock = wm?.createMulticastLock("p4oc-mdns").apply { this?.setReferenceCounted(true); this?.acquire() }
+                AppLog.d(TAG, "Acquired Wi‑Fi MulticastLock for mDNS")
+            }
             nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
         } catch (e: Exception) {
             AppLog.e(TAG, "Failed to start discovery", e)
@@ -177,6 +187,12 @@ class MdnsDiscoveryManager(private val context: Context) {
         sweepActive = false
         sweepJob?.cancel()
         sweepJob = null
+        // Release Wi‑Fi multicast lock if held
+        try {
+            multicastLock?.let { lock -> if (lock.isHeld) lock.release() }
+            multicastLock = null
+            AppLog.d(TAG, "Released Wi‑Fi MulticastLock")
+        } catch (_: Exception) { }
         _discoveryState.value = DiscoveryState.IDLE
     }
 
@@ -251,6 +267,12 @@ class MdnsDiscoveryManager(private val context: Context) {
         }
     }
 
+    private fun addGatewayTarget(route: RouteInfo, out: MutableSet<String>) {
+        val gw = route.gateway as? Inet4Address ?: return
+        if (!isPrivateIpv4(gw)) return
+        out.add(gw.hostAddress)
+    }
+
     // -------------------------------------------------------------------------
     // Extended discovery over VPN/Ethernet/Wi‑Fi: fast HTTP health probes
     // -------------------------------------------------------------------------
@@ -273,6 +295,10 @@ class MdnsDiscoveryManager(private val context: Context) {
                 if (isVpn || isEth || isWifi) {
                     lp.linkAddresses.forEach { la ->
                         addIpv4PrefixTargets(la, targets)
+                    }
+                    lp.routes.forEach { r ->
+                        addIpv4RouteTargets(r, targets)
+                        addGatewayTarget(r, targets)
                     }
                 }
             }
@@ -310,19 +336,47 @@ class MdnsDiscoveryManager(private val context: Context) {
         val addr = la.address as? Inet4Address ?: return
         val prefix = la.prefixLength
         if (!isPrivateIpv4(addr)) return
-        // Only probe small-ish subnets to keep cost bounded (/24.. /30)
-        if (prefix < 24 || prefix > 30) return
+        // Accept larger prefixes too; sample up to 512 hosts evenly (/16.. /30)
+        if (prefix < 16 || prefix > 30) return
 
         val base = ipv4ToInt(addr) and subnetMask(prefix)
         val low = base + 1
         val high = (base or invMask(prefix)) - 1
 
-        var count = 0
+        val span = (high - low + 1).coerceAtLeast(1)
+        val maxHosts = 512
+        val step = (span / maxHosts).coerceAtLeast(1)
+
+        var added = 0
         var ipInt = low
-        while (ipInt <= high && count < 256) {
+        while (ipInt <= high && added < maxHosts) {
             out.add(intToIpv4(ipInt))
-            ipInt += 1
-            count += 1
+            ipInt += step
+            added += 1
+        }
+    }
+
+    private fun addIpv4RouteTargets(route: RouteInfo, out: MutableSet<String>) {
+        val dst = route.destination ?: return
+        val addr = dst.address as? Inet4Address ?: return
+        val prefix = dst.prefixLength
+        if (!isPrivateIpv4(addr)) return
+        if (prefix < 16 || prefix > 30) return
+
+        val base = ipv4ToInt(addr) and subnetMask(prefix)
+        val low = base + 1
+        val high = (base or invMask(prefix)) - 1
+
+        val span = (high - low + 1).coerceAtLeast(1)
+        val maxHosts = 512
+        val step = (span / maxHosts).coerceAtLeast(1)
+
+        var added = 0
+        var ipInt = low
+        while (ipInt <= high && added < maxHosts) {
+            out.add(intToIpv4(ipInt))
+            ipInt += step
+            added += 1
         }
     }
 
@@ -366,6 +420,7 @@ class MdnsDiscoveryManager(private val context: Context) {
             10 -> true // 10.0.0.0/8
             172 -> b1 in 16..31 // 172.16.0.0/12
             192 -> b1 == 168 // 192.168.0.0/16
+            100 -> b1 in 64..127 // 100.64.0.0/10 (CGNAT) — used by Tailscale
             else -> false
         }
     }
