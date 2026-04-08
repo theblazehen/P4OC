@@ -635,7 +635,24 @@ private fun InstantPaintSkeleton(
                             else theme.border.copy(alpha = 0.25f),
                             RoundedCornerShape(12.dp)
                         )
-                )
+                ) {
+                    // Subtle shimmer effect
+                    if (!hasRealSession) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                        colors = listOf(
+                                            androidx.compose.ui.graphics.Color.Transparent,
+                                            theme.text.copy(alpha = 0.03f),
+                                            androidx.compose.ui.graphics.Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                }
             }
         }
     }

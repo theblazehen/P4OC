@@ -35,8 +35,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import dev.blazelight.p4oc.core.network.RequestOptimizer
-import dev.blazelight.p4oc.core.network.ContentPreloader
 
 /**
  * Slim coordinator — delegates to sub-managers for message state,
@@ -69,11 +67,6 @@ class ChatViewModel constructor(
     val dialogManager = DialogQueueManager(savedStateHandle, json)
     val modelAgentManager = ModelAgentManager(connectionManager, settingsDataStore, viewModelScope)
     val filePickerManager = FilePickerManager(connectionManager, viewModelScope)
-
-    // === LATENCY OPTIMIZERS ===
-    // Request coalescing and predictive caching
-    private val requestOptimizer = RequestOptimizer(viewModelScope)
-    private val contentPreloader = ContentPreloader(viewModelScope, connectionManager)
 
     // --- Core state ---
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -247,17 +240,29 @@ class ChatViewModel constructor(
                         AppLog.d(TAG, "Loaded ${messagesResult.data.size} messages")
                         _estimatedMessageCount.value = messagesResult.data.size
 
-                        // Map and load all messages at once for data consistency
-                        val allMapped = messagesResult.data.map { dto ->
-                            messageMapper.mapWrapperToDomain(dto)
-                        }
+                        // Progressive: Map in chunks and emit progressively
+                        val dtos = messagesResult.data
+                        val chunkSize = 20 // Process 20 messages at a time
 
-                        // Load all messages in a single operation
-                        messageStore.loadInitial(allMapped)
-                        _instantPaintState.value = _instantPaintState.value.copy(
-                            isVisible = false,
-                            hasRealMessages = true
-                        )
+                        for (i in dtos.indices.chunked(chunkSize)) {
+                            val chunk = dtos.slice(i)
+                            val mapped = chunk.map { dto -> messageMapper.mapWrapperToDomain(dto) }
+
+                            // On first chunk: clear and load, hide instant paint
+                            if (i.first() == 0) {
+                                messageStore.loadInitial(mapped)
+                                _instantPaintState.value = _instantPaintState.value.copy(
+                                    isVisible = false,
+                                    hasRealMessages = true
+                                )
+                            } else {
+                                // Append subsequent chunks
+                                mapped.forEach { messageStore.upsertMessage(it.message) }
+                            }
+
+                            // Small delay to allow UI to breathe
+                            if (i.last() < dtos.size - 1) delay(8)
+                        }
                     }
                     is ApiResult.Error -> {
                         AppLog.e(TAG, "Failed to load messages: ${messagesResult.message}")
