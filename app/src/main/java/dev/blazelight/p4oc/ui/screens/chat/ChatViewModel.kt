@@ -35,6 +35,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import dev.blazelight.p4oc.core.network.RequestOptimizer
+import dev.blazelight.p4oc.core.network.ContentPreloader
 
 /**
  * Slim coordinator — delegates to sub-managers for message state,
@@ -67,6 +69,11 @@ class ChatViewModel constructor(
     val dialogManager = DialogQueueManager(savedStateHandle, json)
     val modelAgentManager = ModelAgentManager(connectionManager, settingsDataStore, viewModelScope)
     val filePickerManager = FilePickerManager(connectionManager, viewModelScope)
+
+    // === LATENCY OPTIMIZERS ===
+    // Request coalescing and predictive caching
+    private val requestOptimizer = RequestOptimizer(viewModelScope)
+    private val contentPreloader = ContentPreloader(viewModelScope, connectionManager)
 
     // --- Core state ---
     private val _uiState = MutableStateFlow(ChatUiState())

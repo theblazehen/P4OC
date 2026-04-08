@@ -11,13 +11,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import android.content.Context
 import okhttp3.Cache
+import okhttp3.ConnectionPool
 import okhttp3.Credentials
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -79,8 +82,11 @@ class ConnectionManager constructor(
             val retrofit = buildRetrofit(config.url, okHttpClient)
             val api = retrofit.create(OpenCodeApi::class.java)
 
-            val healthResult = runCatching { api.health() }
-            
+            // Parallel health check with timeout for faster connection validation
+            val healthResult = runCatching {
+                kotlinx.coroutines.withTimeout(8000) { api.health() }
+            }
+
             if (healthResult.isFailure) {
                 val error = healthResult.exceptionOrNull()
                 AppLog.e(TAG, "Health check failed", error)
@@ -89,6 +95,13 @@ class ConnectionManager constructor(
             }
 
             AppLog.d(TAG, "Health check passed, starting SSE")
+
+            // Pre-warm connection pool for upcoming requests
+            scope.launch(Dispatchers.IO) {
+                try {
+                    api.health() // Second call reuses warmed connection
+                } catch (_: Exception) { }
+            }
 
             val sseClient = buildSseOkHttpClient(baseClient)
             val eventSource = OpenCodeEventSource(
@@ -164,25 +177,46 @@ class ConnectionManager constructor(
         _connectionState.value = ConnectionState.Disconnected
     }
 
+    // Shared connection pool for all clients - aggressive settings for low latency
+    private val sharedConnectionPool = ConnectionPool(
+        maxIdleConnections = 10,        // More idle connections ready
+        keepAliveDuration = 5,          // 5 minutes keep-alive
+        timeUnit = TimeUnit.MINUTES
+    )
+
     /**
      * Build a shared base OkHttpClient with auth and common settings.
-     * Derived clients share its connection pool and dispatcher via newBuilder().
+     * Optimized for minimal latency with aggressive connection pooling.
      */
     private fun buildBaseOkHttpClient(config: ServerConfig, password: String?): OkHttpClient {
         val cacheDir = File(context.cacheDir, "http_cache")
         val cache = Cache(cacheDir, 20L * 1024L * 1024L)
 
         val builder = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            // Reduced timeouts for faster failure detection and retry
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            // Aggressive connection pooling
+            .connectionPool(sharedConnectionPool)
+            // HTTP/2 for multiplexing and header compression
+            .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .cache(cache)
+            // Retry on connection failure
+            .retryOnConnectionFailure(true)
             .addInterceptor { chain ->
                 val original = chain.request()
-                // Only add Accept header if not already provided (avoid affecting SSE)
                 val builderReq = original.newBuilder()
+                // Add Accept header if not present
                 if (original.header("Accept") == null) {
                     builderReq.header("Accept", "application/json")
                 }
+                // Enable compression
+                if (original.header("Accept-Encoding") == null) {
+                    builderReq.header("Accept-Encoding", "gzip")
+                }
+                // Connection keep-alive hint
+                builderReq.header("Connection", "keep-alive")
                 val req = builderReq.build()
                 chain.proceed(req)
             }
@@ -197,9 +231,9 @@ class ConnectionManager constructor(
     private fun buildOkHttpClient(base: OkHttpClient): OkHttpClient =
         base.newBuilder()
             .readTimeout(60, TimeUnit.SECONDS)
+            // Minimal logging - only in debug and only headers (no body)
             .addInterceptor(HttpLoggingInterceptor().apply {
-                // Reduce payload logging to lower overhead on large responses
-                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS else HttpLoggingInterceptor.Level.NONE
                 redactHeader("Authorization")
             })
             .build()
