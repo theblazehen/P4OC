@@ -247,31 +247,17 @@ class ChatViewModel constructor(
                         AppLog.d(TAG, "Loaded ${messagesResult.data.size} messages")
                         _estimatedMessageCount.value = messagesResult.data.size
 
-                        // Progressive: Map all first, then emit in larger chunks
-                        // Single map operation is faster than chunked mapping
-                        val allMapped = messagesResult.data.map { dto -> messageMapper.mapWrapperToDomain(dto) }
+                        // Map and load all messages at once for data consistency
+                        val allMapped = messagesResult.data.map { dto ->
+                            messageMapper.mapWrapperToDomain(dto)
+                        }
 
-                        // Load initial batch immediately (first 15 messages for instant visibility)
-                        val initialBatch = allMapped.take(15)
-                        val remainder = allMapped.drop(15)
-
-                        messageStore.loadInitial(initialBatch)
+                        // Load all messages in a single operation
+                        messageStore.loadInitial(allMapped)
                         _instantPaintState.value = _instantPaintState.value.copy(
                             isVisible = false,
                             hasRealMessages = true
                         )
-
-                        // Batch append remainder with controlled pacing to prevent jank
-                        if (remainder.isNotEmpty()) {
-                            val batchSize = 30
-                            val batches = remainder.chunked(batchSize)
-                            val totalBatches = batches.size
-                            batches.forEachIndexed { index, batch ->
-                                messageStore.upsertMessages(batch.map { it.message })
-                                // Delay between batches, skip after last batch
-                                if (index < totalBatches - 1) delay(60)
-                            }
-                        }
                     }
                     is ApiResult.Error -> {
                         AppLog.e(TAG, "Failed to load messages: ${messagesResult.message}")

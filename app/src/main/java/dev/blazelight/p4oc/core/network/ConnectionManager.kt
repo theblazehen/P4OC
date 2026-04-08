@@ -206,19 +206,15 @@ class ConnectionManager constructor(
             .retryOnConnectionFailure(true)
             .addInterceptor { chain ->
                 val original = chain.request()
-                val builderReq = original.newBuilder()
-                // Add Accept header if not present
+                // Only add Accept header if not already provided
                 if (original.header("Accept") == null) {
-                    builderReq.header("Accept", "application/json")
+                    val newReq = original.newBuilder()
+                        .header("Accept", "application/json")
+                        .build()
+                    chain.proceed(newReq)
+                } else {
+                    chain.proceed(original)
                 }
-                // Enable compression
-                if (original.header("Accept-Encoding") == null) {
-                    builderReq.header("Accept-Encoding", "gzip")
-                }
-                // Connection keep-alive hint
-                builderReq.header("Connection", "keep-alive")
-                val req = builderReq.build()
-                chain.proceed(req)
             }
 
         if (config.username != null && password != null) {
