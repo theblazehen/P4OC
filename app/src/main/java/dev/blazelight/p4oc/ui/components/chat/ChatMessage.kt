@@ -83,7 +83,7 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
     // Don't render anything if there's no visible text
     if (text.isBlank()) return
 
-    // User message bubble — aligned right, hugs text width, max 80% screen
+    // User message bubble — aligned right, hugs text width, max 75% screen width
     val bubbleShape = RoundedCornerShape(topStart = 14.dp, topEnd = 4.dp, bottomStart = 14.dp, bottomEnd = 14.dp)
     Row(
         modifier = Modifier
@@ -91,11 +91,10 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
             .padding(vertical = 4.dp, horizontal = 8.dp),
         horizontalArrangement = Arrangement.End
     ) {
-        // Spacer pushes bubble right; bubble only takes as much space as text needs
-        Spacer(Modifier.weight(0.18f))
         Box(
             modifier = Modifier
-                .weight(0.82f, fill = false)
+                .widthIn(max = 280.dp) // Max width constraint for natural sizing
+                .wrapContentWidth()
                 .clip(bubbleShape)
                 .background(theme.primary.copy(alpha = 0.16f))
                 .border(1.dp, theme.primary.copy(alpha = 0.28f), bubbleShape)
@@ -111,7 +110,7 @@ private fun UserMessage(messageWithParts: MessageWithParts) {
         ) {
             StreamingMarkdown(
                 text = text,
-                modifier = Modifier
+                modifier = Modifier.wrapContentWidth()
             )
         }
     }
