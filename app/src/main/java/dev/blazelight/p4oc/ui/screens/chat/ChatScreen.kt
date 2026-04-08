@@ -9,7 +9,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -56,6 +58,7 @@ import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.components.TuiSnackbar
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -152,6 +155,45 @@ fun ChatScreen(
                 viewModel.messageStore.setFlushDelayWhileScrolling(isScrolling)
             }
     }
+
+    // === LITE Entrance Animations ===
+    // Single trigger when session loads - no per-item animations
+    var screenReady by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.session) {
+        if (uiState.session != null) {
+            delay(50) // Tiny delay for stability
+            screenReady = true
+        }
+    }
+
+    // Screen-level entrance: fade + slide from bottom (GPU-accelerated)
+    val screenAlpha by animateFloatAsState(
+        targetValue = if (screenReady) 1f else 0f,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label = "screen_alpha"
+    )
+    val screenTranslation by animateFloatAsState(
+        targetValue = if (screenReady) 0f else 20f, // 20dp from bottom
+        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        label = "screen_trans"
+    )
+
+    // Top bar: slide from top
+    val topBarTranslation by animateFloatAsState(
+        targetValue = if (screenReady) 0f else -30f,
+        animationSpec = tween(220, delayMillis = 50, easing = FastOutSlowInEasing),
+        label = "topbar_trans"
+    )
+
+    // Bottom bar: slide from bottom
+    val bottomBarTranslation by animateFloatAsState(
+        targetValue = if (screenReady) 0f else 40f,
+        animationSpec = tween(220, delayMillis = 80, easing = FastOutSlowInEasing),
+        label = "bottom_trans"
+    )
+
+    // Loading state: skeleton visible while session loads
+    val showSkeleton = uiState.isLoading || uiState.session == null
     var showCommandPalette by remember { mutableStateOf(false) }
     var showTodoTracker by remember { mutableStateOf(false) }
     var showFilePicker by remember { mutableStateOf(false) }
@@ -214,8 +256,14 @@ fun ChatScreen(
     }
 
     Scaffold(
+        modifier = Modifier
+            .graphicsLayer {
+                alpha = screenAlpha
+                translationY = screenTranslation
+            },
         topBar = {
             ChatTopBar(
+                modifier = Modifier.graphicsLayer { translationY = topBarTranslation },
                 title = uiState.session?.title ?: "Chat",
                 connectionState = connectionState,
                 onBack = onNavigateBack,
@@ -244,6 +292,7 @@ fun ChatScreen(
             if (!isSubAgent) {
                 Column(
                     modifier = Modifier
+                        .graphicsLayer { translationY = bottomBarTranslation }
                         .imePadding()
                         .navigationBarsPadding()
                         .background(LocalOpenCodeTheme.current.backgroundElement)
@@ -525,11 +574,58 @@ fun ChatScreen(
             isDestructive = true
         )
     }
+
+    // Loading skeleton - shown while session loads
+    if (showSkeleton) {
+        LoadingSkeleton()
+    }
+}
+
+/**
+ * LITE loading skeleton for session loading state.
+ * Simple placeholder rows without heavy animations.
+ */
+@Composable
+private fun LoadingSkeleton() {
+    val theme = LocalOpenCodeTheme.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Simulate 6 message placeholders
+        repeat(6) { index ->
+            val isUser = index % 2 == 0
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(if (isUser) 0.7f else 0.8f)
+                        .height(48.dp + (index * 8).dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isUser) theme.primary.copy(alpha = 0.08f)
+                            else theme.backgroundElement.copy(alpha = 0.6f)
+                        )
+                        .border(
+                            1.dp,
+                            if (isUser) theme.primary.copy(alpha = 0.15f)
+                            else theme.border.copy(alpha = 0.3f),
+                            RoundedCornerShape(12.dp)
+                        )
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatTopBar(
+    modifier: Modifier = Modifier,
     title: String,
     connectionState: ConnectionState,
     onBack: () -> Unit,
@@ -543,10 +639,12 @@ private fun ChatTopBar(
     todoCount: Int = 0,
     onTodos: () -> Unit = {}
 ) {
+    // Apply modifier to TuiTopBar wrapper
     val theme = LocalOpenCodeTheme.current
     var showOverflow by remember { mutableStateOf(false) }
 
     TuiTopBar(
+        modifier = modifier,
         title = title,
         onNavigateBack = onBack,
         actions = {
