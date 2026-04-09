@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -29,6 +31,8 @@ import android.net.Uri
 import org.koin.androidx.compose.koinViewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.BuildConfig
@@ -56,6 +60,7 @@ fun SettingsScreen(
     val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showLogsDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val theme = LocalOpenCodeTheme.current
@@ -182,6 +187,23 @@ fun SettingsScreen(
                 testTag = "settings_about_item"
             )
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Diagnostics Section
+            SettingsSectionHeader(
+                title = "Diagnostics",
+                icon = Icons.Default.BugReport
+            )
+
+            SettingsItem(
+                icon = Icons.Default.Description,
+                title = "View Logs",
+                subtitle = "View and copy recent app logs",
+                onClick = { showLogsDialog = true },
+                showChevron = true,
+                testTag = "settings_logs_item"
+            )
+
             Spacer(Modifier.weight(1f))
 
             // Disconnect button — only show when connected
@@ -195,6 +217,12 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    if (showLogsDialog) {
+        LogsDialog(
+            onDismiss = { showLogsDialog = false }
+        )
     }
 
     if (showDisconnectDialog) {
@@ -375,4 +403,164 @@ private fun SettingsSectionHeader(
             letterSpacing = 0.5.sp
         )
     }
+}
+
+@Composable
+private fun LogsDialog(
+    onDismiss: () -> Unit
+) {
+    val theme = LocalOpenCodeTheme.current
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var logs by remember { mutableStateOf("Loading logs...") }
+    var isLoading by remember { mutableStateOf(true) }
+    var copySuccess by remember { mutableStateOf(false) }
+
+    // Load logs when dialog opens
+    LaunchedEffect(Unit) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                // Get app package name for filtering
+                val packageName = context.packageName
+                // Read last 200 lines of logcat filtered by app tags
+                val process = Runtime.getRuntime().exec(
+                    arrayOf("logcat", "-d", "-t", "200", "--pid=${android.os.Process.myPid()}")
+                )
+                val logsText = process.inputStream.bufferedReader().use { it.readText() }
+                logs = if (logsText.isBlank()) {
+                    "No recent logs found.\n\nNote: Logs are only available in debug builds or with specific permissions."
+                } else {
+                    logsText
+                }
+            } catch (e: Exception) {
+                logs = "Error reading logs: ${e.message}\n\nNote: Reading logs requires READ_LOGS permission on some Android versions."
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Description,
+                contentDescription = null,
+                tint = theme.accent
+            )
+        },
+        title = {
+            Text(
+                text = "Recent Logs",
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Medium
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 200.dp, max = 400.dp)
+            ) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            color = theme.accent
+                        )
+                    }
+                } else {
+                    // Log display area
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        color = theme.backgroundElement,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(8.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = logs,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = theme.textMuted,
+                                lineHeight = 14.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Copy button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (copySuccess) {
+                            Text(
+                                text = "Copied to clipboard!",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                color = theme.success
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+
+                        Button(
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString(logs))
+                                copySuccess = true
+                                // Reset copy success message after 2 seconds
+                                scope.launch {
+                                    delay(2000)
+                                    copySuccess = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = theme.accent
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Copy All",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "Close",
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        },
+        containerColor = theme.background,
+        shape = RoundedCornerShape(16.dp)
+    )
 }

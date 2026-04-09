@@ -92,74 +92,82 @@ fun ModelAgentSelectorBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Agent indicator - terminal style
         if (availableAgents.isNotEmpty()) {
             val currentAgent = availableAgents.find { it.name == selectedAgent }
             val agentColor = getAgentColor(currentAgent)
 
-            Box(
+            Row(
                 modifier = Modifier
-                    .height(Sizing.buttonHeightMd)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(agentColor.copy(alpha = 0.12f))
-                    .border(1.dp, agentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                     .clickable(role = Role.Button) {
                         val currentIndex = availableAgents.indexOfFirst { it.name == selectedAgent }
                         val nextIndex = (currentIndex + 1) % availableAgents.size
                         onAgentSelected(availableAgents[nextIndex].name)
                     }
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "@${(selectedAgent ?: "build").lowercase()}",
+                    text = "[",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = theme.textMuted
+                )
+                Text(
+                    text = "${(selectedAgent ?: "build").lowercase()}",
                     style = MaterialTheme.typography.labelMedium,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                     fontWeight = FontWeight.SemiBold,
                     color = agentColor
                 )
+                Text(
+                    text = "]",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = theme.textMuted
+                )
             }
         }
 
+        // Separator - terminal style
         if (availableAgents.isNotEmpty() && availableModels.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .height(16.dp)
-                    .width(1.dp)
-                    .background(theme.border)
+            Text(
+                text = " | ",
+                style = MaterialTheme.typography.labelMedium,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                color = theme.border
             )
         }
 
+        // Model selector - terminal style
         if (availableModels.isNotEmpty()) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .height(Sizing.buttonHeightMd)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(theme.background)
-                    .border(1.dp, theme.border, RoundedCornerShape(8.dp))
                     .clickable(role = Role.Button) { showModelPicker = true }
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = selectedModelName,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        color = theme.text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = Sizing.panelWidthLg)
-                    )
-                    Text(
-                        text = "▾",
-                        color = theme.textMuted,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
+                Text(
+                    text = "<",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = theme.textMuted
+                )
+                Text(
+                    text = selectedModelName.lowercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = theme.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                )
+                Text(
+                    text = ">",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = theme.textMuted
+                )
             }
         }
     }

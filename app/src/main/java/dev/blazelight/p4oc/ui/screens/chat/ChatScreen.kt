@@ -4,20 +4,19 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -152,119 +151,78 @@ fun ChatScreen(
     }
 
     val listState = rememberLazyListState()
-    // Throttle streaming updates while user hace scroll to reduce jank
+    val coroutineScope = rememberCoroutineScope()
+
+    // ScrollableDefaults.flingBehavior() already uses splineBasedDecay internally in Compose 1.8+
+    // — same physics as RecyclerView. No custom implementation needed.
+    val smoothFling = ScrollableDefaults.flingBehavior()
+
+    // Single snapshotFlow observer — replaces multiple LaunchedEffect(state) that caused re-execution races
+    val isAtBottom by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 120
+        }
+    }
+    var userScrolledAway by remember { mutableStateOf(false) }
+    var hasNewContentWhileAway by remember { mutableStateOf(false) }
+
+    // One unified scroll observer — zero LaunchedEffect overhead during fling
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }
-            .collect { isScrolling ->
-                viewModel.messageStore.setFlushDelayWhileScrolling(isScrolling)
+        snapshotFlow { listState.isScrollInProgress to isAtBottom }
+            .collect { (scrolling, atBottom) ->
+                viewModel.messageStore.setFlushDelayWhileScrolling(scrolling)
+                if (scrolling && !atBottom) userScrolledAway = true
+                if (atBottom && !scrolling && userScrolledAway) {
+                    userScrolledAway = false
+                    hasNewContentWhileAway = false
+                }
             }
     }
 
-    // === LITE Entrance Animations ===
-    // Trigger when instant paint is ready (immediate) or real session loads
-    var screenReady by remember { mutableStateOf(false) }
-    LaunchedEffect(instantPaint.isVisible, uiState.session) {
-        if (instantPaint.isVisible || uiState.session != null) {
-            delay(16) // One frame delay for stability
-            screenReady = true
+    // OPTIMIZED: Instant scroll to bottom with minimal delay
+    val messageCount = messages.size
+    var hasScrolledToBottom by remember { mutableStateOf(false) }
+
+    // Reset when session changes
+    LaunchedEffect(uiState.session?.id) {
+        hasScrolledToBottom = false
+    }
+
+    // Fast scroll on initial load - minimal delay
+    LaunchedEffect(messageCount, hasScrolledToBottom) {
+        if (messageCount > 0 && !hasScrolledToBottom) {
+            kotlinx.coroutines.delay(30) // Minimal wait for LazyColumn
+            listState.scrollToItem(0)
+            hasScrolledToBottom = true
         }
     }
 
-    // Screen-level entrance: fade + slide from bottom (GPU-accelerated)
-    val screenAlpha by animateFloatAsState(
-        targetValue = if (screenReady) 1f else 0f,
-        animationSpec = tween(200, easing = FastOutSlowInEasing),
-        label = "screen_alpha"
-    )
-    val screenTranslation by animateFloatAsState(
-        targetValue = if (screenReady) 0f else 20f, // 20dp from bottom
-        animationSpec = tween(250, easing = FastOutSlowInEasing),
-        label = "screen_trans"
-    )
+    // Handle new messages without re-triggering initial scroll
+    LaunchedEffect(messageCount, hasScrolledToBottom) {
+        if (messageCount > 0 && hasScrolledToBottom && !userScrolledAway) {
+            listState.scrollToItem(0)
+        } else if (messageCount > 0 && userScrolledAway) {
+            hasNewContentWhileAway = true
+        }
+    }
 
-    // Top bar: slide from top
-    val topBarTranslation by animateFloatAsState(
-        targetValue = if (screenReady) 0f else -30f,
-        animationSpec = tween(220, delayMillis = 50, easing = FastOutSlowInEasing),
-        label = "topbar_trans"
-    )
-
-    // Bottom bar: slide from bottom
-    val bottomBarTranslation by animateFloatAsState(
-        targetValue = if (screenReady) 0f else 40f,
-        animationSpec = tween(220, delayMillis = 80, easing = FastOutSlowInEasing),
-        label = "bottom_trans"
-    )
-
-    // Loading state: skeleton visible while session loads
+    // Loading state
     val showSkeleton = uiState.isLoading || uiState.session == null
     var showCommandPalette by remember { mutableStateOf(false) }
     var showTodoTracker by remember { mutableStateOf(false) }
     var showFilePicker by remember { mutableStateOf(false) }
     var showRevertDialog by remember { mutableStateOf<String?>(null) }
-    
-    // Scroll UX state
-    var userScrolledAway by remember { mutableStateOf(false) }
-    var hasNewContentWhileAway by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    
-    // Derived state: check if user is "at bottom" (reversed layout: index 0 is bottom)
-    val isAtBottom by remember {
-        derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            layoutInfo.totalItemsCount == 0 || 
-                (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 100)
-        }
-    }
-    
+
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    
+
     BackHandler {
         focusManager.clearFocus()
         keyboardController?.hide()
         onNavigateBack()
     }
 
-    // Detect user scroll gesture - when scrolling and not at bottom, mark as scrolled away
-    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
-        if (listState.isScrollInProgress && !isAtBottom) {
-            userScrolledAway = true
-        }
-        // Reset when user manually scrolls back to bottom
-        if (isAtBottom && !listState.isScrollInProgress && userScrolledAway) {
-            userScrolledAway = false
-            hasNewContentWhileAway = false
-        }
-    }
-
-    // Auto-scroll when new messages arrive or content changes during streaming
-    val messageCount = messages.size
-    val lastMessagePartCount = messages.lastOrNull()?.parts?.size ?: 0
-    val isBusy = uiState.isBusy
-    
-    // Scroll on new messages or when parts are added to the last message
-    LaunchedEffect(messageCount, lastMessagePartCount, isBusy) {
-        if (messages.isNotEmpty()) {
-            if (!userScrolledAway) {
-                // Smooth scroll for small distances, instant for large jumps
-                if (listState.firstVisibleItemIndex < 3) {
-                    listState.animateScrollToItem(0)  // Smooth when close to bottom
-                } else {
-                    listState.scrollToItem(0)  // Instant for large jumps
-                }
-            } else {
-                hasNewContentWhileAway = true
-            }
-        }
-    }
-
     Scaffold(
-        modifier = Modifier
-            .graphicsLayer {
-                alpha = screenAlpha
-                translationY = screenTranslation
-            },
         topBar = {
             // INSTANT PAINT: Use instant title while real session loads
             val displayTitle = when {
@@ -273,7 +231,7 @@ fun ChatScreen(
                 else -> "Chat"
             } ?: "Chat"
             ChatTopBar(
-                modifier = Modifier.graphicsLayer { translationY = topBarTranslation },
+                modifier = Modifier,
                 title = displayTitle,
                 connectionState = connectionState,
                 onBack = onNavigateBack,
@@ -302,24 +260,31 @@ fun ChatScreen(
             if (!isSubAgent) {
                 Column(
                     modifier = Modifier
-                        .graphicsLayer { translationY = bottomBarTranslation }
                         .imePadding()
                         .navigationBarsPadding()
                         .background(LocalOpenCodeTheme.current.backgroundElement)
                 ) {
-                    ModelAgentSelectorBar(
-                        availableAgents = availableAgents,
-                        selectedAgent = selectedAgent,
-                        onAgentSelected = viewModel.modelAgentManager::selectAgent,
-                        availableModels = availableModels,
-                        selectedModel = selectedModel,
-                        onModelSelected = viewModel.modelAgentManager::selectModel,
-                        favoriteModels = favoriteModels,
-                        recentModels = recentModels,
-                        onToggleFavorite = viewModel.modelAgentManager::toggleFavoriteModel
-                    )
                     ChatInputBar(
                         value = uiState.inputText,
+                        connectionState = when(connectionState) {
+                            is ConnectionState.Connected -> dev.blazelight.p4oc.ui.components.chat.InputConnectionState.CONNECTED
+                            is ConnectionState.Connecting -> dev.blazelight.p4oc.ui.components.chat.InputConnectionState.CONNECTING
+                            else -> dev.blazelight.p4oc.ui.components.chat.InputConnectionState.DISCONNECTED
+                        },
+                        modelSelector = {
+                            ModelAgentSelectorBar(
+                                availableAgents = availableAgents,
+                                selectedAgent = selectedAgent,
+                                onAgentSelected = viewModel.modelAgentManager::selectAgent,
+                                availableModels = availableModels,
+                                selectedModel = selectedModel,
+                                onModelSelected = viewModel.modelAgentManager::selectModel,
+                                favoriteModels = favoriteModels,
+                                recentModels = recentModels,
+                                onToggleFavorite = viewModel.modelAgentManager::toggleFavoriteModel
+                            )
+                        },
+                        agentSelector = { },
                         onValueChange = { text ->
                             viewModel.updateInput(text)
                             if (text.startsWith("/") && uiState.commands.isEmpty()) {
@@ -398,29 +363,34 @@ fun ChatScreen(
             val hasContent = messages.isNotEmpty() || uiState.isBusy
             // Use pre-computed blocks from ViewModel (computed on Default dispatcher)
             val messageBlocks by viewModel.messageBlocks.collectAsStateWithLifecycle()
+            // OPTIMIZED: Reverse in background thread to prevent UI blocking
+            val reversedBlocks by produceState(
+                initialValue = emptyList<MessageBlock>(),
+                key1 = messageBlocks
+            ) {
+                value = withContext(Dispatchers.Default) {
+                    messageBlocks.asReversed()
+                }
+            }
+
+            // Stable lambdas — same reference across recompositions, prevents MessageBlockView recompose
+            val onToolApprove = remember(viewModel) { { id: String -> viewModel.respondToPermission(id, "once") } }
+            val onToolDeny = remember(viewModel) { { id: String -> viewModel.respondToPermission(id, "reject") } }
+            val onToolAlways = remember(viewModel) { { id: String -> viewModel.respondToPermission(id, "always") } }
+            val onRevert = remember { { id: String -> showRevertDialog = id } }
 
             if (!hasContent && !uiState.isLoading) {
                 EmptyChatView(modifier = Modifier.align(Alignment.Center))
             } else {
-                // Single list-level fade-in on initial load — zero per-item cost
-                var listVisible by remember { mutableStateOf(false) }
-                LaunchedEffect(messageBlocks) {
-                    if (messageBlocks.isNotEmpty()) listVisible = true
-                }
-                val listAlpha by animateFloatAsState(
-                    targetValue = if (listVisible) 1f else 0f,
-                    animationSpec = tween(150), // Fast 150ms fade
-                    label = "session_fade"
-                )
-
+                // OPTIMIZED: Show LazyColumn directly without AnimatedVisibility to prevent scroll jank
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .testTag("message_list")
-                        .alpha(listAlpha),
-                    // Lite: no contentPadding, no spacedBy — less re-layout work
-                    reverseLayout = true
+                        .testTag("message_list"),
+                    reverseLayout = true,
+                    flingBehavior = smoothFling,
+                    contentPadding = PaddingValues(vertical = 2.dp),
                 ) {
                     // Inline question card
                     pendingQuestion?.let { questionRequest ->
@@ -441,29 +411,44 @@ fun ChatScreen(
                         }
                     }
 
-                    // Messages — simple keys, no contentType, no per-item animations
-                    val blocks = messageBlocks.asReversed()
+                    // Messages — stable keys, contentType for recycling, no per-item animations
                     items(
-                        count = blocks.size,
+                        count = reversedBlocks.size,
                         key = { index ->
-                            val block = blocks[index]
-                            when (block) {
+                            when (val block = reversedBlocks[index]) {
                                 is MessageBlock.UserBlock -> "u_${block.message.message.id}"
-                                is MessageBlock.AssistantBlock -> "a_${block.messages.first().message.id}"
+                                // GUARD: Protect against empty assistant block - use fallback key
+                                is MessageBlock.AssistantBlock -> {
+                                    val firstMessage = block.messages.firstOrNull()
+                                    if (firstMessage != null) {
+                                        "a_${firstMessage.message.id}"
+                                    } else {
+                                        "a_empty_${index}" // Fallback for empty blocks
+                                    }
+                                }
+                            }
+                        },
+                        contentType = { index ->
+                            when (reversedBlocks[index]) {
+                                is MessageBlock.UserBlock -> 0
+                                is MessageBlock.AssistantBlock -> 1
                             }
                         }
                     ) { index ->
-                        val block = blocks[index]
-                        // Lite: direct render, no animation wrappers
+                        val block = reversedBlocks[index]
+                        // GUARD: Skip empty assistant blocks
+                        if (block is MessageBlock.AssistantBlock && block.messages.isEmpty()) {
+                            return@items
+                        }
                         MessageBlockView(
                             block = block,
-                            onToolApprove = { viewModel.respondToPermission(it, "once") },
-                            onToolDeny = { viewModel.respondToPermission(it, "reject") },
-                            onToolAlways = { viewModel.respondToPermission(it, "always") },
+                            onToolApprove = onToolApprove,
+                            onToolDeny = onToolDeny,
+                            onToolAlways = onToolAlways,
                             onOpenSubSession = onOpenSubSession,
                             defaultToolWidgetState = defaultToolWidgetState,
                             pendingPermissionsByCallId = pendingPermissionsByCallId,
-                            onRevert = { showRevertDialog = it }
+                            onRevert = onRevert
                         )
                     }
 
@@ -597,7 +582,7 @@ fun ChatScreen(
 
 /**
  * INSTANT PAINT Skeleton - shows immediately with estimated content.
- * Replaced seamlessly when real messages arrive.
+ * OPTIMIZED: Static placeholder without shimmer to prevent UI freeze.
  */
 @Composable
 private fun InstantPaintSkeleton(
@@ -611,10 +596,11 @@ private fun InstantPaintSkeleton(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Generate skeleton rows based on estimated count
-        repeat(messageCount.coerceIn(3, 8)) { index ->
+        // OPTIMIZED: Limit to max 5 skeleton items to prevent performance issues
+        repeat(messageCount.coerceIn(2, 5)) { index ->
             val isUser = index % 2 == 0
-            val height = 48.dp + (index * 4).dp
+            // Fixed height to avoid complex calculations during rendering
+            val height = 56.dp
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -624,35 +610,18 @@ private fun InstantPaintSkeleton(
                     modifier = Modifier
                         .fillMaxWidth(if (isUser) 0.75f else 0.85f)
                         .height(height)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(
-                            if (isUser) theme.primary.copy(alpha = 0.06f)
-                            else theme.backgroundElement.copy(alpha = 0.5f)
+                            if (isUser) theme.primary.copy(alpha = 0.08f)
+                            else theme.backgroundElement.copy(alpha = 0.6f)
                         )
                         .border(
                             1.dp,
-                            if (isUser) theme.primary.copy(alpha = 0.12f)
-                            else theme.border.copy(alpha = 0.25f),
-                            RoundedCornerShape(12.dp)
+                            if (isUser) theme.primary.copy(alpha = 0.15f)
+                            else theme.border.copy(alpha = 0.3f),
+                            RoundedCornerShape(8.dp)
                         )
-                ) {
-                    // Subtle shimmer effect
-                    if (!hasRealSession) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                        colors = listOf(
-                                            androidx.compose.ui.graphics.Color.Transparent,
-                                            theme.text.copy(alpha = 0.03f),
-                                            androidx.compose.ui.graphics.Color.Transparent
-                                        )
-                                    )
-                                )
-                        )
-                    }
-                }
+                )
             }
         }
     }
@@ -725,7 +694,7 @@ private fun ChatTopBar(
         title = title,
         onNavigateBack = onBack,
         actions = {
-            // Connection dot
+            // Animated connection indicator
             ConnectionDot(state = connectionState)
 
             // Branch chip
@@ -832,10 +801,6 @@ private fun ChatTopBar(
     )
 }
 
-/**
- * Compact connection dot for the title subtitle row — just a colored text glyph.
- * No 40dp bounding box, no dropdown. Tap the main ConnectionIndicator for details.
- */
 @Composable
 private fun ConnectionDot(state: ConnectionState) {
     val theme = LocalOpenCodeTheme.current

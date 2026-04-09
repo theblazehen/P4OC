@@ -98,46 +98,46 @@ private fun AttachmentChip(
 ) {
     val theme = LocalOpenCodeTheme.current
     
-    Surface(
-        shape = RectangleShape,
-        color = theme.accent.copy(alpha = 0.1f),
-        modifier = Modifier.border(Sizing.strokeMd, theme.border, RectangleShape)
+    Row(
+        modifier = Modifier
+            .background(theme.backgroundElement)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(start = Spacing.md, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
-        ) {
-            Text(
-                text = getFileSymbol(attachment.mimeType),
-                color = getFileColor(attachment.mimeType),
-                fontFamily = FontFamily.Monospace
-            )
-            
-            Text(
-                text = attachment.name,
-                style = MaterialTheme.typography.labelMedium,
-                fontFamily = FontFamily.Monospace,
-                color = theme.text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = Sizing.panelWidthMd)
-            )
-            
-            Text(
-                text = formatFileSize(attachment.size),
-                style = MaterialTheme.typography.labelSmall,
-                fontFamily = FontFamily.Monospace,
-                color = theme.textMuted
-            )
-            
-            Text(
-                text = "×",
-                color = theme.textMuted,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier.clickable(onClick = onRemove, role = Role.Button)
-            )
-        }
+        Text(
+            text = getFileSymbol(attachment.mimeType),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = getFileColor(attachment.mimeType),
+            modifier = Modifier.padding(end = 6.dp)
+        )
+
+        Text(
+            text = attachment.name,
+            style = MaterialTheme.typography.labelMedium,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = theme.text
+        )
+
+        Text(
+            text = formatFileSize(attachment.size),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = theme.textMuted,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+
+        Text(
+            text = " ×",
+            style = MaterialTheme.typography.labelMedium,
+            fontFamily = FontFamily.Monospace,
+            color = theme.textMuted,
+            modifier = Modifier
+                .padding(start = 6.dp)
+                .clickable { onRemove() }
+        )
     }
 }
 

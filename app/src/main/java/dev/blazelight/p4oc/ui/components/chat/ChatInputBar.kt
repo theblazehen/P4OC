@@ -52,12 +52,19 @@ data class ModelOption(
     val displayName: String
 )
 
+enum class InputConnectionState {
+    CONNECTED, DISCONNECTED, CONNECTING
+}
+
 @Composable
 fun ChatInputBar(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
     isLoading: Boolean,
+    connectionState: InputConnectionState = InputConnectionState.CONNECTED,
+    modelSelector: @Composable () -> Unit = {},
+    agentSelector: @Composable () -> Unit = {},
     enabled: Boolean,
     modifier: Modifier = Modifier,
     isBusy: Boolean = false,
@@ -172,7 +179,7 @@ fun ChatInputBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     attachedFiles.forEach { file ->
@@ -220,79 +227,77 @@ fun ChatInputBar(
             // ── Main input row ──────────────────────────────────────────────
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
                     .fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Attach button
+                // Attach button - terminal style (compact)
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (enabled) theme.accent.copy(alpha = 0.1f)
-                            else theme.backgroundElement
-                        )
-                        .clickable(enabled = enabled, role = Role.Button) { onAttachClick() }
-                        .testTag("chat_attach_button"),
+                        .size(28.dp)
+                        .background(theme.backgroundElement)
+                        .clickable(role = Role.Button) { onAttachClick() }
+                        .testTag("attach_button"),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "+",
-                        color = if (enabled) theme.accent else theme.textMuted,
-                        fontFamily = FontFamily.Monospace,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.accent
                     )
                 }
 
-                // Input field with rounded border
-                Box(
+                // Terminal style input with prompt
+                Row(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(theme.background)
-                        .border(
-                            width = 1.dp,
-                            color = when {
-                                isBusy && hasQueuedMessage -> theme.accent.copy(alpha = 0.4f)
-                                isBusy                    -> theme.warning.copy(alpha = 0.4f)
-                                !enabled                  -> theme.border.copy(alpha = 0.4f)
-                                else                      -> theme.border
-                            },
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.CenterStart
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (value.isEmpty()) {
-                        Text(
-                            placeholder,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = FontFamily.Monospace,
-                            color = theme.textMuted.copy(alpha = 0.7f)
+                    // Terminal prompt indicator
+                    Text(
+                        text = ">",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.accent,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (value.isEmpty()) {
+                            Text(
+                                placeholder,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = FontFamily.Monospace,
+                                color = theme.textMuted.copy(alpha = 0.5f)
+                            )
+                        }
+                        BasicTextField(
+                            value = value,
+                            onValueChange = onValueChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequester)
+                                .testTag("chat_input"),
+                            enabled = true,
+                            textStyle = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = TuiCodeFontSize.xxl,
+                                color = theme.text
+                            ),
+                            cursorBrush = SolidColor(theme.accent),
+                            maxLines = 5
                         )
                     }
-                    BasicTextField(
-                        value = value,
-                        onValueChange = onValueChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester)
-                            .testTag("chat_input"),
-                        enabled = true,
-                        textStyle = TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = TuiCodeFontSize.xxl,
-                            color = theme.text
-                        ),
-                        cursorBrush = SolidColor(theme.accent),
-                        maxLines = 5
-                    )
                 }
 
-                // Send / Queue / Loading button
+                // Send / Queue / Loading button - terminal style (compact)
                 val btnColor = when {
                     canSend  -> theme.accent
                     canQueue -> theme.warning
@@ -300,9 +305,8 @@ fun ChatInputBar(
                 }
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(btnColor.copy(alpha = if (canSend || canQueue) 0.15f else 0.05f))
+                        .size(28.dp)
+                        .background(theme.backgroundElement)
                         .then(
                             if (canSend) Modifier.clickable(role = Role.Button) {
                                 onSend()
@@ -335,6 +339,19 @@ fun ChatInputBar(
                     }
                 }
             }
+
+            // Bottom bar: Model/Agent selector
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(theme.backgroundElement)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                agentSelector()
+                modelSelector()
+            }
         }
     }
 }
@@ -353,5 +370,21 @@ private fun QueuePulseDot(color: androidx.compose.ui.graphics.Color) {
             .clip(RoundedCornerShape(2.dp))
             .alpha(alpha)
             .background(color)
+    )
+}
+
+@Composable
+private fun ConnectionDot(state: InputConnectionState) {
+    val theme = LocalOpenCodeTheme.current
+    val (symbol, color) = when (state) {
+        InputConnectionState.CONNECTED -> "●" to theme.success
+        InputConnectionState.CONNECTING -> "○" to theme.warning
+        InputConnectionState.DISCONNECTED -> "○" to theme.error
+    }
+    Text(
+        text = symbol,
+        color = color,
+        fontFamily = FontFamily.Monospace,
+        style = MaterialTheme.typography.labelSmall
     )
 }

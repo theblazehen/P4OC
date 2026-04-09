@@ -113,6 +113,7 @@ fun TabNavHost(
         // Sessions list (start destination for new tabs)
         composable(Screen.Sessions.route) {
             SessionListScreen(
+                showTopBar = false,
                 onSessionClick = { sessionId, directory ->
                     // Check if session already open in another tab
                     val existingTab = tabManager.findTabBySessionId(sessionId)

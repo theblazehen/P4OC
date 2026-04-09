@@ -1,16 +1,15 @@
 package dev.blazelight.p4oc.ui.components.chat
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,14 +23,18 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
-import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolGroupWidget
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
+
+// ── Cached shapes — file-level singletons, zero allocation during scroll ──────
+private val pillShape       = RoundedCornerShape(20.dp)
+private val blockShape      = RoundedCornerShape(2.dp)
 
 @Composable
 fun ChatMessage(
@@ -45,77 +48,81 @@ fun ChatMessage(
     onRevert: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val message = messageWithParts.message
-    val isUser = message is Message.User
-
-    Column(
-        modifier = modifier.fillMaxWidth()
-    ) {
-        if (isUser) {
-            UserMessage(messageWithParts)
-        } else {
-            AssistantMessage(
-                messageWithParts = messageWithParts,
-                onToolApprove = onToolApprove,
-                onToolDeny = onToolDeny,
-                onToolAlways = onToolAlways,
-                onOpenSubSession = onOpenSubSession,
-                defaultToolWidgetState = defaultToolWidgetState,
-                pendingPermissionsByCallId = pendingPermissionsByCallId,
-                onRevert = onRevert
-            )
-        }
+    if (messageWithParts.message is Message.User) {
+        UserMessage(messageWithParts, modifier)
+    } else {
+        AssistantMessage(
+            messageWithParts = messageWithParts,
+            onToolApprove = onToolApprove,
+            onToolDeny = onToolDeny,
+            onToolAlways = onToolAlways,
+            onOpenSubSession = onOpenSubSession,
+            defaultToolWidgetState = defaultToolWidgetState,
+            pendingPermissionsByCallId = pendingPermissionsByCallId,
+            onRevert = onRevert,
+            modifier = modifier
+        )
     }
 }
 
+// ── USER — terminal command line ───────────────────────────────────────────────
+// Looks like typing a command in a shell: full-width row with prompt prefix,
+// slight background tint on the whole line, no bubble or right-alignment.
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun UserMessage(messageWithParts: MessageWithParts) {
-    val theme = LocalOpenCodeTheme.current
-    val clipboardManager = LocalClipboardManager.current
-    val haptic = LocalHapticFeedback.current
-    // Filter out synthetic text parts (system prompts, AGENTS.md content, etc.)
-    val textParts = messageWithParts.parts
-        .filterIsInstance<Part.Text>()
-        .filter { !it.synthetic && !it.ignored }
-    val text = textParts.joinToString("\n") { it.text }
-    
-    // Don't render anything if there's no visible text
+private fun UserMessage(messageWithParts: MessageWithParts, modifier: Modifier = Modifier) {
+    val theme     = LocalOpenCodeTheme.current
+    val clipboard = LocalClipboardManager.current
+    val haptic    = LocalHapticFeedback.current
+
+    val textParts = remember(messageWithParts.parts) {
+        messageWithParts.parts
+            .filterIsInstance<Part.Text>()
+            .filter { !it.synthetic && !it.ignored }
+    }
+    val text = remember(textParts) { textParts.joinToString("\n") { it.text } }
     if (text.isBlank()) return
 
-    // User message bubble — aligned right, hugs text width, max 75% screen width
-    val bubbleShape = RoundedCornerShape(topStart = 14.dp, topEnd = 4.dp, bottomStart = 14.dp, bottomEnd = 14.dp)
+    // Slightly more visible tint — enough contrast to read as a command line block
+    val rowBg  = remember(theme.primary) { theme.primary.copy(alpha = 0.09f) }
+    val arrowColor = theme.primary   // uses live theme color, no remember needed (Color is stable)
+
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp, horizontal = 8.dp),
-        horizontalArrangement = Arrangement.End
-    ) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 280.dp) // Max width constraint for natural sizing
-                .wrapContentWidth()
-                .clip(bubbleShape)
-                .background(theme.primary.copy(alpha = 0.16f))
-                .border(1.dp, theme.primary.copy(alpha = 0.28f), bubbleShape)
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        clipboardManager.setText(AnnotatedString(text))
-                    },
-                    onLongClickLabel = "Copy message"
-                )
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-        ) {
-            StreamingMarkdown(
-                text = text,
-                modifier = Modifier.wrapContentWidth()
+            .background(rowBg)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    clipboard.setText(AnnotatedString(text))
+                },
+                onLongClickLabel = "Copy"
             )
-        }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top
+    ) {
+        // Prompt arrow in theme color — matches image (green/cyan/etc per active theme)
+        Text(
+            text = "→ ",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = arrowColor,
+        )
+        Text(
+            text = text,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            color = theme.text,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
+// ── ASSISTANT — terminal output with left accent bar ──────────────────────────
+// Mimics shell output: no bubble, left vertical bar as visual separator from prompt.
 @Composable
 private fun AssistantMessage(
     messageWithParts: MessageWithParts,
@@ -125,110 +132,103 @@ private fun AssistantMessage(
     onOpenSubSession: ((String) -> Unit)? = null,
     defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT,
     pendingPermissionsByCallId: Map<String, Permission> = emptyMap(),
-    onRevert: ((String) -> Unit)? = null
+    onRevert: ((String) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
-    // Build ordered groups: consecutive tools get batched, non-tools rendered individually
-    // Invisible parts (StepStart, StepFinish, Snapshot, etc.) don't break tool groups
-    val partGroups = buildList {
-        var currentToolBatch = mutableListOf<Part.Tool>()
-
-        for (part in messageWithParts.parts) {
-            when (part) {
-                is Part.Tool -> currentToolBatch.add(part)
-                // Invisible parts - don't break tool groups, just skip
-                is Part.StepStart, is Part.StepFinish, is Part.Snapshot,
-                is Part.Agent, is Part.Retry, is Part.Compaction, is Part.Subtask -> {
-                    // Skip - truly invisible
-                }
-                // Visible parts - flush tools before rendering
-                else -> {
-                    if (currentToolBatch.isNotEmpty()) {
-                        add(PartGroupItem.Tools(currentToolBatch.toList()))
-                        currentToolBatch = mutableListOf()
+    val theme = LocalOpenCodeTheme.current
+    val partGroups = remember(messageWithParts.parts) {
+        buildList {
+            var toolBatch = mutableListOf<Part.Tool>()
+            for (part in messageWithParts.parts) {
+                when (part) {
+                    is Part.Tool -> toolBatch.add(part)
+                    is Part.StepStart, is Part.StepFinish, is Part.Snapshot,
+                    is Part.Agent, is Part.Retry, is Part.Compaction, is Part.Subtask -> Unit
+                    else -> {
+                        if (toolBatch.isNotEmpty()) {
+                            add(PartGroupItem.Tools(toolBatch.toList()))
+                            toolBatch = mutableListOf()
+                        }
+                        add(PartGroupItem.Other(part))
                     }
-                    add(PartGroupItem.Other(part))
                 }
             }
-        }
-        // Flush any trailing tools
-        if (currentToolBatch.isNotEmpty()) {
-            add(PartGroupItem.Tools(currentToolBatch.toList()))
+            if (toolBatch.isNotEmpty()) add(PartGroupItem.Tools(toolBatch.toList()))
         }
     }
-    
-    Column(
-        modifier = Modifier
+
+    val barColor = remember(theme.accent) { theme.accent.copy(alpha = 0.85f) }
+
+    // OPTIMIZED: Using drawBehind for accent bar to avoid IntrinsicSize.Min crash
+    // Bar is now thinner (3dp) and closer to edge with less start padding
+    Row(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+            .padding(top = 4.dp, bottom = 4.dp, start = 8.dp)  // Reduced from 16dp to 8dp
+            .drawBehind {
+                // Draw accent bar - 3dp wide (thinner), positioned at very left
+                drawRect(
+                    color = barColor,
+                    topLeft = Offset.Zero,
+                    size = Size(3.dp.toPx(), size.height)
+                )
+            }
     ) {
-        // Render part groups in order
-        partGroups.forEach { group ->
-            when (group) {
-                is PartGroupItem.Tools -> {
-                    // Use the grouped tool summary with progressive disclosure
-                    ToolGroupWidget(
-                        tools = group.tools,
-                        defaultState = defaultToolWidgetState,
-                        onToolApprove = onToolApprove,
-                        onToolDeny = onToolDeny,
-                        onOpenSubSession = onOpenSubSession
-                    )
-                    
-                    // Render inline permission prompts for tools with pending permissions
-                    group.tools.forEach { tool ->
-                        tool.callID?.let { callId ->
-                            pendingPermissionsByCallId[callId]?.let { permission ->
-                                InlinePermissionPrompt(
-                                    permission = permission,
-                                    onAllow = { onToolApprove(permission.id) },
-                                    onAlways = { onToolAlways(permission.id) },
-                                    onReject = { onToolDeny(permission.id) }
-                                )
+        // Content column - less indent since bar is thinner and closer
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 10.dp, end = 12.dp),  // 10dp = 3dp bar + 7dp gap
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            partGroups.forEach { group ->
+                when (group) {
+                    is PartGroupItem.Tools -> {
+                        ToolGroupWidget(
+                            tools = group.tools,
+                            defaultState = defaultToolWidgetState,
+                            onToolApprove = onToolApprove,
+                            onToolDeny = onToolDeny,
+                            onOpenSubSession = onOpenSubSession
+                        )
+                        group.tools.forEach { tool ->
+                            tool.callID?.let { callId ->
+                                pendingPermissionsByCallId[callId]?.let { perm ->
+                                    InlinePermissionPrompt(
+                                        permission = perm,
+                                        onAllow  = { onToolApprove(perm.id) },
+                                        onAlways = { onToolAlways(perm.id) },
+                                        onReject = { onToolDeny(perm.id) }
+                                    )
+                                }
                             }
                         }
                     }
-                }
-                is PartGroupItem.Other -> {
-                    when (val part = group.part) {
-                        is Part.Text -> TextPart(part)
+                    is PartGroupItem.Other -> when (val part = group.part) {
+                        is Part.Text      -> TextPart(part)
                         is Part.Reasoning -> ReasoningPart(part)
-                        is Part.File -> FilePart(part)
-                        is Part.Patch -> CompactPatchPart(part)
-                        else -> {} // Already handled invisible parts above
+                        is Part.File      -> FilePart(part)
+                        is Part.Patch     -> CompactPatchPart(part)
+                        else              -> Unit
                     }
                 }
             }
-        }
 
-        // Revert action for messages with file-changing tools
-        val hasCompletedTools = messageWithParts.parts.any { it is Part.Tool && it.state is ToolState.Completed }
-        if (hasCompletedTools && onRevert != null) {
-            val messageId = (messageWithParts.message as? Message.Assistant)?.id
-            if (messageId != null) {
-                val theme = LocalOpenCodeTheme.current
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Box(
+            val hasCompletedTools = remember(messageWithParts.parts) {
+                messageWithParts.parts.any { it is Part.Tool && it.state is ToolState.Completed }
+            }
+            if (hasCompletedTools && onRevert != null) {
+                val msgId = (messageWithParts.message as? Message.Assistant)?.id
+                if (msgId != null) {
+                    Text(
+                        text = "↺ ${stringResource(R.string.revert_changes)}",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        color = theme.warning,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(theme.warning.copy(alpha = 0.1f))
-                            .border(1.dp, theme.warning.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
-                            .clickable(role = Role.Button) { onRevert(messageId) }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "↺ ${stringResource(R.string.revert_changes)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium,
-                            color = theme.warning
-                        )
-                    }
+                            .clickable(role = Role.Button) { onRevert(msgId) }
+                            .padding(vertical = 2.dp)
+                    )
                 }
             }
         }
@@ -279,230 +279,133 @@ private fun TextPart(part: Part.Text) {
     }
 }
 
+// ── REASONING — terminal comment block ────────────────────────────────────────
+// Collapsed: "# thinking... [3s] ▸"  — looks like a shell comment
+// Expanded: indented block with left dim bar
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 private fun ReasoningPart(part: Part.Reasoning) {
-    val theme = LocalOpenCodeTheme.current
-    val clipboardManager = LocalClipboardManager.current
-    val haptic = LocalHapticFeedback.current
-    var expanded by remember { mutableStateOf(false) }
-    
-    val thinkingDuration = part.time?.let { time ->
-        val durationMs = (time.end ?: System.currentTimeMillis()) - time.start
-        when {
-            durationMs < 1000 -> "${durationMs}ms"
-            durationMs < 60000 -> "${durationMs / 1000}s"
-            else -> "${durationMs / 60000}m ${(durationMs % 60000) / 1000}s"
-        }
-    }
-    
+    val theme     = LocalOpenCodeTheme.current
+    val clipboard = LocalClipboardManager.current
+    val haptic    = LocalHapticFeedback.current
+    var expanded  by remember { mutableStateOf(false) }
+
     val isThinking = part.time?.end == null
-
-    // Collapsed pill — tiny, wraps to content
-    val collapsedShape = RoundedCornerShape(20.dp)
-    val expandedShape = RoundedCornerShape(10.dp)
-    val cardShape = if (expanded) expandedShape else collapsedShape
-
-    Box(
-        modifier = Modifier
-            .then(
-                if (expanded) Modifier.fillMaxWidth()
-                else Modifier.wrapContentWidth()
-            )
-            .clip(cardShape)
-            .background(theme.warning.copy(alpha = if (expanded) 0.07f else 0.1f))
-            .border(1.dp, theme.warning.copy(alpha = if (expanded) 0.2f else 0.35f), cardShape)
-            .clickable(role = Role.Button) { expanded = !expanded }
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        if (!expanded) {
-            // Pill mode: compact single line
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (isThinking) {
-                    TuiLoadingIndicator()
-                } else {
-                    Icon(
-                        Icons.Default.Psychology,
-                        contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = theme.warning
-                    )
-                }
-                Text(
-                    text = if (isThinking) "Thinking..." else "Reasoning${thinkingDuration?.let { " · $it" } ?: ""}",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    color = theme.warning
-                )
-                Icon(
-                    Icons.Default.ExpandMore,
-                    contentDescription = "Expand",
-                    modifier = Modifier.size(12.dp),
-                    tint = theme.warning.copy(alpha = 0.7f)
-                )
+    val duration = remember(part.time) {
+        part.time?.let { t ->
+            val ms = (t.end ?: t.start) - t.start
+            when {
+                ms < 1_000  -> " [${ms}ms]"
+                ms < 60_000 -> " [${ms / 1_000}s]"
+                else        -> " [${ms / 60_000}m${(ms % 60_000) / 1_000}s]"
             }
-        } else {
-            // Expanded mode: full reasoning text
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        Icons.Default.Psychology,
-                        contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = theme.warning
-                    )
-                    Text(
-                        text = "Reasoning${thinkingDuration?.let { " · $it" } ?: ""}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Medium,
-                        color = theme.warning,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        Icons.Default.ExpandLess,
-                        contentDescription = "Collapse",
-                        modifier = Modifier.size(12.dp),
-                        tint = theme.warning.copy(alpha = 0.7f)
-                    )
-                }
-                if (part.text.isNotEmpty()) {
-                    HorizontalDivider(color = theme.warning.copy(alpha = 0.2f))
-                    Box(
-                        modifier = Modifier.combinedClickable(
+        } ?: ""
+    }
+    // warning is orange/amber in most themes — adapts to active theme
+    val reasoningColor = remember(theme.warning) { theme.warning.copy(alpha = 0.80f) }
+    val reasoningBarColor = remember(theme.warning) { theme.warning.copy(alpha = 0.50f) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header line — always a single monospace comment line
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button) { expanded = !expanded }
+                .padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (isThinking) TuiLoadingIndicator()
+            Text(
+                text = buildString {
+                    // ⟳ U+27F3 — clockwise open circle arrow, monospace-safe
+                    append("\u27F3 ")
+                    append(if (isThinking) "thinking..." else "reasoning$duration")
+                    append(if (expanded) "  \u25BE" else "  \u25B8")
+                },
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = reasoningColor,
+            )
+        }
+
+        // Expanded content — indented block, Box overlay avoids IntrinsicSize double-pass
+        if (expanded && part.text.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .width(2.dp)
+                        .matchParentSize()
+                        .background(reasoningBarColor)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp)
+                        .combinedClickable(
                             onClick = { expanded = !expanded },
                             onLongClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                clipboardManager.setText(AnnotatedString(part.text))
+                                clipboard.setText(AnnotatedString(part.text))
                             },
                             onLongClickLabel = "Copy reasoning",
                             role = Role.Button
                         )
-                    ) {
-                        TertiaryStreamingMarkdown(
-                            text = part.text,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                ) {
+                    TertiaryStreamingMarkdown(text = part.text, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
     }
 }
 
+// ── FILE — terminal ls-style line ─────────────────────────────────────────────
 @Composable
 private fun FilePart(part: Part.File) {
     val theme = LocalOpenCodeTheme.current
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(theme.backgroundElement)
-            .border(1.dp, theme.border, RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(theme.accent.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.AttachFile,
-                contentDescription = stringResource(R.string.cd_attach_file),
-                modifier = Modifier.size(14.dp),
-                tint = theme.accent
-            )
-        }
-        Column {
-            Text(
-                text = part.filename ?: "File",
-                style = MaterialTheme.typography.labelSmall,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Medium,
-                color = theme.text
-            )
-            Text(
-                text = part.mime,
-                style = MaterialTheme.typography.labelSmall,
-                fontFamily = FontFamily.Monospace,
-                color = theme.textMuted
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompactPatchPart(part: Part.Patch) {
-    val theme = LocalOpenCodeTheme.current
-    var expanded by remember { mutableStateOf(false) }
-    
-    Box(
+    Text(
+        text = "  \uD83D\uDCC4 ${part.filename ?: "file"}  ${part.mime}",
+        fontFamily = FontFamily.Monospace,
+        fontSize = 12.sp,
+        color = theme.textMuted,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(theme.backgroundElement)
-            .border(1.dp, theme.accent.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
-            .clickable(role = Role.Button) { expanded = !expanded }
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(theme.accent.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "±", fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.labelSmall, color = theme.accent)
-                }
+            .padding(vertical = 1.dp)
+    )
+}
+
+// ── PATCH — terminal diff summary ─────────────────────────────────────────────
+// "± 3 files modified ▸" — tap to expand file list inline
+@Composable
+private fun CompactPatchPart(part: Part.Patch) {
+    val theme    = LocalOpenCodeTheme.current
+    var expanded by remember { mutableStateOf(false) }
+    val mutedColor = remember(theme.accent) { theme.accent.copy(alpha = 0.7f) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "± ${part.files.size} file${if (part.files.size != 1) "s" else ""} modified${if (expanded) "  ▾" else "  ▸"}",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            color = mutedColor,
+            modifier = Modifier
+                .clickable(role = Role.Button) { expanded = !expanded }
+                .padding(vertical = 2.dp)
+        )
+        if (expanded) {
+            part.files.forEach { file ->
                 Text(
-                    text = "${part.files.size} file(s) modified",
-                    style = MaterialTheme.typography.labelSmall,
+                    text = "  ~ $file",
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    color = theme.text,
-                    modifier = Modifier.weight(1f)
-                )
-                Icon(
-                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
-                    modifier = Modifier.size(14.dp),
-                    tint = theme.textMuted
-                )
-            }
-            if (expanded) {
-                part.files.forEach { file ->
-                    Text(
-                        text = "  $file",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace,
-                        color = theme.textMuted
-                    )
-                }
-            } else if (part.files.isNotEmpty()) {
-                val firstFile = part.files.firstOrNull() ?: return@Column
-                Text(
-                    text = "  $firstFile" + if (part.files.size > 1) " +${part.files.size - 1} more" else "",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = theme.textMuted
+                    fontSize = 11.sp,
+                    color = theme.textMuted,
+                    modifier = Modifier.padding(vertical = 1.dp)
                 )
             }
         }

@@ -10,6 +10,7 @@ import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.TokenUsage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Owns message state and all mutation logic.
@@ -41,7 +43,7 @@ class MessageStore(
     private val pendingMutex = Mutex()
     private val pendingUpdates = mutableMapOf<String, MutableMap<String, PendingDelta>>() // messageId -> (partId -> delta)
     private var flushJob: Job? = null
-    @Volatile private var flushDelayMs: Long = 50L // Conservative, less recomposition
+    @Volatile private var flushDelayMs: Long = 16L // 1 frame @60fps — instantaneous streaming
 
     /**
      * Optimized messages flow with better performance.
@@ -56,22 +58,38 @@ class MessageStore(
         .conflate() // Skip intermediate values if processing backlog
         .stateIn(
             scope = scope,
-            started = SharingStarted.WhileSubscribed(5000), // Stop when not subscribed for 5s
+            started = SharingStarted.Lazily, // Keep alive for entire ViewModel lifetime
             initialValue = emptyList()
         )
 
     /**
      * Load initial messages from API response.
+     * OPTIMIZED: Process in batches to prevent ANR with large message lists.
      */
     fun loadInitial(messages: List<MessageWithParts>) {
-        _messagesMap.clear()
-        messageOrder.clear()
-        // Insert all in ascending order by createdAt
-        messages.sortedBy { it.message.createdAt }.forEach { msg ->
-            _messagesMap[msg.message.id] = msg
-            messageOrder.add(msg.message.id)
+        val sorted = messages.sortedBy { it.message.createdAt }
+        AppLog.d(TAG, "loadInitial: Loading ${sorted.size} messages")
+        scope.launch(Dispatchers.Main.immediate) {
+            _messagesMap.clear()
+            messageOrder.clear()
+
+            // OPTIMIZED: Process in batches of 50 to prevent UI freeze
+            val batchSize = 50
+            sorted.chunked(batchSize).forEachIndexed { batchIndex, batch ->
+                batch.forEach { msg ->
+                    _messagesMap[msg.message.id] = msg
+                    messageOrder.add(msg.message.id)
+                }
+                _messagesVersion.value++
+
+                // Yield to main thread every batch to prevent ANR
+                if (batchIndex < sorted.size / batchSize) {
+                    kotlinx.coroutines.yield()
+                }
+                AppLog.d(TAG, "loadInitial: Processed batch ${batchIndex + 1}, total ${messageOrder.size}/${sorted.size}")
+            }
+            AppLog.d(TAG, "loadInitial: Complete, loaded ${messageOrder.size} messages")
         }
-        _messagesVersion.value++
     }
 
     fun upsertMessage(message: Message) {
@@ -311,7 +329,7 @@ class MessageStore(
      * Slightly slower during scroll reduces layout thrash while keeping streaming responsive.
      */
     fun setFlushDelayWhileScrolling(isScrolling: Boolean) {
-        flushDelayMs = if (isScrolling) 100L else 50L // More conservative during scroll
+        flushDelayMs = if (isScrolling) 32L else 16L // 2 frames during scroll, 1 frame at rest
     }
 
     /** Directly control flush delay (used for speed-adaptive tuning). */

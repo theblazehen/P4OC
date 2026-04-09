@@ -1,7 +1,6 @@
 package dev.blazelight.p4oc.ui.components.toolwidgets
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -14,8 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -50,98 +49,125 @@ fun BashWidgetExpanded(
     val theme = LocalOpenCodeTheme.current
     val state = tool.state
     val (_, stateColor) = getStateIconColor(state, theme)
-    val terminalBg = theme.backgroundPanel  // terminal background from theme
-    val terminalFg = theme.text  // terminal text color from theme
-    val promptColor = stateColor
-    val cardShape = RoundedCornerShape(10.dp)
+    val terminalBg   = theme.backgroundPanel
+    val terminalFg   = theme.text
+    val promptColor  = stateColor
 
     val command = extractJsonParam(state.input, "command") ?: "bash"
     val output = when (state) {
         is ToolState.Completed -> state.output.take(3000).trimEnd()
-        is ToolState.Running -> state.title?.trimEnd() ?: ""
-        is ToolState.Error -> state.error.trimEnd()
-        else -> null
+        is ToolState.Running   -> state.title?.trimEnd() ?: ""
+        is ToolState.Error     -> state.error.trimEnd()
+        else                   -> null
     }
 
-    Column(
+    // Outer: left color bar overlay (3dp, flush)
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .background(terminalBg)
-            .border(1.dp, promptColor.copy(alpha = 0.25f), cardShape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
+            .padding(vertical = 2.dp)
     ) {
-        // Tab bar
-        Row(
-            modifier = Modifier.fillMaxWidth().background(terminalBg)
-                .padding(start = 10.dp, end = 10.dp, top = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .width(3.dp)
+                .matchParentSize()
+                .background(promptColor.copy(alpha = 0.75f))
+        )
+        // Inner column — flat background, no graphicsLayer clip on container
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 3.dp)
+                .background(terminalBg)
         ) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
-                    .background(promptColor.copy(alpha = 0.14f))
-                    .border(1.dp, promptColor.copy(alpha = 0.22f), RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                Text(">_  bash", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp), color = promptColor, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.weight(1f))
-            if (state is ToolState.Running) TuiLoadingIndicator()
-        }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(promptColor.copy(alpha = 0.18f)))
-        // Prompt line
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text("~", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = theme.info, fontWeight = FontWeight.Medium)
-            Text("❯", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = promptColor, fontWeight = FontWeight.Bold)
-            Text(command, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp), color = terminalFg, modifier = Modifier.weight(1f))
-        }
-
-        // Output pane
-        if (!output.isNullOrBlank()) {
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
-            Box(
+            // ── Title bar: tmux-style ──────────────────────────────────────────
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 160.dp)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .background(promptColor.copy(alpha = 0.10f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // ■ active tab indicator
                 Text(
-                    text = output,
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    text = "■ bash",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = promptColor,
+                    fontWeight = FontWeight.Bold
+                )
+                // exit code indicator
+                if (state is ToolState.Completed) {
+                    Text(
+                        text = "[0]",
                         fontFamily = FontFamily.Monospace,
                         fontSize = 10.sp,
-                        lineHeight = 14.sp
-                    ),
-                    color = if (state is ToolState.Error) theme.error else terminalFg.copy(alpha = 0.85f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .horizontalScroll(rememberScrollState())
-                )
+                        color = theme.success.copy(alpha = 0.70f)
+                    )
+                } else if (state is ToolState.Error) {
+                    Text(
+                        text = "[1]",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        color = theme.error.copy(alpha = 0.70f)
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                if (state is ToolState.Running) TuiLoadingIndicator()
             }
-        }
-
-        // Pending approval
-        if (state is ToolState.Pending) {
-            Box(
+            // ── Prompt line ──────────────────────────────────────────────────
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(theme.secondary.copy(alpha = 0.08f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                PendingApprovalButtons(
-                    onApprove = { onToolApprove(tool.callID) },
-                    onDeny = { onToolDeny(tool.callID) }
-                )
+                Text("\u276f", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = promptColor, fontWeight = FontWeight.Bold)
+                Text(command, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = terminalFg, modifier = Modifier.weight(1f))
             }
-        }
-    }
+            // ── Output pane ──────────────────────────────────────────────────
+            if (!output.isNullOrBlank()) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(promptColor.copy(alpha = 0.12f)))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(terminalBg.copy(alpha = 0.6f))
+                        .heightIn(max = 160.dp)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = output,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        lineHeight = 15.sp,
+                        color = if (state is ToolState.Error) theme.error else terminalFg.copy(alpha = 0.82f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .horizontalScroll(rememberScrollState())
+                    )
+                }
+            }
+            // ── Pending approval ──────────────────────────────────────────────
+            if (state is ToolState.Pending) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(theme.secondary.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    PendingApprovalButtons(
+                        onApprove = { onToolApprove(tool.callID) },
+                        onDeny = { onToolDeny(tool.callID) }
+                    )
+                }
+            }
+        } // Column
+    } // Box
 }
 
 /**
@@ -173,55 +199,68 @@ fun ReadWidgetExpanded(
         else -> null
     }
     
-    val cardShape = RoundedCornerShape(10.dp)
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .border(1.dp, color.copy(alpha = 0.2f), cardShape)
-            .background(theme.backgroundPanel.copy(alpha = 0.5f))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
+            .padding(vertical = 2.dp)
     ) {
-        // Header
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.align(Alignment.TopStart).width(2.dp).matchParentSize().background(color.copy(alpha = 0.55f)))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 10.dp)
+                .background(theme.backgroundPanel.copy(alpha = 0.4f))
         ) {
-            Box(
-                modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) { Text(text = icon, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = color) }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.read_file, fileName),
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.lg),
-                    color = theme.text, maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = filePath,
-                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm),
-                    color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-            }
-            if (state is ToolState.Running) TuiLoadingIndicator()
-        }
-        if (!content.isNullOrBlank()) {
-            HorizontalDivider(color = theme.border.copy(alpha = 0.3f))
-            Box(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp)
-                    .background(theme.backgroundElement)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = content,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm, lineHeight = TuiCodeFontSize.xxl),
-                    color = if (state is ToolState.Error) theme.error else theme.text,
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState())
-                )
+                Text(text = icon, fontFamily = FontFamily.Monospace, color = color)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.read_file, fileName),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.lg,
+                        color = theme.text, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = filePath,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.sm,
+                        color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (state is ToolState.Running) TuiLoadingIndicator()
             }
-        }
-    }
+            if (!content.isNullOrBlank()) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(theme.border.copy(alpha = 0.25f)))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 120.dp)
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = content,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl,
+                        color = if (state is ToolState.Error) theme.error else theme.text,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .horizontalScroll(rememberScrollState())
+                    )
+                }
+            }
+        } // Column
+    } // Box
 }
 
 /**
@@ -250,63 +289,73 @@ fun EditWidgetExpanded(
     val newString = extractJsonParam(state.input, "newString")
     val codeEdit = extractJsonParam(state.input, "code_edit")
     
-    val cardShape = RoundedCornerShape(10.dp)
     val previewContent = when {
-        codeEdit != null -> codeEdit.take(500)
+        codeEdit != null                       -> codeEdit.take(500)
         oldString != null && newString != null -> "- ${oldString.take(100)}\n+ ${newString.take(100)}"
-        else -> null
+        else                                   -> null
     }
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .border(1.dp, color.copy(alpha = 0.2f), cardShape)
-            .background(theme.backgroundPanel.copy(alpha = 0.5f))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
+            .padding(vertical = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.align(Alignment.TopStart).width(2.dp).matchParentSize().background(color.copy(alpha = 0.55f)))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 10.dp)
+                .background(theme.backgroundPanel.copy(alpha = 0.4f))
         ) {
-            Box(
-                modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) { Text(text = icon, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = color) }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.edit_file, fileName),
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.lg),
-                    color = theme.text, maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = filePath,
-                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm),
-                    color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-            }
-            getDiffStatsFromTool(tool)?.let { (added, removed) ->
-                Text("+$added", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium), color = theme.success)
-                Text("-$removed", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium), color = theme.error)
-            }
-            if (state is ToolState.Running) TuiLoadingIndicator()
-        }
-        if (previewContent != null) {
-            HorizontalDivider(color = theme.border.copy(alpha = 0.3f))
-            Box(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 100.dp)
-                    .background(theme.backgroundElement)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = previewContent,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm, lineHeight = TuiCodeFontSize.xxl),
-                    color = theme.textMuted,
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                )
+                Text(text = icon, fontFamily = FontFamily.Monospace, color = color)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.edit_file, fileName),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.lg,
+                        color = theme.text, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = filePath,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.sm,
+                        color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+                getDiffStatsFromTool(tool)?.let { (added, removed) ->
+                    Text("+$added", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, color = theme.success)
+                    Text("-$removed", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, color = theme.error)
+                }
+                if (state is ToolState.Running) TuiLoadingIndicator()
             }
-        }
-    }
+            if (previewContent != null) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(theme.border.copy(alpha = 0.25f)))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 100.dp)
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = previewContent,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl,
+                        color = theme.textMuted,
+                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                    )
+                }
+            }
+        } // Column
+    } // Box
 }
 
 /**
@@ -333,65 +382,55 @@ fun DefaultWidgetExpanded(
         else -> null
     }
     
-    val cardShape = RoundedCornerShape(10.dp)
     val inputPreview = state.input.entries.take(2).joinToString("  ") { (k, v) -> "$k=${v.toString().take(28)}" }
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .border(1.dp, color.copy(alpha = 0.2f), cardShape)
-            .background(theme.backgroundPanel.copy(alpha = 0.5f))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
+            .padding(vertical = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.align(Alignment.TopStart).width(2.dp).matchParentSize().background(color.copy(alpha = 0.55f)))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 10.dp)
+                .background(theme.backgroundPanel.copy(alpha = 0.4f))
         ) {
-            Box(
-                modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) { Text(text = icon, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = color) }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = tool.toolName,
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.lg),
-                    color = theme.text
-                )
-                if (inputPreview.isNotEmpty()) {
-                    Text(
-                        text = inputPreview,
-                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm),
-                        color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = icon, fontFamily = FontFamily.Monospace, color = color)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = tool.toolName, fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.lg, color = theme.text)
+                    if (inputPreview.isNotEmpty()) {
+                        Text(text = inputPreview, fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm,
+                            color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (state is ToolState.Running) TuiLoadingIndicator()
+            }
+            if (!output.isNullOrBlank()) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(theme.border.copy(alpha = 0.25f)))
+                Box(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 80.dp)
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(text = output, fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl,
+                        color = if (state is ToolState.Error) theme.error else theme.text,
+                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()))
                 }
             }
-            if (state is ToolState.Running) TuiLoadingIndicator()
-        }
-        if (!output.isNullOrBlank()) {
-            HorizontalDivider(color = theme.border.copy(alpha = 0.3f))
-            Box(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 80.dp)
-                    .background(theme.backgroundElement)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = output,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm, lineHeight = TuiCodeFontSize.xxl),
-                    color = if (state is ToolState.Error) theme.error else theme.text,
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                )
+            if (state is ToolState.Pending) {
+                Box(modifier = Modifier.fillMaxWidth().background(theme.secondary.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    PendingApprovalButtons(onApprove = { onToolApprove(tool.callID) }, onDeny = { onToolDeny(tool.callID) })
+                }
             }
-        }
-        if (state is ToolState.Pending) {
-            Box(modifier = Modifier.fillMaxWidth().background(theme.secondary.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                PendingApprovalButtons(
-                    onApprove = { onToolApprove(tool.callID) },
-                    onDeny = { onToolDeny(tool.callID) }
-                )
-            }
-        }
-    }
+        } // Column
+    } // Box
 }
 
 /**
@@ -424,84 +463,73 @@ fun TaskWidgetExpanded(
         else -> null
     }
     
-    val cardShape = RoundedCornerShape(10.dp)
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .border(1.dp, color.copy(alpha = 0.2f), cardShape)
-            .background(theme.backgroundPanel.copy(alpha = 0.5f))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
+            .padding(vertical = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.align(Alignment.TopStart).width(2.dp).matchParentSize().background(color.copy(alpha = 0.55f)))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 10.dp)
+                .background(theme.backgroundPanel.copy(alpha = 0.4f))
         ) {
-            Box(
-                modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) { Text(text = icon, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = color) }
-            Text(
-                text = "Task",
-                style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.lg),
-                color = theme.text
-            )
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(theme.secondary.copy(alpha = 0.15f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(text = subagentType, style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = theme.secondary)
-            }
-            Spacer(Modifier.weight(1f))
-            if (state is ToolState.Running) TuiLoadingIndicator()
-        }
-        HorizontalDivider(color = theme.border.copy(alpha = 0.3f))
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = TuiCodeFontSize.md),
-            color = theme.text, maxLines = 3, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-        )
-        if (!output.isNullOrBlank() && state !is ToolState.Running) {
-            HorizontalDivider(color = theme.border.copy(alpha = 0.3f))
-            Box(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 60.dp)
-                    .background(theme.backgroundElement)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = output,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm, lineHeight = TuiCodeFontSize.xxl),
-                    color = if (state is ToolState.Error) theme.error else theme.textMuted,
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                )
-            }
-        }
-        if (sessionId != null && onOpenSubSession != null) {
-            HorizontalDivider(color = theme.border.copy(alpha = 0.3f))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
-                    .background(theme.accent.copy(alpha = 0.08f))
-                    .clickable(role = Role.Button) { onOpenSubSession(sessionId) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.cd_open_sub_agent), modifier = Modifier.size(12.dp), tint = theme.accent)
-                Text(stringResource(R.string.open_sub_agent), style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = theme.accent)
+                Text(text = icon, fontFamily = FontFamily.Monospace, color = color)
+                Text(text = "task", fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.lg, color = theme.text)
+                Text(text = "[$subagentType]", fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm, color = theme.secondary)
+                Spacer(Modifier.weight(1f))
+                if (state is ToolState.Running) TuiLoadingIndicator()
             }
-        }
-        if (state is ToolState.Pending) {
-            Box(modifier = Modifier.fillMaxWidth().background(theme.secondary.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                PendingApprovalButtons(onApprove = { onToolApprove(tool.callID) }, onDeny = { onToolDeny(tool.callID) })
+            Box(Modifier.fillMaxWidth().height(1.dp).background(theme.border.copy(alpha = 0.25f)))
+            Text(
+                text = description,
+                fontFamily = FontFamily.Monospace,
+                fontSize = TuiCodeFontSize.md,
+                color = theme.text, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+            if (!output.isNullOrBlank() && state !is ToolState.Running) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(theme.border.copy(alpha = 0.25f)))
+                Box(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 60.dp)
+                        .background(theme.backgroundElement)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(text = output, fontFamily = FontFamily.Monospace, fontSize = TuiCodeFontSize.sm,
+                        lineHeight = TuiCodeFontSize.xxl,
+                        color = if (state is ToolState.Error) theme.error else theme.textMuted,
+                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()))
+                }
             }
-        }
-    }
+            if (sessionId != null && onOpenSubSession != null) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(theme.border.copy(alpha = 0.25f)))
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clickable(role = Role.Button) { onOpenSubSession(sessionId) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.cd_open_sub_agent),
+                        modifier = Modifier.size(12.dp), tint = theme.accent)
+                    Text(stringResource(R.string.open_sub_agent), fontFamily = FontFamily.Monospace,
+                        fontSize = TuiCodeFontSize.lg, color = theme.accent)
+                }
+            }
+            if (state is ToolState.Pending) {
+                Box(modifier = Modifier.fillMaxWidth().background(theme.secondary.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    PendingApprovalButtons(onApprove = { onToolApprove(tool.callID) }, onDeny = { onToolDeny(tool.callID) })
+                }
+            }
+        } // Column
+    } // Box
 }
 
 // ============== Shared Components ==============

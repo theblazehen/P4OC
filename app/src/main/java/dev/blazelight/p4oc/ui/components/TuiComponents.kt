@@ -696,9 +696,8 @@ fun TuiDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
             .background(theme.backgroundElement)
-            .border(1.dp, theme.border.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
+            .border(1.dp, theme.border.copy(alpha = 0.5f)),
         content = content
     )
 }
