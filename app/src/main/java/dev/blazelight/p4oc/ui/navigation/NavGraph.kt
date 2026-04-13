@@ -2,7 +2,10 @@ package dev.blazelight.p4oc.ui.navigation
 
 import android.net.Uri
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -16,7 +19,30 @@ import dev.blazelight.p4oc.ui.screens.settings.VisualSettingsScreen
 import dev.blazelight.p4oc.ui.screens.setup.SetupScreen
 import dev.blazelight.p4oc.ui.tabs.MainTabScreen
 
-private const val ANIMATION_DURATION = 300
+// iOS-style spring specs
+private val iosSpringInt = spring<IntOffset>(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)
+private val popSpring = spring<IntOffset>(dampingRatio = 0.78f, stiffness = Spring.StiffnessMedium)
+
+// Enter from right: slide in + fade + subtle scale up (iOS push)
+private val iosPushEnter: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
+    slideInHorizontally(animationSpec = iosSpringInt) { it } +
+    fadeIn(animationSpec = tween(160))
+}
+// Exit to left: slide out 25% + fade (content recedes)
+private val iosPushExit: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
+    slideOutHorizontally(animationSpec = tween<IntOffset>(210)) { -it / 4 } +
+    fadeOut(animationSpec = tween(180))
+}
+// Pop enter from left: slide back + fade
+private val iosPopEnter: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
+    slideInHorizontally(animationSpec = tween<IntOffset>(210)) { -it / 4 } +
+    fadeIn(animationSpec = tween(180))
+}
+// Pop exit to right: spring slide out
+private val iosPopExit: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
+    slideOutHorizontally(animationSpec = popSpring) { it } +
+    fadeOut(animationSpec = tween(140))
+}
 
 /**
  * Root navigation graph.
@@ -31,30 +57,10 @@ fun NavGraph(
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        enterTransition = {
-            slideInHorizontally(
-                initialOffsetX = { it },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeIn(animationSpec = tween(ANIMATION_DURATION))
-        },
-        exitTransition = {
-            slideOutHorizontally(
-                targetOffsetX = { -it / 3 },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeOut(animationSpec = tween(ANIMATION_DURATION))
-        },
-        popEnterTransition = {
-            slideInHorizontally(
-                initialOffsetX = { -it / 3 },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeIn(animationSpec = tween(ANIMATION_DURATION))
-        },
-        popExitTransition = {
-            slideOutHorizontally(
-                targetOffsetX = { it },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeOut(animationSpec = tween(ANIMATION_DURATION))
-        }
+        enterTransition = iosPushEnter,
+        exitTransition = iosPushExit,
+        popEnterTransition = iosPopEnter,
+        popExitTransition = iosPopExit
     ) {
         composable(Screen.Setup.route) {
             SetupScreen(

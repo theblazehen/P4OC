@@ -4,7 +4,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,7 +35,38 @@ import dev.blazelight.p4oc.ui.screens.sessions.SessionListScreen
 import dev.blazelight.p4oc.ui.screens.settings.*
 import dev.blazelight.p4oc.ui.screens.terminal.TerminalScreen
 
-private const val ANIMATION_DURATION = 300
+// ── iOS-style spring navigation physics ────────────────────────────────────
+//
+// Push  (forward):  new screen slides in from right with spring deceleration
+//                   old screen recedes left (28%) + fades — same as iOS UIKit
+// Pop   (back):     old screen springs out to right; previous slides back from left
+//
+// Spring params tuned to match UINavigationController feel:
+//   dampingRatio 0.86 — critically damped, no overshoot, smooth stop
+//   stiffness Medium  — fast enough to feel snappy, not jarring
+
+private val pushSpring  = spring<IntOffset>(dampingRatio = 0.86f, stiffness = Spring.StiffnessMedium)
+private val popSpring   = spring<IntOffset>(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium)
+private val fadeIn160   = tween<Float>(160)
+private val fadeOut140  = tween<Float>(140)
+private val recedeTween = tween<IntOffset>(210)    // exit/pop-enter: simple tween, screen just slides away
+
+// Enter: spring slide from right + fast fade-in
+private val pushEnter: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
+    slideInHorizontally(pushSpring) { it } + fadeIn(fadeIn160)
+}
+// Exit: recede left 25% + fade (stays in place visually while new screen arrives)
+private val pushExit: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
+    slideOutHorizontally(recedeTween) { -it / 4 } + fadeOut(tween(180))
+}
+// Pop enter: slide back from left 25% + fade (previous screen re-appears)
+private val popEnter: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
+    slideInHorizontally(recedeTween) { -it / 4 } + fadeIn(tween(180))
+}
+// Pop exit: spring out to right (gesture-like snap)
+private val popExit: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
+    slideOutHorizontally(popSpring) { it } + fadeOut(fadeOut140)
+}
 
 /**
  * Per-tab navigation host.
@@ -85,30 +119,10 @@ fun TabNavHost(
         navController = navController,
         startDestination = startRoute,
         modifier = modifier,
-        enterTransition = {
-            slideInHorizontally(
-                initialOffsetX = { it },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeIn(animationSpec = tween(ANIMATION_DURATION))
-        },
-        exitTransition = {
-            slideOutHorizontally(
-                targetOffsetX = { -it / 3 },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeOut(animationSpec = tween(ANIMATION_DURATION))
-        },
-        popEnterTransition = {
-            slideInHorizontally(
-                initialOffsetX = { -it / 3 },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeIn(animationSpec = tween(ANIMATION_DURATION))
-        },
-        popExitTransition = {
-            slideOutHorizontally(
-                targetOffsetX = { it },
-                animationSpec = tween(ANIMATION_DURATION)
-            ) + fadeOut(animationSpec = tween(ANIMATION_DURATION))
-        }
+        enterTransition    = pushEnter,
+        exitTransition     = pushExit,
+        popEnterTransition = popEnter,
+        popExitTransition  = popExit
     ) {
         // Sessions list (start destination for new tabs)
         composable(Screen.Sessions.route) {
