@@ -270,11 +270,6 @@ fun ChatScreen(
                 ) {
                     ChatInputBar(
                         value = uiState.inputText,
-                        connectionState = when(connectionState) {
-                            is ConnectionState.Connected -> dev.blazelight.p4oc.ui.components.chat.InputConnectionState.CONNECTED
-                            is ConnectionState.Connecting -> dev.blazelight.p4oc.ui.components.chat.InputConnectionState.CONNECTING
-                            else -> dev.blazelight.p4oc.ui.components.chat.InputConnectionState.DISCONNECTED
-                        },
                         modelSelector = {
                             ModelAgentSelectorBar(
                                 availableAgents = availableAgents,
