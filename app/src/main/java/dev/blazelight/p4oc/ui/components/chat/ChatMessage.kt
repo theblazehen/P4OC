@@ -312,8 +312,9 @@ private fun ReasoningPart(part: Part.Reasoning) {
         } ?: ""
     }
     // warning is orange/amber in most themes — adapts to active theme
-    val reasoningColor = remember(theme.warning) { theme.warning.copy(alpha = 0.80f) }
-    val reasoningBarColor = remember(theme.warning) { theme.warning.copy(alpha = 0.50f) }
+    // remember(theme) not remember(theme.warning): theme identity is stable per-recompose
+    val reasoningColor    = remember(theme) { theme.warning.copy(alpha = 0.80f) }
+    val reasoningBarColor = remember(theme) { theme.warning.copy(alpha = 0.50f) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Header line — always a single monospace comment line
@@ -368,7 +369,20 @@ private fun ReasoningPart(part: Part.Reasoning) {
                             role = Role.Button
                         )
                 ) {
-                    TertiaryStreamingMarkdown(text = part.text, modifier = Modifier.fillMaxWidth())
+                    if (isThinking) {
+                        // Plain text while actively streaming — Markdown parsing is O(n) and
+                        // thrashes the main thread when called on every reasoning token.
+                        // Switch to full Markdown only after thinking completes.
+                        Text(
+                            text = part.text,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = reasoningColor.copy(alpha = 0.7f),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        TertiaryStreamingMarkdown(text = part.text, modifier = Modifier.fillMaxWidth())
+                    }
                 }
             }
         }

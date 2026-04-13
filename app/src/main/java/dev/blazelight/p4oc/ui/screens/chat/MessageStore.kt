@@ -49,7 +49,8 @@ class MessageStore(
     private val pendingMutex = Mutex()
     private val pendingUpdates = mutableMapOf<String, MutableMap<String, PendingDelta>>() // messageId -> (partId -> delta)
     private var flushJob: Job? = null
-    @Volatile private var flushDelayMs: Long = 8L // 1 frame @120fps — ultra-responsive streaming for reasoning
+    @Volatile private var flushDelayMs: Long = 16L // 1 frame @60fps
+    @Volatile private var reasoningFlushDelayMs: Long = 32L // 2 frames — coalesce reasoning tokens
 
     /**
      * Messages flow - emits whenever messages or parts change.
@@ -201,13 +202,9 @@ class MessageStore(
         scope.launch {
             AppLog.d(TAG, "upsertPartBuffered: partId=${part.id}, msgId=${part.messageID}, delta=${delta?.length ?: 0} chars")
             
-            // OPTIMIZATION: Reasoning Parts flush immediately - user wants to see thinking process
-            val isReasoning = part is Part.Reasoning
-            if (isReasoning) {
-                // Direct update for reasoning - no buffering
-                upsertPart(part, delta)
-                return@launch
-            }
+            // Reasoning parts are buffered too — they stream dozens of tokens/sec.
+            // Bypassing the buffer caused a full list recomposition per token = scroll jank.
+            // We use a shorter delay (reasoningFlushDelayMs) so they still feel live.
             
             pendingMutex.withLock {
                 val byPart = pendingUpdates.getOrPut(part.messageID) { mutableMapOf() }
@@ -215,20 +212,26 @@ class MessageStore(
                 if (existing == null) {
                     byPart[part.id] = PendingDelta(part, delta)
                 } else {
-                    // Merge: for text with delta, accumulate; for others, last write wins
-                    val merged = if (existing.part is Part.Text && part is Part.Text) {
-                        val acc = (existing.delta ?: "") + (delta ?: "")
-                        PendingDelta(part.copy(text = part.text, isStreaming = true), acc)
-                    } else {
-                        PendingDelta(part, delta)
+                    // Merge: accumulate deltas for streaming text+reasoning; last-write for others
+                    val merged = when {
+                        existing.part is Part.Text && part is Part.Text -> {
+                            val acc = (existing.delta ?: "") + (delta ?: "")
+                            PendingDelta(part.copy(text = part.text, isStreaming = true), acc)
+                        }
+                        existing.part is Part.Reasoning && part is Part.Reasoning -> {
+                            // Accumulate reasoning delta too \u2014 avoids replace-on-every-token
+                            val acc = (existing.delta ?: "") + (delta ?: "")
+                            PendingDelta(part, acc)
+                        }
+                        else -> PendingDelta(part, delta)
                     }
                     byPart[part.id] = merged
                 }
 
                 if (flushJob?.isActive != true) {
+                    val delay = if (part is Part.Reasoning) reasoningFlushDelayMs else flushDelayMs
                     flushJob = scope.launch {
-                        // Frame-aligned delay; can be increased while scrolling to reduce jank
-                        delay(flushDelayMs)
+                        delay(delay)
                         flushPendingParts()
                     }
                 }
@@ -283,10 +286,13 @@ class MessageStore(
         val incoming = pd.part
         val delta = pd.delta
         val current = existing.parts.firstOrNull { it.id == incoming.id }
-        return if (delta != null && incoming is Part.Text && current is Part.Text) {
-            // Accumulate at render time too, marking as streaming
-            incoming.copy(text = current.text + delta, isStreaming = true)
-        } else incoming
+        return when {
+            delta != null && incoming is Part.Text && current is Part.Text ->
+                incoming.copy(text = current.text + delta, isStreaming = true)
+            delta != null && incoming is Part.Reasoning && current is Part.Reasoning ->
+                incoming.copy(text = current.text + delta)
+            else -> incoming
+        }
     }
 
     /**
@@ -317,13 +323,8 @@ class MessageStore(
                     existing.parts + part
                 }
 
-                // CRITICAL: Create completely new MessageWithParts to ensure StateFlow emits
-                val updatedMessage = MessageWithParts(
-                    message = existing.message,
-                    parts = updatedParts
-                )
-                _messagesMap.remove(messageId)
-                _messagesMap[messageId] = updatedMessage
+                // Single put — SnapshotStateMap.put() is atomic, no need for remove+put
+                _messagesMap[messageId] = existing.copy(parts = updatedParts)
                 _messagesVersion.value++
                 AppLog.d(TAG, "upsertPart: DONE - partId=${part.id}, messageId=$messageId, delta=${delta?.length ?: 0} chars, oldCount=${existing.parts.size}, newCount=${updatedParts.size}")
             }
@@ -414,7 +415,8 @@ class MessageStore(
      * Slightly slower during scroll reduces layout thrash while keeping streaming responsive.
      */
     fun setFlushDelayWhileScrolling(isScrolling: Boolean) {
-        flushDelayMs = if (isScrolling) 32L else 16L // 2 frames during scroll, 1 frame at rest
+        flushDelayMs = if (isScrolling) 50L else 16L          // 3 frames during scroll vs 1 at rest
+        reasoningFlushDelayMs = if (isScrolling) 80L else 32L // 5 frames during scroll vs 2 at rest
     }
 
     /** Directly control flush delay (used for speed-adaptive tuning). */
