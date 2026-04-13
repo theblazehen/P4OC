@@ -23,8 +23,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -34,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -52,7 +56,6 @@ import dev.blazelight.p4oc.core.datastore.RecentServer
 import dev.blazelight.p4oc.core.network.DiscoveredServer
 import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
-import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
@@ -685,101 +688,104 @@ private fun RemoteServerSection(
 ) {
     val theme = LocalOpenCodeTheme.current
     var passwordVisible by remember { mutableStateOf(false) }
+    val canConnect = url.isNotBlank() && !isConnecting
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.none)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-        ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // Section header
+        Column(modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
             TuiSectionLabel(label = stringResource(R.string.server_remote_title))
-
-            // Comment line — terminal style
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Spacer(Modifier.height(Spacing.xxs))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "#", fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.labelSmall,
-                    color = theme.textMuted.copy(alpha = 0.45f))
+                    color = theme.accent.copy(alpha = 0.3f))
                 Text(text = stringResource(R.string.server_remote_description),
                     style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace, color = theme.textMuted)
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.textMuted.copy(alpha = 0.7f))
             }
-
-            TuiGradientLine()
-
-            ModernTextField(
-                value = url, onValueChange = onUrlChange,
-                label = stringResource(R.string.field_server_url),
-                placeholder = stringResource(R.string.field_server_url_placeholder),
-                modifier = Modifier.fillMaxWidth().testTag("server_url_input")
-            )
-            ModernTextField(
-                value = username, onValueChange = onUsernameChange,
-                label = stringResource(R.string.field_username),
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = password, onValueChange = onPasswordChange,
-                label = {
-                    Text(stringResource(R.string.field_password),
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.labelSmall)
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = if (passwordVisible) VisualTransformation.None
-                    else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                shape = RoundedCornerShape(Sizing.radiusNone),
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                colors = modernTextFieldColors(theme),
-                trailingIcon = {
-                    Text(
-                        text = if (passwordVisible) "◉" else "○",
-                        color = theme.textMuted,
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier
-                            .clickable(role = Role.Button) { passwordVisible = !passwordVisible }
-                            .padding(Spacing.sm)
-                    )
-                }
-            )
-
         }
 
-        val canConnect = url.isNotBlank() && !isConnecting
         TuiGradientLine()
-        Row(
+
+        // ── Terminal input fields ──────────────────────────────────────────
+        Column(modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
+        ) {
+            TerminalInput(
+                label = stringResource(R.string.field_server_url),
+                value = url,
+                onValueChange = onUrlChange,
+                placeholder = stringResource(R.string.field_server_url_placeholder),
+                prefix = "url",
+                modifier = Modifier.testTag("server_url_input")
+            )
+            TerminalInput(
+                label = stringResource(R.string.field_username),
+                value = username,
+                onValueChange = onUsernameChange,
+                prefix = "usr"
+            )
+            TerminalInput(
+                label = stringResource(R.string.field_password),
+                value = password,
+                onValueChange = onPasswordChange,
+                prefix = "pwd",
+                isPassword = true,
+                passwordVisible = passwordVisible,
+                onTogglePassword = { passwordVisible = !passwordVisible }
+            )
+        }
+
+        TuiGradientLine()
+
+        // ── Connect button — full width terminal-style ─────────────────────
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(Sizing.buttonHeightLg)
-                .background(if (canConnect) theme.accent else theme.accent.copy(alpha = 0.18f))
+                .background(
+                    if (canConnect)
+                        Brush.horizontalGradient(listOf(
+                            theme.accent.copy(alpha = 0.85f),
+                            theme.accent,
+                            theme.accent.copy(alpha = 0.85f)
+                        ))
+                    else
+                        Brush.horizontalGradient(listOf(
+                            theme.accent.copy(alpha = 0.1f),
+                            theme.accent.copy(alpha = 0.15f)
+                        ))
+                )
                 .then(if (canConnect) Modifier.clickable(role = Role.Button) { onConnect() } else Modifier)
-                .testTag("server_connect_button")
-                .padding(horizontal = Spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                .testTag("server_connect_button"),
+            contentAlignment = Alignment.Center
         ) {
             if (isConnecting) {
-                TuiLoadingIndicator()
-                Spacer(Modifier.width(Spacing.mdLg))
-                Text(stringResource(R.string.button_connecting),
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium, color = theme.background)
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TuiLoadingIndicator()
+                    Text(stringResource(R.string.button_connecting),
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium, color = theme.background)
+                }
             } else {
-                Text("▶  ${stringResource(R.string.button_connect)}",
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (canConnect) theme.background else theme.textMuted.copy(alpha = 0.5f))
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "▶", fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (canConnect) theme.background else theme.textMuted.copy(alpha = 0.35f))
+                    Text(text = stringResource(R.string.button_connect),
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (canConnect) theme.background else theme.textMuted.copy(alpha = 0.35f))
+                }
             }
         }
     }
@@ -914,50 +920,127 @@ private fun TerminalCodeBlock(command: String) {
     }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── ASCII Terminal Input ───────────────────────────────────────────────────────
 
+/**
+ * Fully custom ASCII-art input field. No Material OutlinedTextField.
+ *
+ *  ┌─ pwd ───────────────────────────────────────────┐
+ *  │ Password (optional)                        ○ │
+ *  │ _                                            │
+ *  └─────────────────────────────────────────────┘
+ */
 @Composable
-private fun ModernTextField(
+private fun TerminalInput(
+    label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    modifier: Modifier = Modifier,
     placeholder: String = "",
-    modifier: Modifier = Modifier
+    prefix: String = "",
+    isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
+    onTogglePassword: (() -> Unit)? = null
 ) {
     val theme = LocalOpenCodeTheme.current
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = {
-            Text(label, fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.labelSmall)
-        },
-        placeholder = if (placeholder.isNotEmpty()) ({
-            Text(placeholder, fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.bodySmall,
-                color = theme.textMuted.copy(alpha = 0.6f))
-        }) else null,
-        singleLine = true,
-        modifier = modifier,
-        shape = RoundedCornerShape(Sizing.radiusNone),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-        colors = modernTextFieldColors(theme)
-    )
-}
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val borderColor = if (isFocused) theme.accent else theme.border.copy(alpha = 0.45f)
+    val cornerColor = if (isFocused) theme.accent else theme.border.copy(alpha = 0.6f)
+    val labelColor  = if (isFocused) theme.accent else theme.textMuted.copy(alpha = 0.7f)
 
-@Composable
-private fun modernTextFieldColors(theme: dev.blazelight.p4oc.ui.theme.opencode.OpenCodeTheme) =
-    OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = theme.accent,
-        unfocusedBorderColor = theme.border,
-        focusedLabelColor = theme.accent,
-        unfocusedLabelColor = theme.textMuted,
-        cursorColor = theme.accent,
-        focusedTextColor = theme.text,
-        unfocusedTextColor = theme.text,
-        focusedContainerColor = theme.background.copy(alpha = 0.5f),
-        unfocusedContainerColor = theme.background.copy(alpha = 0.3f)
-    )
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Top border: ┌─ prefix ───────────────┐
+        Row(modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "┌─", fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelSmall, color = cornerColor)
+            if (prefix.isNotEmpty()) {
+                Text(text = prefix, fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.accent.copy(alpha = 0.6f),
+                    fontWeight = FontWeight.Bold)
+                Text(text = " ─", fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelSmall, color = cornerColor)
+            }
+            Box(modifier = Modifier.weight(1f).height(Sizing.strokeThin)
+                .background(Brush.horizontalGradient(listOf(
+                    borderColor.copy(alpha = 0.8f), borderColor.copy(alpha = 0.2f)
+                ))))
+            Text(text = "┐", fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelSmall, color = cornerColor)
+        }
+
+        // Body row: │ label ··· [toggle] │
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .background(theme.backgroundElement.copy(alpha = if (isFocused) 0.7f else 0.45f))
+                .padding(horizontal = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "│", fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelSmall, color = borderColor)
+            Spacer(Modifier.width(Spacing.xs))
+            Column(modifier = Modifier.weight(1f)
+                .padding(vertical = Spacing.xs)) {
+                // Label line
+                Text(text = label, fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelSmall, color = labelColor)
+                // Input line
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace, color = theme.text
+                    ),
+                    cursorBrush = SolidColor(theme.accent),
+                    visualTransformation = if (isPassword && !passwordVisible)
+                        PasswordVisualTransformation() else VisualTransformation.None,
+                    keyboardOptions = if (isPassword)
+                        KeyboardOptions(keyboardType = KeyboardType.Password)
+                    else KeyboardOptions.Default,
+                    interactionSource = interactionSource,
+                    decorationBox = { inner ->
+                        Box {
+                            if (value.isEmpty() && placeholder.isNotEmpty()) {
+                                Text(placeholder, fontFamily = FontFamily.Monospace,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = theme.textMuted.copy(alpha = 0.35f))
+                            }
+                            inner()
+                        }
+                    }
+                )
+            }
+            if (isPassword && onTogglePassword != null) {
+                Text(
+                    text = if (passwordVisible) "◉" else "○",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted.copy(alpha = 0.6f),
+                    modifier = Modifier.clickable(role = Role.Button) { onTogglePassword() }
+                        .padding(horizontal = Spacing.xs)
+                )
+            }
+            Text(text = "│", fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelSmall, color = borderColor)
+        }
+
+        // Bottom border: └───────────────┘
+        Row(modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "└", fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelSmall, color = cornerColor)
+            Box(modifier = Modifier.weight(1f).height(Sizing.strokeThin)
+                .background(Brush.horizontalGradient(listOf(
+                    borderColor.copy(alpha = 0.8f), borderColor.copy(alpha = 0.1f)
+                ))))
+            Text(text = "┘", fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelSmall, color = cornerColor)
+        }
+    }
+}
 
 /** Pulsing ● dot — pure text, matches SessionCard / SessionListScreen style */
 @Composable
