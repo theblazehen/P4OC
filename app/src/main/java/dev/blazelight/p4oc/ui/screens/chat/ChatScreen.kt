@@ -33,6 +33,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
@@ -168,12 +170,9 @@ fun ChatScreen(
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-
-    // ScrollableDefaults.flingBehavior() already uses splineBasedDecay internally in Compose 1.8+
-    // — same physics as RecyclerView. No custom implementation needed.
     val smoothFling = ScrollableDefaults.flingBehavior()
 
-    // Single snapshotFlow observer — replaces multiple LaunchedEffect(state) that caused re-execution races
+    // ── Scroll position tracking ──────────────────────────────────────────
     val isAtBottom by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 120
@@ -182,28 +181,58 @@ fun ChatScreen(
     var userScrolledAway by remember { mutableStateOf(false) }
     var hasNewContentWhileAway by remember { mutableStateOf(false) }
 
-    // One unified scroll observer — zero LaunchedEffect overhead during fling
+    // ── Elastic reveal — list is invisible until confirmed at item 0 ──────
+    // Phase 1: messages load + scrollToItem(0) fires immediately (invisible)
+    // Phase 2: snapshotFlow confirms firstVisibleItemIndex == 0
+    // Phase 3: isReadyToShow = true → spring(0.5f) elastic reveal
+    var isReadyToShow by remember { mutableStateOf(false) }
+    val revealAlpha by animateFloatAsState(
+        targetValue = if (isReadyToShow) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = 0.5f,          // bouncy elastic feel
+            stiffness    = Spring.StiffnessLow
+        ),
+        label = "revealAlpha"
+    )
+    val revealScale by animateFloatAsState(
+        targetValue = if (isReadyToShow) 1f else 0.97f,
+        animationSpec = spring(
+            dampingRatio = 0.5f,
+            stiffness    = Spring.StiffnessLow
+        ),
+        label = "revealScale"
+    )
+
+    // Unified scroll + reveal observer
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress to isAtBottom }
-            .collect { (scrolling, atBottom) ->
-                viewModel.messageStore.setFlushDelayWhileScrolling(scrolling)
-                if (scrolling && !atBottom) userScrolledAway = true
-                if (atBottom && !scrolling && userScrolledAway) {
-                    userScrolledAway = false
-                    hasNewContentWhileAway = false
-                }
+        snapshotFlow {
+            Triple(
+                listState.isScrollInProgress,
+                isAtBottom,
+                listState.firstVisibleItemIndex
+            )
+        }.collect { (scrolling, atBottom, firstIdx) ->
+            viewModel.messageStore.setFlushDelayWhileScrolling(scrolling)
+            // Confirm position → trigger elastic reveal
+            if (firstIdx == 0 && !isReadyToShow) {
+                isReadyToShow = true
             }
+            if (scrolling && !atBottom) userScrolledAway = true
+            if (atBottom && !scrolling && userScrolledAway) {
+                userScrolledAway = false
+                hasNewContentWhileAway = false
+            }
+        }
     }
 
-    // SINGLE LaunchedEffect for all scroll logic - prevents multiple triggers and lag
-    // Key: session ID - only runs once per session load
+    // Scroll to bottom immediately on session load (while list is still invisible)
     LaunchedEffect(uiState.session?.id) {
+        isReadyToShow = false
         if (messages.isNotEmpty()) {
-            // IMMEDIATE scroll without delay - critical for instant paint
             listState.scrollToItem(0)
         }
     }
-    
+
     // New messages auto-scroll (only if user hasn't scrolled away)
     val messageCount = messages.size
     LaunchedEffect(messageCount) {
@@ -211,6 +240,10 @@ fun ChatScreen(
             listState.scrollToItem(0)
         } else if (messageCount > 0 && userScrolledAway) {
             hasNewContentWhileAway = true
+        }
+        // If list wasn't ready yet (first load), the snapshotFlow above will fire reveal
+        if (!isReadyToShow && messageCount > 0) {
+            listState.scrollToItem(0)
         }
     }
 
@@ -376,13 +409,20 @@ fun ChatScreen(
             if (!hasContent && !uiState.isLoading) {
                 EmptyChatView(modifier = Modifier.align(Alignment.Center))
             } else {
-                // OPTIMIZED: LazyColumn with enhanced performance and smooth animations
+                // List is invisible until scroll position confirmed at bottom,
+                // then spring-reveals with elastic bounce
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp) // Match topbar padding
-                        .testTag("message_list"),
+                        .padding(horizontal = 12.dp)
+                        .testTag("message_list")
+                        .graphicsLayer {
+                            alpha  = revealAlpha
+                            scaleX = revealScale
+                            scaleY = revealScale
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                        },
                     reverseLayout = true,
                     flingBehavior = smoothFling,
                     contentPadding = PaddingValues(vertical = 2.dp),
