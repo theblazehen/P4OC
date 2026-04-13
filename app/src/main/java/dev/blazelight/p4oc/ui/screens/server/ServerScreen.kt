@@ -52,6 +52,7 @@ import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.opencode.OpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.opencode.OptimizedThemeLoader
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
@@ -100,45 +101,55 @@ fun ServerScreen(
     Scaffold(
         topBar = {
             TuiTopBar(
-                title = stringResource(R.string.server_connect_title),
+                title = "",
                 actions = {
-                    IconButton(
-                        onClick = onSettings,
+                    Text(
+                        text = "⚙",
+                        color = theme.textMuted,
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier
-                            .size(Sizing.iconButtonMd)
+                            .clickable(role = Role.Button) { onSettings() }
+                            .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
                             .testTag("server_settings_button")
-                    ) {
-                        Text(
-                            text = "⚙",
-                            color = theme.textMuted,
-                            fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                }
+                    )
+                },
+                titleContent = { ServerTopBarTitle(theme) }
             )
         },
         containerColor = theme.background
     ) { padding ->
         var started by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) { started = true }
-        val enterSpringDp = spring<Dp>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
-        val enterSpringFloat = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
-        val alpha by animateFloatAsState(
+        LaunchedEffect(Unit) { delay(30); started = true }
+        val smoothSpringDp  = spring<Dp>(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow)
+        val smoothSpringFlt = spring<Float>(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow)
+        val pageAlpha by animateFloatAsState(
             targetValue = if (started) 1f else 0f,
-            animationSpec = tween(220, easing = FastOutSlowInEasing),
-            label = "server_enter_alpha"
+            animationSpec = tween(280, easing = FastOutSlowInEasing),
+            label = "page_alpha"
         )
-        val offsetY by animateDpAsState(
-            targetValue = if (started) Spacing.none else (-Spacing.md),
-            animationSpec = enterSpringDp,
-            label = "server_enter_offset"
+        val pageOffsetY by animateDpAsState(
+            targetValue = if (started) Spacing.none else 20.dp,
+            animationSpec = smoothSpringDp,
+            label = "page_offsetY"
         )
-        val scaleMain by animateFloatAsState(
-            targetValue = if (started) 1f else 0.985f,
-            animationSpec = enterSpringFloat,
-            label = "server_enter_scale"
+        val pageScale by animateFloatAsState(
+            targetValue = if (started) 1f else 0.97f,
+            animationSpec = smoothSpringFlt,
+            label = "page_scale"
         )
+
+        // Per-section stagger states
+        var showDiscover by remember { mutableStateOf(false) }
+        var showRecent   by remember { mutableStateOf(false) }
+        var showRemote   by remember { mutableStateOf(false) }
+        var showHelp     by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(60);  showDiscover = true
+            delay(80);  showRecent   = true
+            delay(80);  showRemote   = true
+            delay(100); showHelp     = true
+        }
 
         Column(
             modifier = Modifier
@@ -146,46 +157,22 @@ fun ServerScreen(
                 .padding(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.md, vertical = Spacing.lg)
-                .alpha(alpha)
-                .offset(y = offsetY)
-                .graphicsLayer { scaleX = scaleMain; scaleY = scaleMain },
-            verticalArrangement = Arrangement.spacedBy(Spacing.xl)
+                .padding(horizontal = Spacing.sm, vertical = Spacing.md)
+                .alpha(pageAlpha)
+                .offset(y = pageOffsetY)
+                .graphicsLayer { scaleX = pageScale; scaleY = pageScale },
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            // Staggered section animations: lightweight alpha + small offset
-            var showDiscover by remember { mutableStateOf(false) }
-            var showRecent by remember { mutableStateOf(false) }
-            var showRemote by remember { mutableStateOf(false) }
-            var showHelp by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                // Tiny, non-blocking delays to stagger appearance
-                delay(20)
-                showDiscover = true
-                delay(40)
-                showRecent = true
-                delay(40)
-                showRemote = true
-                delay(40)
-                showHelp = true
-            }
 
             if (uiState.discoveredServers.isNotEmpty() || uiState.discoveryState == DiscoveryState.SCANNING) {
-                val dAlpha by animateFloatAsState(
-                    targetValue = if (showDiscover) 1f else 0f,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
-                    label = "discover_alpha"
-                )
-                val dOffset by animateDpAsState(
-                    targetValue = if (showDiscover) Spacing.none else (-Spacing.sm),
-                    animationSpec = enterSpringDp,
-                    label = "discover_offset"
-                )
-                val dScale by animateFloatAsState(
-                    targetValue = if (showDiscover) 1f else 0.995f,
-                    animationSpec = enterSpringFloat,
-                    label = "discover_scale"
-                )
-                Column(modifier = Modifier.alpha(dAlpha).offset(y = dOffset).graphicsLayer { scaleX = dScale; scaleY = dScale }) {
+                val dAlpha  by animateFloatAsState(if (showDiscover) 1f else 0f,
+                    tween(260, easing = FastOutSlowInEasing), label = "dA")
+                val dOffset by animateDpAsState(if (showDiscover) Spacing.none else 16.dp,
+                    smoothSpringDp, label = "dO")
+                val dScale  by animateFloatAsState(if (showDiscover) 1f else 0.96f,
+                    smoothSpringFlt, label = "dS")
+                Column(modifier = Modifier.alpha(dAlpha).offset(y = dOffset)
+                    .graphicsLayer { scaleX = dScale; scaleY = dScale }) {
                     DiscoveredServersSection(
                         servers = uiState.discoveredServers,
                         discoveryState = uiState.discoveryState,
@@ -197,22 +184,14 @@ fun ServerScreen(
             }
 
             if (uiState.recentServers.isNotEmpty()) {
-                val rAlpha by animateFloatAsState(
-                    targetValue = if (showRecent) 1f else 0f,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
-                    label = "recent_alpha"
-                )
-                val rOffset by animateDpAsState(
-                    targetValue = if (showRecent) Spacing.none else (-Spacing.sm),
-                    animationSpec = enterSpringDp,
-                    label = "recent_offset"
-                )
-                val rScale by animateFloatAsState(
-                    targetValue = if (showRecent) 1f else 0.995f,
-                    animationSpec = enterSpringFloat,
-                    label = "recent_scale"
-                )
-                Column(modifier = Modifier.alpha(rAlpha).offset(y = rOffset).graphicsLayer { scaleX = rScale; scaleY = rScale }) {
+                val rAlpha  by animateFloatAsState(if (showRecent) 1f else 0f,
+                    tween(260, easing = FastOutSlowInEasing), label = "rA")
+                val rOffset by animateDpAsState(if (showRecent) Spacing.none else 16.dp,
+                    smoothSpringDp, label = "rO")
+                val rScale  by animateFloatAsState(if (showRecent) 1f else 0.96f,
+                    smoothSpringFlt, label = "rS")
+                Column(modifier = Modifier.alpha(rAlpha).offset(y = rOffset)
+                    .graphicsLayer { scaleX = rScale; scaleY = rScale }) {
                     RecentServersSection(
                         servers = uiState.recentServers,
                         isConnecting = uiState.isConnecting,
@@ -222,22 +201,14 @@ fun ServerScreen(
                 }
             }
 
-            val fAlpha by animateFloatAsState(
-                targetValue = if (showRemote) 1f else 0f,
-                animationSpec = tween(220, easing = FastOutSlowInEasing),
-                label = "form_alpha"
-            )
-            val fOffset by animateDpAsState(
-                targetValue = if (showRemote) Spacing.none else (-Spacing.sm),
-                animationSpec = enterSpringDp,
-                label = "form_offset"
-            )
-            val fScale by animateFloatAsState(
-                targetValue = if (showRemote) 1f else 0.995f,
-                animationSpec = enterSpringFloat,
-                label = "form_scale"
-            )
-            Column(modifier = Modifier.alpha(fAlpha).offset(y = fOffset).graphicsLayer { scaleX = fScale; scaleY = fScale }) {
+            val fAlpha  by animateFloatAsState(if (showRemote) 1f else 0f,
+                tween(280, easing = FastOutSlowInEasing), label = "fA")
+            val fOffset by animateDpAsState(if (showRemote) Spacing.none else 16.dp,
+                smoothSpringDp, label = "fO")
+            val fScale  by animateFloatAsState(if (showRemote) 1f else 0.96f,
+                smoothSpringFlt, label = "fS")
+            Column(modifier = Modifier.alpha(fAlpha).offset(y = fOffset)
+                .graphicsLayer { scaleX = fScale; scaleY = fScale }) {
                 RemoteServerSection(
                     url = uiState.remoteUrl,
                     username = uiState.username,
@@ -250,26 +221,16 @@ fun ServerScreen(
                 )
             }
 
-            uiState.error?.let { error ->
-                ErrorBanner(error = error)
-            }
+            uiState.error?.let { error -> ErrorBanner(error = error) }
 
-            val hAlpha by animateFloatAsState(
-                targetValue = if (showHelp) 1f else 0f,
-                animationSpec = tween(200, easing = FastOutSlowInEasing),
-                label = "help_alpha"
-            )
-            val hOffset by animateDpAsState(
-                targetValue = if (showHelp) Spacing.none else (-Spacing.sm),
-                animationSpec = enterSpringDp,
-                label = "help_offset"
-            )
-            val hScale by animateFloatAsState(
-                targetValue = if (showHelp) 1f else 0.995f,
-                animationSpec = enterSpringFloat,
-                label = "help_scale"
-            )
-            Column(modifier = Modifier.alpha(hAlpha).offset(y = hOffset).graphicsLayer { scaleX = hScale; scaleY = hScale }) {
+            val hAlpha  by animateFloatAsState(if (showHelp) 1f else 0f,
+                tween(260, easing = FastOutSlowInEasing), label = "hA")
+            val hOffset by animateDpAsState(if (showHelp) Spacing.none else 16.dp,
+                smoothSpringDp, label = "hO")
+            val hScale  by animateFloatAsState(if (showHelp) 1f else 0.96f,
+                smoothSpringFlt, label = "hS")
+            Column(modifier = Modifier.alpha(hAlpha).offset(y = hOffset)
+                .graphicsLayer { scaleX = hScale; scaleY = hScale }) {
                 ServerSetupHelpSection()
             }
         }
@@ -902,4 +863,79 @@ private fun ScanPulse() {
     )
     Text(text = "●", fontFamily = FontFamily.Monospace,
         style = MaterialTheme.typography.labelSmall, color = theme.accent.copy(alpha = alpha))
+}
+
+// ── ASCII Top Bar Title ────────────────────────────────────────────────────────
+
+/**
+ * Animated ASCII art title for the ServerScreen top bar.
+ * Shows:  ◈  connect::server  with a pulsing accent glow
+ */
+@Composable
+fun ServerTopBarTitle(theme: OpenCodeTheme) {
+    val infiniteTransition = rememberInfiniteTransition(label = "topBarGlow")
+    val glow by infiniteTransition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowAlpha"
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+    ) {
+        // Left bracket accent
+        Text(
+            text = "[",
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = theme.accent.copy(alpha = glow)
+        )
+        // Core symbol — pulsing
+        Text(
+            text = "◈",
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.titleSmall,
+            color = theme.accent.copy(alpha = glow)
+        )
+        Text(
+            text = "]",
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = theme.accent.copy(alpha = glow)
+        )
+        // Pipe separator
+        Text(
+            text = "│",
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            color = theme.border.copy(alpha = 0.5f)
+        )
+        // Title text
+        Text(
+            text = "connect",
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = theme.text
+        )
+        Text(
+            text = "::",
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            color = theme.textMuted.copy(alpha = 0.5f)
+        )
+        Text(
+            text = "server",
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.titleSmall,
+            color = theme.textMuted
+        )
+    }
 }
