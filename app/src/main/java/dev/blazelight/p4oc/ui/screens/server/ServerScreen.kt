@@ -155,84 +155,180 @@ fun ServerScreen(
                 onSettings = onSettings
             )
 
-            // ── Sections ──────────────────────────────────────────────────
-            Column(
-                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-            ) {
-                if (uiState.discoveredServers.isNotEmpty() || uiState.discoveryState == DiscoveryState.SCANNING) {
-                    val dA by animateFloatAsState(if (showDiscover) 1f else 0f,
-                        tween(260, easing = FastOutSlowInEasing), label = "dA")
-                    val dO by animateDpAsState(if (showDiscover) Spacing.none else 20.dp,
-                        smoothSpringDp, label = "dO")
-                    val dS by animateFloatAsState(if (showDiscover) 1f else 0.95f,
-                        smoothSpringFlt, label = "dS")
-                    Column(modifier = Modifier.alpha(dA).offset(y = dO)
-                        .graphicsLayer { scaleX = dS; scaleY = dS }) {
-                        DiscoveredServersSection(
-                            servers = uiState.discoveredServers,
-                            discoveryState = uiState.discoveryState,
-                            isConnecting = uiState.isConnecting,
-                            onServerClick = viewModel::connectToDiscoveredServer,
-                            onStopClick = viewModel::stopDiscovery
-                        )
-                    }
-                }
+            // ── Single unified ASCII panel ───────────────────────────────
+            UnifiedServerPanel(
+                uiState = uiState,
+                showDiscover = showDiscover,
+                showRecent   = showRecent,
+                showRemote   = showRemote,
+                showHelp     = showHelp,
+                springDp     = smoothSpringDp,
+                springFlt    = smoothSpringFlt,
+                onDiscoveredClick  = viewModel::connectToDiscoveredServer,
+                onStopDiscovery    = viewModel::stopDiscovery,
+                onRecentClick      = viewModel::connectToRecentServer,
+                onRemoveRecent     = viewModel::removeRecentServer,
+                onUrlChange        = viewModel::setRemoteUrl,
+                onUsernameChange   = viewModel::setUsername,
+                onPasswordChange   = viewModel::setPassword,
+                onConnect          = viewModel::connectToRemote
+            )
+            Spacer(Modifier.height(Spacing.xl))
+        }
+    }
+}
 
-                if (uiState.recentServers.isNotEmpty()) {
-                    val rA by animateFloatAsState(if (showRecent) 1f else 0f,
-                        tween(260, easing = FastOutSlowInEasing), label = "rA")
-                    val rO by animateDpAsState(if (showRecent) Spacing.none else 20.dp,
-                        smoothSpringDp, label = "rO")
-                    val rS by animateFloatAsState(if (showRecent) 1f else 0.95f,
-                        smoothSpringFlt, label = "rS")
-                    Column(modifier = Modifier.alpha(rA).offset(y = rO)
-                        .graphicsLayer { scaleX = rS; scaleY = rS }) {
-                        RecentServersSection(
-                            servers = uiState.recentServers,
-                            isConnecting = uiState.isConnecting,
-                            onServerClick = viewModel::connectToRecentServer,
-                            onRemoveServer = viewModel::removeRecentServer
-                        )
-                    }
-                }
+// ── Unified Panel ────────────────────────────────────────────────────────────
 
-                val fA by animateFloatAsState(if (showRemote) 1f else 0f,
-                    tween(280, easing = FastOutSlowInEasing), label = "fA")
-                val fO by animateDpAsState(if (showRemote) Spacing.none else 20.dp,
-                    smoothSpringDp, label = "fO")
-                val fS by animateFloatAsState(if (showRemote) 1f else 0.95f,
-                    smoothSpringFlt, label = "fS")
-                Column(modifier = Modifier.alpha(fA).offset(y = fO)
-                    .graphicsLayer { scaleX = fS; scaleY = fS }) {
-                    RemoteServerSection(
-                        url = uiState.remoteUrl,
-                        username = uiState.username,
-                        password = uiState.password,
+/**
+ * One continuous ASCII art terminal panel that contains every section.
+ * Structure:
+ *
+ *  ⌜─────────────────────────────────────────────────────────⌝
+ *  ├─[ DISCOVERED SERVERS ]─────────────────── ● scan
+ *  │ ...rows...
+ *  ├─[ RECENT SERVERS ]───────────────────────
+ *  │ ...rows...
+ *  ├─[ REMOTE SERVER ]────────────────────────
+ *  │ ...fields + button...
+ *  ├─[ SERVER SETUP ]─────────────────────────
+ *  │ ...collapsible...
+ *  ⌞─────────────────────────────────────────────────────────⌟
+ */
+@Composable
+private fun UnifiedServerPanel(
+    uiState: ServerUiState,
+    showDiscover: Boolean,
+    showRecent: Boolean,
+    showRemote: Boolean,
+    showHelp: Boolean,
+    springDp: androidx.compose.animation.core.SpringSpec<Dp>,
+    springFlt: androidx.compose.animation.core.SpringSpec<Float>,
+    onDiscoveredClick: (DiscoveredServer) -> Unit,
+    onStopDiscovery: () -> Unit,
+    onRecentClick: (RecentServer) -> Unit,
+    onRemoveRecent: (RecentServer) -> Unit,
+    onUrlChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onConnect: () -> Unit
+) {
+    val theme = LocalOpenCodeTheme.current
+
+    // Stagger alphas for each section row inside the panel
+    val dA by animateFloatAsState(if (showDiscover) 1f else 0f,
+        tween(280, easing = FastOutSlowInEasing), label = "dA")
+    val dO by animateDpAsState(if (showDiscover) Spacing.none else 14.dp,
+        springDp, label = "dO")
+    val rA by animateFloatAsState(if (showRecent) 1f else 0f,
+        tween(300, easing = FastOutSlowInEasing), label = "rA")
+    val rO by animateDpAsState(if (showRecent) Spacing.none else 14.dp,
+        springDp, label = "rO")
+    val fA by animateFloatAsState(if (showRemote) 1f else 0f,
+        tween(320, easing = FastOutSlowInEasing), label = "fA")
+    val fO by animateDpAsState(if (showRemote) Spacing.none else 14.dp,
+        springDp, label = "fO")
+    val hA by animateFloatAsState(if (showHelp) 1f else 0f,
+        tween(340, easing = FastOutSlowInEasing), label = "hA")
+    val hO by animateDpAsState(if (showHelp) Spacing.none else 14.dp,
+        springDp, label = "hO")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.sm)
+    ) {
+        // ⌜ top border
+        TuiTopFrame()
+
+        // Outer panel body
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(theme.backgroundElement.copy(alpha = 0.45f))
+                .border(Sizing.strokeThin, theme.border.copy(alpha = 0.35f))
+        ) {
+            // ── DISCOVERED SERVERS ──
+            if (uiState.discoveredServers.isNotEmpty() || uiState.discoveryState == DiscoveryState.SCANNING) {
+                Column(modifier = Modifier.alpha(dA).offset(y = dO)) {
+                    DiscoveredServersSection(
+                        servers = uiState.discoveredServers,
+                        discoveryState = uiState.discoveryState,
                         isConnecting = uiState.isConnecting,
-                        onUrlChange = viewModel::setRemoteUrl,
-                        onUsernameChange = viewModel::setUsername,
-                        onPasswordChange = viewModel::setPassword,
-                        onConnect = viewModel::connectToRemote
+                        onServerClick = onDiscoveredClick,
+                        onStopClick = onStopDiscovery
                     )
                 }
+                PanelDivider()
+            }
 
-                uiState.error?.let { error -> ErrorBanner(error = error) }
-
-                val hA by animateFloatAsState(if (showHelp) 1f else 0f,
-                    tween(260, easing = FastOutSlowInEasing), label = "hA")
-                val hO by animateDpAsState(if (showHelp) Spacing.none else 20.dp,
-                    smoothSpringDp, label = "hO")
-                val hS by animateFloatAsState(if (showHelp) 1f else 0.95f,
-                    smoothSpringFlt, label = "hS")
-                Column(modifier = Modifier.alpha(hA).offset(y = hO)
-                    .graphicsLayer { scaleX = hS; scaleY = hS }) {
-                    ServerSetupHelpSection()
+            // ── RECENT SERVERS ──
+            if (uiState.recentServers.isNotEmpty()) {
+                Column(modifier = Modifier.alpha(rA).offset(y = rO)) {
+                    RecentServersSection(
+                        servers = uiState.recentServers,
+                        isConnecting = uiState.isConnecting,
+                        onServerClick = onRecentClick,
+                        onRemoveServer = onRemoveRecent
+                    )
                 }
+                PanelDivider()
+            }
 
-                Spacer(Modifier.height(Spacing.xl))
+            // ── REMOTE SERVER ──
+            Column(modifier = Modifier.alpha(fA).offset(y = fO)) {
+                RemoteServerSection(
+                    url = uiState.remoteUrl,
+                    username = uiState.username,
+                    password = uiState.password,
+                    isConnecting = uiState.isConnecting,
+                    onUrlChange = onUrlChange,
+                    onUsernameChange = onUsernameChange,
+                    onPasswordChange = onPasswordChange,
+                    onConnect = onConnect
+                )
+            }
+
+            // ── ERROR ──
+            uiState.error?.let { err ->
+                PanelDivider()
+                ErrorBanner(error = err)
+            }
+
+            // ── SETUP HELP ──
+            PanelDivider()
+            Column(modifier = Modifier.alpha(hA).offset(y = hO)) {
+                ServerSetupHelpSection()
             }
         }
+
+        // ⌞ bottom border
+        TuiBottomFrame()
+    }
+}
+
+/** Internal horizontal divider between panel sections — ├──── */
+@Composable
+private fun PanelDivider() {
+    val theme = LocalOpenCodeTheme.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = "├", fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            color = theme.border.copy(alpha = 0.5f))
+        Box(
+            modifier = Modifier.weight(1f).height(Sizing.dividerThickness)
+                .background(Brush.horizontalGradient(listOf(
+                    theme.border.copy(alpha = 0.5f),
+                    theme.border.copy(alpha = 0.1f),
+                    theme.border.copy(alpha = 0.05f)
+                )))
+        )
+        Text(text = "┤", fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            color = theme.border.copy(alpha = 0.3f))
     }
 }
 
@@ -362,13 +458,13 @@ private fun DiscoveredServersSection(
     val theme = LocalOpenCodeTheme.current
     val scanning = discoveryState == DiscoveryState.SCANNING
 
-    Column {
-        TuiTopFrame()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.none)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(theme.backgroundElement.copy(alpha = 0.5f))
-                .border(Sizing.strokeThin, theme.border.copy(alpha = 0.3f))
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
@@ -410,16 +506,15 @@ private fun DiscoveredServersSection(
                         fontFamily = FontFamily.Monospace, color = theme.textMuted)
                 }
             }
+        }
 
-            if (servers.isNotEmpty()) {
-                servers.forEachIndexed { index, server ->
-                    DiscoveredServerItem(server = server, isConnecting = isConnecting,
-                        onClick = { onServerClick(server) })
-                    if (index < servers.size - 1) TuiGradientLine()
-                }
+        if (servers.isNotEmpty()) {
+            servers.forEachIndexed { index, server ->
+                DiscoveredServerItem(server = server, isConnecting = isConnecting,
+                    onClick = { onServerClick(server) })
+                if (index < servers.size - 1) TuiGradientLine()
             }
         }
-        TuiBottomFrame()
     }
 }
 
@@ -489,24 +584,23 @@ private fun RecentServersSection(
     onServerClick: (RecentServer) -> Unit,
     onRemoveServer: (RecentServer) -> Unit
 ) {
-    Column {
-        TuiTopFrame()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.none)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(LocalOpenCodeTheme.current.backgroundElement.copy(alpha = 0.5f))
-                .border(Sizing.strokeThin, LocalOpenCodeTheme.current.border.copy(alpha = 0.3f))
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             TuiSectionLabel(label = stringResource(R.string.server_recent_servers))
-            servers.forEachIndexed { index, server ->
-                RecentServerItem(server = server, isConnecting = isConnecting,
-                    onClick = { onServerClick(server) }, onRemove = { onRemoveServer(server) })
-                if (index < servers.size - 1) TuiGradientLine()
-            }
         }
-        TuiBottomFrame()
+        servers.forEachIndexed { index, server ->
+            RecentServerItem(server = server, isConnecting = isConnecting,
+                onClick = { onServerClick(server) }, onRemove = { onRemoveServer(server) })
+            if (index < servers.size - 1) TuiGradientLine()
+        }
     }
 }
 
@@ -575,13 +669,13 @@ private fun RemoteServerSection(
     val theme = LocalOpenCodeTheme.current
     var passwordVisible by remember { mutableStateOf(false) }
 
-    Column {
-        TuiTopFrame()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.none)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(theme.backgroundElement.copy(alpha = 0.5f))
-                .border(Sizing.strokeThin, theme.border.copy(alpha = 0.3f))
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
@@ -641,37 +735,36 @@ private fun RemoteServerSection(
                 }
             )
 
-            TuiGradientLine()
+        }
 
-            val canConnect = url.isNotBlank() && !isConnecting
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(Sizing.buttonHeightLg)
-                    .background(if (canConnect) theme.accent else theme.accent.copy(alpha = 0.18f))
-                    .then(if (canConnect) Modifier.clickable(role = Role.Button) { onConnect() } else Modifier)
-                    .testTag("server_connect_button")
-                    .padding(horizontal = Spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                if (isConnecting) {
-                    TuiLoadingIndicator()
-                    Spacer(Modifier.width(Spacing.mdLg))
-                    Text(stringResource(R.string.button_connecting),
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium, color = theme.background)
-                } else {
-                    Text("▶  ${stringResource(R.string.button_connect)}",
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (canConnect) theme.background else theme.textMuted.copy(alpha = 0.5f))
-                }
+        val canConnect = url.isNotBlank() && !isConnecting
+        TuiGradientLine()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(Sizing.buttonHeightLg)
+                .background(if (canConnect) theme.accent else theme.accent.copy(alpha = 0.18f))
+                .then(if (canConnect) Modifier.clickable(role = Role.Button) { onConnect() } else Modifier)
+                .testTag("server_connect_button")
+                .padding(horizontal = Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (isConnecting) {
+                TuiLoadingIndicator()
+                Spacer(Modifier.width(Spacing.mdLg))
+                Text(stringResource(R.string.button_connecting),
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium, color = theme.background)
+            } else {
+                Text("▶  ${stringResource(R.string.button_connect)}",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (canConnect) theme.background else theme.textMuted.copy(alpha = 0.5f))
             }
         }
-        TuiBottomFrame()
     }
 }
 
@@ -682,13 +775,13 @@ private fun ServerSetupHelpSection() {
     val theme = LocalOpenCodeTheme.current
     var expanded by remember { mutableStateOf(false) }
 
-    Column {
-        TuiTopFrame(accentAlpha = 0.3f)
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.none)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(theme.backgroundElement.copy(alpha = 0.35f))
-                .border(Sizing.strokeThin, theme.border.copy(alpha = 0.2f))
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
@@ -763,7 +856,6 @@ private fun ServerSetupHelpSection() {
                 }
             }
         }
-        TuiBottomFrame(dimAlpha = 0.15f)
     }
 }
 
