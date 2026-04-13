@@ -48,7 +48,6 @@ import dev.blazelight.p4oc.core.datastore.RecentServer
 import dev.blazelight.p4oc.core.network.DiscoveredServer
 import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
-import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
@@ -99,24 +98,7 @@ fun ServerScreen(
     }
 
     Scaffold(
-        topBar = {
-            TuiTopBar(
-                title = "",
-                actions = {
-                    Text(
-                        text = "⚙",
-                        color = theme.textMuted,
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier
-                            .clickable(role = Role.Button) { onSettings() }
-                            .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
-                            .testTag("server_settings_button")
-                    )
-                },
-                titleContent = { ServerTopBarTitle(theme) }
-            )
-        },
+        topBar = { ServerAsciiTopBar(theme = theme, onSettings = onSettings) },
         containerColor = theme.background
     ) { padding ->
         var started by remember { mutableStateOf(false) }
@@ -865,77 +847,204 @@ private fun ScanPulse() {
         style = MaterialTheme.typography.labelSmall, color = theme.accent.copy(alpha = alpha))
 }
 
-// ── ASCII Top Bar Title ────────────────────────────────────────────────────────
+// ── Unified ASCII Top Bar ──────────────────────────────────────────────────────
 
 /**
- * Animated ASCII art title for the ServerScreen top bar.
- * Shows:  ◈  connect::server  with a pulsing accent glow
+ * Fully custom top bar for ServerScreen.
+ * One cohesive block: status bar insets → top frame → title row → bottom frame.
+ * No Material3 TopAppBar wrapper — pure ASCII art surface.
+ *
+ * Layout (monospace sketch):
+ *   ┌─ surface (backgroundElement) ──────────────────────────────┐
+ *   │  [status bar inset spacer]                                  │
+ *   │  ⌜────────────────────────────────────────────────────────⌝ │
+ *   │  ◈ srv ── connect :: server ──────────────── ── ── ─ ⚙   │
+ *   │  ⌞────── ·  ·  ·  ──────────────────────────────────────⌟  │
+ *   └─────────────────────────────────────────────────────────────┘
  */
 @Composable
-fun ServerTopBarTitle(theme: OpenCodeTheme) {
-    val infiniteTransition = rememberInfiniteTransition(label = "topBarGlow")
-    val glow by infiniteTransition.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 0.95f,
+private fun ServerAsciiTopBar(
+    theme: OpenCodeTheme,
+    onSettings: () -> Unit
+) {
+    val inf = rememberInfiniteTransition(label = "topBarAnim")
+
+    // Symbol pulse: ◈ breathes between dim and bright
+    val symbolGlow by inf.animateFloat(
+        initialValue = 0.4f, targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
+            tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse
+        ), label = "symGlow"
     )
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+    // Dashes slide: subtle scanning left→right offset for the decorative line
+    val dashOffset by inf.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(3000, easing = LinearEasing), RepeatMode.Restart
+        ), label = "dashOffset"
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = theme.backgroundElement,
+        tonalElevation = 0.dp
     ) {
-        // Left bracket accent
-        Text(
-            text = "[",
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = theme.accent.copy(alpha = glow)
-        )
-        // Core symbol — pulsing
-        Text(
-            text = "◈",
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.titleSmall,
-            color = theme.accent.copy(alpha = glow)
-        )
-        Text(
-            text = "]",
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = theme.accent.copy(alpha = glow)
-        )
-        // Pipe separator
-        Text(
-            text = "│",
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.bodySmall,
-            color = theme.border.copy(alpha = 0.5f)
-        )
-        // Title text
-        Text(
-            text = "connect",
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = theme.text
-        )
-        Text(
-            text = "::",
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.bodySmall,
-            color = theme.textMuted.copy(alpha = 0.5f)
-        )
-        Text(
-            text = "server",
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.titleSmall,
-            color = theme.textMuted
-        )
+        Column {
+            // Status bar inset
+            Spacer(Modifier.windowInsetsPadding(WindowInsets.statusBars))
+
+            // ── Top frame line ────────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⌜",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.accent.copy(alpha = symbolGlow * 0.8f)
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(Sizing.dividerThickness)
+                        .background(
+                            Brush.horizontalGradient(
+                                colorStops = arrayOf(
+                                    dashOffset * 0.0f to theme.accent.copy(alpha = 0.0f),
+                                    (dashOffset * 0.5f).coerceIn(0f, 1f) to theme.accent.copy(alpha = symbolGlow * 0.7f),
+                                    1f to theme.accent.copy(alpha = 0.0f)
+                                )
+                            )
+                        )
+                )
+                Text(
+                    text = "⌝",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.accent.copy(alpha = symbolGlow * 0.8f)
+                )
+            }
+
+            // ── Main title row ────────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // ◈ animated icon
+                Text(
+                    text = "◈",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = theme.accent.copy(alpha = symbolGlow)
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                // Label prefix
+                Text(
+                    text = "srv",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = theme.accent
+                )
+                // Dashed separator
+                Text(
+                    text = " ─",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.border.copy(alpha = 0.6f)
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                // Title
+                Text(
+                    text = "connect",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = theme.text
+                )
+                Text(
+                    text = " :: ",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted.copy(alpha = 0.45f)
+                )
+                Text(
+                    text = "server",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = theme.textMuted.copy(alpha = 0.7f)
+                )
+                // Spacer with animated scanning dash trail
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = Spacing.xs)
+                        .height(Sizing.dividerThickness)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    theme.border.copy(alpha = 0.0f),
+                                    theme.border.copy(alpha = 0.3f),
+                                    theme.border.copy(alpha = 0.0f)
+                                )
+                            )
+                        )
+                )
+                // Settings gear
+                Text(
+                    text = "⚙",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = theme.textMuted.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .clickable(role = Role.Button) { onSettings() }
+                        .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
+                        .testTag("server_settings_button")
+                )
+            }
+
+            // ── Bottom frame line ─────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⌞",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.border.copy(alpha = 0.35f)
+                )
+                // Scanning dot trail — animated brightness sweep
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(Sizing.dividerThickness)
+                        .background(
+                            Brush.horizontalGradient(
+                                colorStops = arrayOf(
+                                    0f to theme.border.copy(alpha = 0.1f),
+                                    dashOffset.coerceIn(0f, 1f) to theme.accent.copy(alpha = 0.5f),
+                                    1f to theme.border.copy(alpha = 0.05f)
+                                )
+                            )
+                        )
+                )
+                Text(
+                    text = "⌟",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.border.copy(alpha = 0.35f)
+                )
+            }
+        }
     }
 }
