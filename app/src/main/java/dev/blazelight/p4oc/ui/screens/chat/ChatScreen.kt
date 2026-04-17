@@ -6,7 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.ScrollableDefaults
@@ -1001,13 +1001,13 @@ private fun ChatMessageList(
                 )
             }
         }
-        items(
+        itemsIndexed(
             items = flatItems,
-            key = { item ->
+            key = { index, item ->
                 when (item) {
                     is FlatChatItem.UserPart          -> "u_${item.messageWithParts.message.id}"
-                    is FlatChatItem.AssistantBarStart -> "abs_${item.messageId}"
-                    is FlatChatItem.AssistantBarEnd   -> "abe_${item.messageId}"
+                    is FlatChatItem.AssistantBarStart -> "abs_${item.messageId}_$index"
+                    is FlatChatItem.AssistantBarEnd   -> "abe_${item.messageId}_$index"
                     is FlatChatItem.TextPart          -> "tp_${item.part.id}"
                     is FlatChatItem.ReasoningPart     -> "rp_${item.part.id}"
                     is FlatChatItem.ToolBatch         -> "tb_${item.msgId}_${item.batchIndex}"
@@ -1015,7 +1015,7 @@ private fun ChatMessageList(
                     is FlatChatItem.PatchPart         -> "pp_${item.part.id}"
                 }
             },
-            contentType = { item ->
+            contentType = { _, item ->
                 when (item) {
                     is FlatChatItem.UserPart          -> "user"
                     is FlatChatItem.AssistantBarStart -> "bar_start"
@@ -1027,7 +1027,7 @@ private fun ChatMessageList(
                     is FlatChatItem.PatchPart         -> "patch"
                 }
             }
-        ) { item ->
+        ) { _, item ->
             FlatChatItemView(
                 item = item,
                 onToolApprove = onToolApprove,

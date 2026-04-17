@@ -221,9 +221,10 @@ private fun buildChangedItemMap(
                 // Reverse so items are in bottom-first order (matching buildFlatItems output)
                 items.reverse()
                 // Map ALL msgIds in this block to the same reversed items
+                // Create a copy for each message to avoid key duplication in LazyColumn
                 block.messages.forEach { msg ->
                     if (msg.message.id in changedIds) {
-                        result[msg.message.id] = items
+                        result[msg.message.id] = items.toMutableList()
                     }
                 }
             }
