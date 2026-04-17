@@ -174,6 +174,7 @@ class MessageStoreTest {
             toolPart(id = "p3", messageId = "m1")
         )
         store.loadInitial(listOf(MessageWithParts(message, parts)))
+        flushStore()
         store.clearStreamingFlags()
         flushStore()
 

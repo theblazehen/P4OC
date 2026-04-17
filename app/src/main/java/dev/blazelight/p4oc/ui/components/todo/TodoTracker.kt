@@ -46,6 +46,7 @@ import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 
+@Suppress("LongMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodoTrackerSheet(
@@ -216,6 +217,7 @@ private fun TuiEmptyTodosView() {
     }
 }
 
+@Suppress("LongMethod")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TuiTodoList(todos: List<Todo>) {
@@ -353,6 +355,7 @@ fun TodoLiveDot(activeCount: Int) {
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun TuiTodoItem(todo: Todo, modifier: Modifier = Modifier) {
     val theme = LocalOpenCodeTheme.current

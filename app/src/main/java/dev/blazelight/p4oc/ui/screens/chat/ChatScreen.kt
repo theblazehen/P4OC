@@ -494,6 +494,7 @@ fun ChatScreen(
 // LoadingSkeleton removed - no longer needed
 // Messages appear directly without placeholder backgrounds
 
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatTopBar(

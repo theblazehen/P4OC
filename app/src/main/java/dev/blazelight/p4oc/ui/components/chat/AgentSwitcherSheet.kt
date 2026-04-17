@@ -40,6 +40,7 @@ import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 
+@Suppress("LongMethod", "LongParameterList")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentSwitcherSheet(
@@ -174,6 +175,7 @@ fun AgentSwitcherSheet(
     }
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 private fun AgentRow(
     agent: AgentDto,
@@ -289,6 +291,7 @@ private fun AgentRow(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun AgentDetails(
     agent: AgentDto,
