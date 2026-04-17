@@ -22,6 +22,7 @@ import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
+import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -49,7 +50,7 @@ fun ToolCallWidget(
     
     // Update state if tool becomes pending (HITL)
     LaunchedEffect(isHitl) {
-        if (isHitl) {
+        if (isHitl && coroutineContext.isActive) {
             currentState = ToolWidgetState.EXPANDED
         }
     }

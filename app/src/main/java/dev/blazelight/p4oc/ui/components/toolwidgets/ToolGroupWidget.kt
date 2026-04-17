@@ -22,6 +22,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.domain.model.Part
+import kotlinx.coroutines.isActive
 import dev.blazelight.p4oc.domain.model.ToolState
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
@@ -74,7 +75,7 @@ fun ToolGroupWidget(
     
     // Update state if tools become pending (HITL)
     LaunchedEffect(hasPendingTools) {
-        if (hasPendingTools && currentState == ToolWidgetState.ONELINE) {
+        if (hasPendingTools && currentState == ToolWidgetState.ONELINE && coroutineContext.isActive) {
             currentState = ToolWidgetState.COMPACT
         }
     }
