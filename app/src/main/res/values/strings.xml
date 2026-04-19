@@ -69,6 +69,8 @@
     <string name="field_password">Password (optional)</string>
     <string name="field_show_password">Show password</string>
     <string name="field_hide_password">Hide password</string>
+    <string name="field_allow_insecure">Allow self-signed certificate</string>
+    <string name="field_allow_insecure_desc">Skip TLS verification (use only on trusted networks)</string>
     
     <!-- Settings Screen -->
     <string name="settings_title">Settings</string>

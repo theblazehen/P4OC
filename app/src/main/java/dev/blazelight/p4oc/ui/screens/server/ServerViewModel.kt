@@ -93,6 +93,10 @@ class ServerViewModel constructor(
         _uiState.update { it.copy(password = password) }
     }
 
+    fun setAllowInsecure(allow: Boolean) {
+        _uiState.update { it.copy(allowInsecure = allow) }
+    }
+
     fun connectToRemote() {
         val state = _uiState.value
         AppLog.d(TAG, "connectToRemote called, url='${state.remoteUrl}'")
@@ -113,7 +117,8 @@ class ServerViewModel constructor(
                 url = url,
                 name = "Remote Server",
                 isLocal = false,
-                username = state.username.takeIf { it.isNotBlank() }
+                username = state.username.takeIf { it.isNotBlank() },
+                allowInsecure = state.allowInsecure
             )
             val password = state.password.takeIf { it.isNotBlank() }
 
@@ -125,7 +130,13 @@ class ServerViewModel constructor(
                     // Clear password from UI state after successful connection for security
                     _uiState.update { it.copy(password = "") }
                     settingsDataStore.saveLastConnection(config, password)
-                    settingsDataStore.addRecentServer(url, "Remote Server", state.username.takeIf { it.isNotBlank() }, password)
+                    settingsDataStore.addRecentServer(
+                        url = url,
+                        name = "Remote Server",
+                        username = state.username.takeIf { it.isNotBlank() },
+                        password = password,
+                        allowInsecure = state.allowInsecure
+                    )
                     initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
@@ -172,7 +183,8 @@ class ServerViewModel constructor(
             it.copy(
                 remoteUrl = server.url,
                 username = server.username ?: "opencode",
-                password = savedPassword ?: ""
+                password = savedPassword ?: "",
+                allowInsecure = server.allowInsecure
             )
         }
         connectToRemote()
@@ -237,6 +249,7 @@ data class ServerUiState(
     val remoteUrl: String = "",
     val username: String = "opencode",
     val password: String = "",
+    val allowInsecure: Boolean = false,
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
     val error: String? = null,

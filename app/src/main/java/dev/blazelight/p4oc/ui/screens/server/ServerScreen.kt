@@ -133,10 +133,12 @@ fun ServerScreen(
                 url = uiState.remoteUrl,
                 username = uiState.username,
                 password = uiState.password,
+                allowInsecure = uiState.allowInsecure,
                 isConnecting = uiState.isConnecting,
                 onUrlChange = viewModel::setRemoteUrl,
                 onUsernameChange = viewModel::setUsername,
                 onPasswordChange = viewModel::setPassword,
+                onAllowInsecureChange = viewModel::setAllowInsecure,
                 onConnect = viewModel::connectToRemote
             )
 
@@ -175,10 +177,12 @@ private fun RemoteServerSection(
     url: String,
     username: String,
     password: String,
+    allowInsecure: Boolean,
     isConnecting: Boolean,
     onUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onAllowInsecureChange: (Boolean) -> Unit,
     onConnect: () -> Unit
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -256,6 +260,36 @@ private fun RemoteServerSection(
                     )
                 }
             )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Checkbox) { onAllowInsecureChange(!allowInsecure) }
+                    .padding(vertical = Spacing.xs)
+                    .testTag("server_allow_insecure_toggle"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Text(
+                    text = if (allowInsecure) "[x]" else "[ ]",
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.accent
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.field_allow_insecure),
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.text,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = stringResource(R.string.field_allow_insecure_desc),
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.textMuted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
 
             Button(
                 onClick = onConnect,

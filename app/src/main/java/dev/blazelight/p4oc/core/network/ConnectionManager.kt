@@ -19,7 +19,12 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 
 
 class ConnectionManager constructor(
@@ -173,7 +178,25 @@ class ConnectionManager constructor(
             builder.addInterceptor(createAuthInterceptor(config.username, password))
         }
 
+        if (config.allowInsecure) {
+            AppLog.w(TAG, "TLS verification DISABLED for ${config.url} (allowInsecure=true)")
+            installInsecureTrustManager(builder)
+        }
+
         return builder.build()
+    }
+
+    private fun installInsecureTrustManager(builder: OkHttpClient.Builder) {
+        val trustAll = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+        }
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf<javax.net.ssl.TrustManager>(trustAll), SecureRandom())
+        }
+        builder.sslSocketFactory(sslContext.socketFactory, trustAll)
+        builder.hostnameVerifier(HostnameVerifier { _, _ -> true })
     }
 
     private fun buildOkHttpClient(base: OkHttpClient): OkHttpClient =

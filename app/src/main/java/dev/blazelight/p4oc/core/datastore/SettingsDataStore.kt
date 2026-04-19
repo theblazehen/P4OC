@@ -31,6 +31,7 @@ class SettingsDataStore constructor(
         private val KEY_SERVER_NAME = stringPreferencesKey("server_name")
         private val KEY_IS_LOCAL_SERVER = booleanPreferencesKey("is_local_server")
         private val KEY_USERNAME = stringPreferencesKey("username")
+        private val KEY_ALLOW_INSECURE = booleanPreferencesKey("allow_insecure_tls")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_THEME_NAME = stringPreferencesKey("theme_name")
         
@@ -234,6 +235,7 @@ class SettingsDataStore constructor(
             } else {
                 prefs.remove(KEY_USERNAME)
             }
+            prefs[KEY_ALLOW_INSECURE] = config.allowInsecure
             prefs[KEY_ONBOARDING_COMPLETED] = true
         }
         // Store password encrypted
@@ -258,7 +260,8 @@ class SettingsDataStore constructor(
             url = url,
             name = prefs[KEY_SERVER_NAME] ?: "",
             isLocal = prefs[KEY_IS_LOCAL_SERVER] ?: false,
-            username = prefs[KEY_USERNAME]
+            username = prefs[KEY_USERNAME],
+            allowInsecure = prefs[KEY_ALLOW_INSECURE] ?: false
         )
         val password = credentialStore.getActivePassword()
         return Pair(config, password)
@@ -270,6 +273,7 @@ class SettingsDataStore constructor(
             prefs.remove(KEY_SERVER_NAME)
             prefs.remove(KEY_IS_LOCAL_SERVER)
             prefs.remove(KEY_USERNAME)
+            prefs.remove(KEY_ALLOW_INSECURE)
         }
         credentialStore.clearActivePassword()
     }
@@ -287,7 +291,7 @@ class SettingsDataStore constructor(
     /**
      * Add a recent server. Password is stored in CredentialStore, not in the JSON.
      */
-    suspend fun addRecentServer(url: String, name: String, username: String? = null, password: String? = null) {
+    suspend fun addRecentServer(url: String, name: String, username: String? = null, password: String? = null, allowInsecure: Boolean = false) {
         // Store password in encrypted storage (keyed by URL)
         if (password != null) {
             credentialStore.setServerPassword(url, password)
@@ -307,7 +311,7 @@ class SettingsDataStore constructor(
             }
             
             existingServers.removeAll { it.url == url }
-            existingServers.add(0, RecentServer(url, name, username))
+            existingServers.add(0, RecentServer(url, name, username, allowInsecure))
             val trimmed = existingServers.take(MAX_RECENT_SERVERS)
             
             prefs[KEY_RECENT_SERVERS] = json.encodeToString(trimmed)
@@ -501,7 +505,8 @@ private fun String.toModelInput(): ModelInput? {
 data class RecentServer(
     val url: String,
     val name: String,
-    val username: String? = null
+    val username: String? = null,
+    val allowInsecure: Boolean = false
 )
 
 data class VisualSettings(
