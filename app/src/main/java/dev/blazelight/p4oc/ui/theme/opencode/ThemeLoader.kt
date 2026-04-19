@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.ui.theme.opencode
 
 import android.content.Context
 import androidx.compose.ui.graphics.Color
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -15,6 +16,28 @@ import kotlinx.serialization.json.jsonPrimitive
 object ThemeLoader {
     
     private val json = Json { ignoreUnknownKeys = true }
+    private val themeCache = ConcurrentHashMap<String, OpenCodeTheme>()
+
+    private fun cacheKey(themeName: String, isDark: Boolean): String = "${themeName}_${isDark}"
+
+    fun getCachedTheme(themeName: String, isDark: Boolean): OpenCodeTheme? {
+        return themeCache[cacheKey(themeName, isDark)]
+    }
+
+    fun loadBundledThemeCached(context: Context, themeName: String, isDark: Boolean): OpenCodeTheme {
+        val key = cacheKey(themeName, isDark)
+        return themeCache.getOrPut(key) {
+            loadBundledTheme(context, themeName, isDark)
+        }
+    }
+
+    internal fun cacheThemeForTest(themeName: String, isDark: Boolean, theme: OpenCodeTheme) {
+        themeCache[cacheKey(themeName, isDark)] = theme
+    }
+
+    internal fun clearCacheForTest() {
+        themeCache.clear()
+    }
     
     /**
      * Load a bundled theme from assets by name.

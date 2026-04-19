@@ -7,6 +7,8 @@ import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,7 +19,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import dev.blazelight.p4oc.ui.theme.opencode.OpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.opencode.ThemeLoader
+import dev.blazelight.p4oc.ui.theme.opencode.createFallbackTheme
 import dev.blazelight.p4oc.ui.theme.opencode.toMaterial3ColorScheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * CompositionLocal for accessing the current OpenCode theme.
@@ -47,8 +52,15 @@ fun PocketCodeTheme(
 ) {
     val context = LocalContext.current
     
-    val openCodeTheme = remember(themeName, darkTheme) {
-        ThemeLoader.loadBundledTheme(context, themeName, darkTheme)
+    val openCodeTheme by produceState(
+        initialValue = ThemeLoader.getCachedTheme(themeName, darkTheme)
+            ?: createFallbackTheme(darkTheme),
+        key1 = themeName,
+        key2 = darkTheme,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            ThemeLoader.loadBundledThemeCached(context, themeName, darkTheme)
+        }
     }
     
     val colorScheme = remember(openCodeTheme) {
