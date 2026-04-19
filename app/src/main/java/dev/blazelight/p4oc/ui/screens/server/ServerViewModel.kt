@@ -8,6 +8,7 @@ import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.DiscoveredServer
+import dev.blazelight.p4oc.core.network.DiscoverySeed
 import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
@@ -212,7 +213,16 @@ class ServerViewModel constructor(
     }
 
     fun startDiscovery() {
-        mdnsDiscoveryManager.startDiscovery()
+        val state = _uiState.value
+        val seeds = buildList {
+            if (state.remoteUrl.isNotBlank()) {
+                add(DiscoverySeed(state.remoteUrl, state.allowInsecure))
+            }
+            state.recentServers.forEach { recent ->
+                add(DiscoverySeed(recent.url, recent.allowInsecure))
+            }
+        }
+        mdnsDiscoveryManager.startDiscovery(seeds)
     }
 
     fun stopDiscovery() {
