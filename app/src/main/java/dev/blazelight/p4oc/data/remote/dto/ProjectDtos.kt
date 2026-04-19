@@ -28,7 +28,7 @@ data class ProjectTimeDto(
 
 @Serializable
 data class VcsInfoDto(
-    val branch: String
+    val branch: String? = null
 )
 
 // ============================================================================

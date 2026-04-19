@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
+import okhttp3.ConnectionPool
 import okhttp3.Credentials
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -40,6 +41,11 @@ class ConnectionManager constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sseForwardingJob: Job? = null
+    private val sharedConnectionPool = ConnectionPool(
+        maxIdleConnections = 10,
+        keepAliveDuration = 5,
+        timeUnit = TimeUnit.MINUTES
+    )
 
     private val _connection = MutableStateFlow<Connection?>(null)
     val connection: StateFlow<Connection?> = _connection.asStateFlow()
@@ -182,6 +188,7 @@ class ConnectionManager constructor(
         val builder = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .connectionPool(sharedConnectionPool)
 
         if (config.username != null && password != null) {
             builder.addInterceptor(createAuthInterceptor(config.username, password))

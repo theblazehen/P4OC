@@ -22,7 +22,7 @@ data class Project(
 
 @Serializable
 data class VcsInfo(
-    val branch: String
+    val branch: String?
 )
 
 // ============================================================================
