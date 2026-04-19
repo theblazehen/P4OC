@@ -5,14 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.datastore.RecentServer
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
-import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.DiscoveredServer
 import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
-import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.core.network.SessionDataCache
 import dev.blazelight.p4oc.core.security.CredentialStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +27,8 @@ class ServerViewModel constructor(
     private val connectionManager: ConnectionManager,
     private val directoryManager: DirectoryManager,
     private val credentialStore: CredentialStore,
-    private val mdnsDiscoveryManager: MdnsDiscoveryManager
+    private val mdnsDiscoveryManager: MdnsDiscoveryManager,
+    private val sessionDataCache: SessionDataCache,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUiState())
@@ -63,8 +63,9 @@ class ServerViewModel constructor(
             val result = connectionManager.connect(lastConfig, password)
             
             result.fold(
-                onSuccess = {
+                onSuccess = { projects ->
                     AppLog.d(TAG, "Auto-reconnect successful")
+                    sessionDataCache.prewarm(projects)
                     initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
@@ -125,7 +126,7 @@ class ServerViewModel constructor(
             val result = connectionManager.connect(config, password)
 
             result.fold(
-                onSuccess = {
+                onSuccess = { projects ->
                     AppLog.d(TAG, "Connection successful!")
                     // Clear password from UI state after successful connection for security
                     _uiState.update { it.copy(password = "") }
@@ -137,6 +138,7 @@ class ServerViewModel constructor(
                         password = password,
                         allowInsecure = state.allowInsecure
                     )
+                    sessionDataCache.prewarm(projects)
                     initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },

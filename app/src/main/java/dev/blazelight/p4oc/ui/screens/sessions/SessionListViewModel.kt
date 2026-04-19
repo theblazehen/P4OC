@@ -6,6 +6,7 @@ import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DirectoryManager
+import dev.blazelight.p4oc.core.network.SessionDataCache
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
@@ -20,84 +21,94 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
+private const val MAX_STATUS_CONCURRENCY = 10
 
 class SessionListViewModel constructor(
     private val connectionManager: ConnectionManager,
-    private val directoryManager: DirectoryManager
+    private val directoryManager: DirectoryManager,
+    private val sessionDataCache: SessionDataCache,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SessionListUiState())
     val uiState: StateFlow<SessionListUiState> = _uiState.asStateFlow()
 
     init {
-        loadSessions()
-        loadSessionStatuses()
-        loadProjects()
+        loadFromCacheOrFallback()
     }
 
     fun refresh() {
-        loadSessions()
-        loadSessionStatuses()
-        loadProjects()
+        sessionDataCache.invalidate()
+        loadFromCacheOrFallback()
     }
 
-    private fun loadProjects() {
+    private fun loadFromCacheOrFallback() {
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
-            val result = safeApiCall { api.listProjects() }
-            when (result) {
-                is ApiResult.Success -> {
-                    val projects = result.data.map { dto ->
-                        ProjectInfo(
-                            id = dto.id,
-                            worktree = dto.worktree,
-                            name = dto.worktree.substringAfterLast("/")
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            sessionDataCache.awaitOrFetch().fold(
+                onSuccess = { cached ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            sessions = cached.sessions,
+                            projects = cached.projects,
+                            sessionStatuses = cached.statuses,
                         )
-                    }.sortedByDescending { it.worktree }
-                    _uiState.update { it.copy(projects = projects) }
-                }
-                is ApiResult.Error -> {}
-            }
+                    }
+                },
+                onFailure = { error ->
+                    AppLog.w("SessionListVM", "SessionDataCache failed, falling back to direct loads: ${error.message}", error)
+                    loadSessionsFallback()
+                },
+            )
         }
     }
 
-    private fun loadSessionStatuses() {
-        viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
-            
-            // Fetch statuses from global scope + each known project directory
-            val projects = _uiState.value.projects
-            val directories = listOf<String?>(null) + projects.map { it.worktree }
-            
-            val allStatuses = mutableMapOf<String, SessionStatus>()
-            
-            directories.forEach { directory ->
-                val result = safeApiCall { api.getSessionStatuses(directory) }
+    private suspend fun loadProjectsFallback(): List<ProjectInfo> {
+        val api = connectionManager.getApi() ?: return emptyList()
+        val result = safeApiCall { api.listProjects() }
+        return when (result) {
+            is ApiResult.Success -> result.data.map { dto ->
+                ProjectInfo(
+                    id = dto.id,
+                    worktree = dto.worktree,
+                    name = dto.worktree.substringAfterLast("/"),
+                )
+            }.sortedByDescending { it.worktree }
+            is ApiResult.Error -> emptyList()
+        }
+    }
+
+    private suspend fun loadSessionStatusesFallback(projects: List<ProjectInfo>): Map<String, SessionStatus> {
+        val api = connectionManager.getApi() ?: return emptyMap()
+        val semaphore = Semaphore(MAX_STATUS_CONCURRENCY)
+        val directories = listOf<String?>(null) + projects.map { it.worktree }
+
+        return coroutineScope {
+            directories.map { directory ->
+                async {
+                    semaphore.withPermit {
+                        safeApiCall { api.getSessionStatuses(directory) }
+                    }
+                }
+            }.awaitAll().fold(mutableMapOf<String, SessionStatus>()) { acc, result ->
                 when (result) {
                     is ApiResult.Success -> {
                         result.data.forEach { (sessionId, dto) ->
-                            allStatuses[sessionId] = when (dto.type) {
-                                "busy" -> SessionStatus.Busy
-                                "idle" -> SessionStatus.Idle
-                                "retry" -> SessionStatus.Retry(
-                                    attempt = dto.attempt ?: 0,
-                                    message = dto.message ?: "",
-                                    next = dto.next ?: 0L
-                                )
-                                else -> SessionStatus.Idle
-                            }
+                            acc[sessionId] = SessionMapper.mapStatusToDomain(dto)
                         }
                     }
-                    is ApiResult.Error -> {}
+                    is ApiResult.Error -> Unit
                 }
+                acc
             }
-            
-            _uiState.update { it.copy(sessionStatuses = allStatuses) }
         }
     }
 
-    private fun loadSessions() {
+    private fun loadSessionsFallback() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -107,25 +118,8 @@ class SessionListViewModel constructor(
             }
 
             try {
-                // First, fetch projects to know what to aggregate
-                val projectsResult = safeApiCall { api.listProjects() }
-                val projects = when (projectsResult) {
-                    is ApiResult.Success -> projectsResult.data.map { dto ->
-                        ProjectInfo(
-                            id = dto.id,
-                            worktree = dto.worktree,
-                            name = dto.worktree.substringAfterLast("/")
-                        )
-                    }
-                    is ApiResult.Error -> emptyList()
-                }
-                
-                // Update projects in state
-                _uiState.update { it.copy(projects = projects.sortedByDescending { p -> p.worktree }) }
-
-                // Fetch all sessions in parallel: global + each project
+                val projects = loadProjectsFallback()
                 val allSessionsWithProjects = coroutineScope {
-                    // Global sessions (no directory filter)
                     val globalDeferred = async {
                         val result = safeApiCall { api.listSessions(directory = null, roots = true, limit = 100) }
                         when (result) {
@@ -133,7 +127,7 @@ class SessionListViewModel constructor(
                                 SessionWithProject(
                                     session = SessionMapper.mapToDomain(dto),
                                     projectId = null,
-                                    projectName = null
+                                    projectName = null,
                                 )
                             }
                             is ApiResult.Error -> {
@@ -143,7 +137,6 @@ class SessionListViewModel constructor(
                         }
                     }
 
-                    // Sessions for each project
                     val projectDeferreds = projects.map { project ->
                         async {
                             val result = safeApiCall { api.listSessions(directory = project.worktree, roots = true, limit = 100) }
@@ -152,7 +145,7 @@ class SessionListViewModel constructor(
                                     SessionWithProject(
                                         session = SessionMapper.mapToDomain(dto),
                                         projectId = project.id,
-                                        projectName = project.name
+                                        projectName = project.name,
                                     )
                                 }
                                 is ApiResult.Error -> {
@@ -163,27 +156,28 @@ class SessionListViewModel constructor(
                         }
                     }
 
-                    // Await all and merge
                     val globalSessions = globalDeferred.await()
                     val projectSessions = projectDeferreds.awaitAll().flatten()
-                    
-                    // Deduplicate: project sessions take priority over global (in case of overlap)
                     val projectSessionIds = projectSessions.map { it.session.id }.toSet()
                     val uniqueGlobalSessions = globalSessions.filter { it.session.id !in projectSessionIds }
-                    
+
                     uniqueGlobalSessions + projectSessions
                 }
 
-                AppLog.d("SessionListVM", "loadSessions: aggregated ${allSessionsWithProjects.size} total sessions")
+                val statuses = loadSessionStatusesFallback(projects)
+
+                AppLog.d("SessionListVM", "loadSessionsFallback: aggregated ${allSessionsWithProjects.size} total sessions")
 
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        sessions = allSessionsWithProjects.sortedByDescending { s -> s.session.updatedAt }
+                        sessions = allSessionsWithProjects.sortedByDescending { s -> s.session.updatedAt },
+                        projects = projects,
+                        sessionStatuses = statuses,
                     )
                 }
             } catch (e: Exception) {
-                AppLog.e("SessionListVM", "loadSessions error", e)
+                AppLog.e("SessionListVM", "loadSessionsFallback error", e)
                 _uiState.update {
                     it.copy(isLoading = false, error = "Failed to load sessions: ${e.message}")
                 }

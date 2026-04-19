@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.core.network
 
 import dev.blazelight.p4oc.BuildConfig
 import dev.blazelight.p4oc.core.log.AppLog
+import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import okhttp3.Credentials
 import okhttp3.Interceptor
@@ -59,6 +61,9 @@ class ConnectionManager constructor(
     val hasConnection: Boolean
         get() = _connection.value != null
 
+    val currentBaseUrl: String?
+        get() = _connection.value?.config?.url
+
     fun requireApi(): OpenCodeApi {
         return _connection.value?.api
             ?: throw IllegalStateException("Not connected to any server")
@@ -68,9 +73,9 @@ class ConnectionManager constructor(
 
     fun getEventSource(): OpenCodeEventSource? = _connection.value?.eventSource
 
-    suspend fun connect(config: ServerConfig, password: String? = null): Result<Unit> {
+    suspend fun connect(config: ServerConfig, password: String? = null): Result<List<ProjectDto>> {
         AppLog.d(TAG, "Connecting to ${config.url}")
-        
+
         disconnect()
         _connectionState.value = ConnectionState.Connecting
 
@@ -80,16 +85,20 @@ class ConnectionManager constructor(
             val retrofit = buildRetrofit(config.url, okHttpClient)
             val api = retrofit.create(OpenCodeApi::class.java)
 
-            val healthResult = runCatching { api.health() }
-            
-            if (healthResult.isFailure) {
-                val error = healthResult.exceptionOrNull()
-                AppLog.e(TAG, "Health check failed", error)
+            val probeResult = runCatching {
+                withTimeout(8_000) {
+                    api.listProjects()
+                }
+            }
+
+            if (probeResult.isFailure) {
+                val error = probeResult.exceptionOrNull()
+                AppLog.e(TAG, "Project probe failed", error)
                 _connectionState.value = ConnectionState.Error(error?.message ?: "Connection failed")
                 return Result.failure(error ?: Exception("Connection failed"))
             }
 
-            AppLog.d(TAG, "Health check passed, starting SSE")
+            AppLog.d(TAG, "Project probe passed, starting SSE")
 
             val sseClient = buildSseOkHttpClient(baseClient)
             val eventSource = OpenCodeEventSource(
@@ -126,7 +135,7 @@ class ConnectionManager constructor(
             eventSource.connect()
 
             AppLog.d(TAG, "Connected successfully to ${config.url}")
-            Result.success(Unit)
+            Result.success(probeResult.getOrNull().orEmpty())
         } catch (e: Exception) {
             AppLog.e(TAG, "Connection failed", e)
             _connection.value = null
