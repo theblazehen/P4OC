@@ -62,7 +62,7 @@ internal data class NormalizedSeed(
 )
 
 internal fun normalizeSeed(seed: DiscoverySeed): NormalizedSeed? {
-    val canonicalUrl = ServerUrl.normalize(seed.rawUrl) ?: return null
+    val canonicalUrl = ServerUrl.normalizeConnectUrl(seed.rawUrl) ?: return null
     val parsed = canonicalUrl.toHttpUrlOrNull() ?: return null
     val host = if (':' in parsed.host) "[${parsed.host}]" else parsed.host
 
@@ -329,7 +329,7 @@ class MdnsDiscoveryManager(private val context: Context) {
                         hostAddress
                     }
 
-                    val url = ServerUrl.normalize("http://$formattedHost:$port") ?: "http://$formattedHost:$port"
+                    val url = ServerUrl.normalizeConnectUrl("http://$formattedHost:$port") ?: "http://$formattedHost:$port"
                     val server = DiscoveredServer(
                         serviceName = info.serviceName,
                         host = formattedHost,

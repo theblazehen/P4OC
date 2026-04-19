@@ -6,7 +6,34 @@ object ServerUrl {
     const val DEFAULT_PORT = 4096
     const val DEFAULT_USERNAME = "opencode"
 
-    fun normalize(input: String): String? {
+    fun normalizeConnectUrl(input: String): String? {
+        val components = parse(input) ?: return null
+        return buildUrl(
+            scheme = components.scheme,
+            host = components.formattedHost,
+            port = components.port,
+            path = components.path,
+        )
+    }
+
+    fun endpointKey(input: String): String? {
+        val components = parse(input) ?: return null
+        return buildUrl(
+            scheme = components.scheme,
+            host = components.formattedHost,
+            port = components.port,
+            path = components.path,
+        )
+    }
+
+    private data class ParsedServerUrl(
+        val scheme: String,
+        val formattedHost: String,
+        val port: Int,
+        val path: String,
+    )
+
+    private fun parse(input: String): ParsedServerUrl? {
         val trimmed = input.trim()
         if (trimmed.isBlank()) return null
 
@@ -19,11 +46,28 @@ object ServerUrl {
         val host = parsed.host.substringBefore('%').lowercase()
         val formattedHost = if (':' in host) "[$host]" else host
         val port = if (hasExplicitPort(sanitizedCandidate)) parsed.port else DEFAULT_PORT
+        val path = parsed.encodedPath
+            .takeUnless { it == "/" }
+            ?.trimEnd('/')
+            .orEmpty()
 
-        return "$scheme://$formattedHost:$port"
+        return ParsedServerUrl(
+            scheme = scheme,
+            formattedHost = formattedHost,
+            port = port,
+            path = path,
+        )
     }
 
-    fun endpointKey(input: String): String? = normalize(input)
+    private fun buildUrl(
+        scheme: String,
+        host: String,
+        port: Int,
+        path: String,
+    ): String {
+        val base = "$scheme://$host:$port"
+        return if (path.isEmpty()) base else "$base$path"
+    }
 
     private fun stripIpv6ZoneId(candidate: String): String {
         val schemePrefix = candidate.substringBefore("://", missingDelimiterValue = "")

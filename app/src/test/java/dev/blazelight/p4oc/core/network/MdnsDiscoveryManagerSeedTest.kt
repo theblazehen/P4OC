@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.core.network
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -31,11 +32,11 @@ class MdnsDiscoveryManagerSeedTest {
     }
 
     @Test
-    fun `normalizeSeed strips path query fragment`() {
+    fun `normalizeSeed preserves path and strips query fragment`() {
         val normalized = normalizeSeed(DiscoverySeed("https://example.com/foo/bar?x=1#frag"))
 
         requireNotNull(normalized)
-        assertEquals("https://example.com:4096", normalized.canonicalUrl)
+        assertEquals("https://example.com:4096/foo/bar", normalized.canonicalUrl)
     }
 
     @Test
@@ -45,11 +46,11 @@ class MdnsDiscoveryManagerSeedTest {
     }
 
     @Test
-    fun `normalizeSeed preserves ipv6 brackets`() {
+    fun `normalizeSeed preserves ipv6 brackets and path`() {
         val normalized = normalizeSeed(DiscoverySeed("http://[2001:db8::1]/foo"))
 
         requireNotNull(normalized)
-        assertEquals("http://[2001:db8::1]:4096", normalized.canonicalUrl)
+        assertEquals("http://[2001:db8::1]:4096/foo", normalized.canonicalUrl)
         assertEquals("[2001:db8::1]", normalized.host)
     }
 
@@ -152,11 +153,43 @@ class MdnsDiscoveryManagerSeedTest {
     }
 
     @Test
-    fun `endpointKey dedupes equivalent urls`() {
+    fun `endpointKey distinguishes different paths`() {
+        assertNotEquals(
+            endpointKey("http://example.com:4096/a"),
+            endpointKey("http://example.com:4096/b"),
+        )
+    }
+
+    @Test
+    fun `endpointKey still dedupes equivalent root urls`() {
         assertEquals(
             endpointKey("example.com"),
-            endpointKey("http://example.com:4096/path?x=1#frag"),
+            endpointKey("http://example.com:4096/?x=1#frag"),
         )
+    }
+
+    @Test
+    fun `mergeDiscoveredServer keeps distinct entries for same host different path`() {
+        val existing = listOf(
+            DiscoveredServer(
+                serviceName = "seed:example.com:4096:a",
+                host = "example.com",
+                port = 4096,
+                url = "http://example.com:4096/a",
+                source = DiscoverySource.SEED,
+            )
+        )
+        val incoming = DiscoveredServer(
+            serviceName = "seed:example.com:4096:b",
+            host = "example.com",
+            port = 4096,
+            url = "http://example.com:4096/b",
+            source = DiscoverySource.SEED,
+        )
+
+        val merged = mergeDiscoveredServer(existing, incoming)
+
+        assertEquals(listOf(existing.first(), incoming), merged)
     }
 
     @Test

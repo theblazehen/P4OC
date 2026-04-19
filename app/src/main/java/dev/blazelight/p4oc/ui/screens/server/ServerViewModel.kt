@@ -113,7 +113,7 @@ class ServerViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isConnecting = true, error = null) }
 
-            val url = ServerUrl.normalize(state.remoteUrl)
+            val url = ServerUrl.normalizeConnectUrl(state.remoteUrl)
             if (url == null) {
                 AppLog.w(TAG, "Invalid server URL: '${state.remoteUrl}'")
                 _uiState.update { it.copy(isConnecting = false, error = "Invalid server URL") }
@@ -167,7 +167,7 @@ class ServerViewModel constructor(
     fun connectToRecentServer(server: RecentServer) {
         // Load the password from CredentialStore (not from the RecentServer object)
         val savedPassword = credentialStore.getServerPassword(server.url)
-        val normalizedUrl = ServerUrl.normalize(server.url) ?: server.url
+        val normalizedUrl = ServerUrl.normalizeConnectUrl(server.url) ?: server.url
         _uiState.update {
             it.copy(
                 remoteUrl = normalizedUrl,
