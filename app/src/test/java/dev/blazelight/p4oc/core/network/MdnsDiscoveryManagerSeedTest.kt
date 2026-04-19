@@ -1,7 +1,9 @@
 package dev.blazelight.p4oc.core.network
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MdnsDiscoveryManagerSeedTest {
@@ -52,6 +54,14 @@ class MdnsDiscoveryManagerSeedTest {
     }
 
     @Test
+    fun `normalizeSeed carries allowInsecure from seed`() {
+        val normalized = normalizeSeed(DiscoverySeed("https://example.com", allowInsecure = true))
+
+        requireNotNull(normalized)
+        assertTrue(normalized.allowInsecure)
+    }
+
+    @Test
     fun `mergeDiscoveredServer adds when absent`() {
         val incoming = DiscoveredServer(
             serviceName = "seed:example.com:4096",
@@ -83,15 +93,16 @@ class MdnsDiscoveryManagerSeedTest {
             port = 4096,
             url = "http://example.com:4096",
             source = DiscoverySource.SEED,
+            allowInsecure = true,
         )
 
         val merged = mergeDiscoveredServer(existing, incoming)
 
-        assertEquals(existing, merged)
+        assertEquals(existing.first().copy(allowInsecure = true), merged.single())
     }
 
     @Test
-    fun `mergeDiscoveredServer replaces seed with mdns for same url`() {
+    fun `mergeDiscoveredServer replaces seed with mdns for same url and preserves allowInsecure`() {
         val existing = listOf(
             DiscoveredServer(
                 serviceName = "seed:example.com:4096",
@@ -99,6 +110,7 @@ class MdnsDiscoveryManagerSeedTest {
                 port = 4096,
                 url = "http://example.com:4096",
                 source = DiscoverySource.SEED,
+                allowInsecure = true,
             )
         )
         val incoming = DiscoveredServer(
@@ -107,11 +119,12 @@ class MdnsDiscoveryManagerSeedTest {
             port = 4096,
             url = "http://example.com:4096",
             source = DiscoverySource.MDNS,
+            allowInsecure = false,
         )
 
         val merged = mergeDiscoveredServer(existing, incoming)
 
-        assertEquals(listOf(incoming), merged)
+        assertEquals(listOf(incoming.copy(allowInsecure = true)), merged)
     }
 
     @Test
@@ -126,15 +139,36 @@ class MdnsDiscoveryManagerSeedTest {
             )
         )
         val incoming = DiscoveredServer(
-            serviceName = "seed:example.com:4096",
+            serviceName = "seed:example.com:4096-updated",
             host = "example.com",
             port = 4096,
             url = "http://example.com:4096",
             source = DiscoverySource.SEED,
-        ).copy(serviceName = "seed:example.com:4096-updated")
+        )
 
         val merged = mergeDiscoveredServer(existing, incoming)
 
         assertEquals(listOf(incoming), merged)
+    }
+
+    @Test
+    fun `endpointKey dedupes equivalent urls`() {
+        assertEquals(
+            endpointKey("example.com"),
+            endpointKey("http://example.com:4096/path?x=1#frag"),
+        )
+    }
+
+    @Test
+    fun `mdns discovered servers default to strict tls metadata`() {
+        val server = DiscoveredServer(
+            serviceName = "opencode-local",
+            host = "example.com",
+            port = 4096,
+            url = "http://example.com:4096",
+            source = DiscoverySource.MDNS,
+        )
+
+        assertFalse(server.allowInsecure)
     }
 }

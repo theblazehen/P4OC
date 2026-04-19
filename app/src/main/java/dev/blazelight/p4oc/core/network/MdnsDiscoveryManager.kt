@@ -45,6 +45,7 @@ data class DiscoveredServer(
     val port: Int,
     val url: String,
     val source: DiscoverySource = DiscoverySource.MDNS,
+    val allowInsecure: Boolean = false,
 )
 
 data class DiscoverySeed(
@@ -61,41 +62,20 @@ internal data class NormalizedSeed(
 )
 
 internal fun normalizeSeed(seed: DiscoverySeed): NormalizedSeed? {
-    val trimmed = seed.rawUrl.trim()
-    if (trimmed.isBlank()) return null
-
-    val candidate = if ("://" in trimmed) trimmed else "http://$trimmed"
-    val parsed = candidate.toHttpUrlOrNull() ?: return null
-    val scheme = parsed.scheme
-    if (scheme != "http" && scheme != "https") return null
-
-    val host = parsed.host.lowercase()
-    val formattedHost = if (':' in host) "[$host]" else host
-    val explicitPort = when {
-        candidate.substringAfter("://").startsWith("[") -> {
-            val authority = candidate.substringAfter("://").substringBefore("/").substringBefore("?").substringBefore("#")
-            authority.substringAfter("]", missingDelimiterValue = "").startsWith(":")
-        }
-        else -> candidate.substringAfter("://").substringBefore("/").substringBefore("?").substringBefore("#").contains(":")
-    }
-    val port = if (explicitPort) parsed.port else DEFAULT_SERVER_PORT
-    val canonicalUrl = "$scheme://$formattedHost:$port"
+    val canonicalUrl = ServerUrl.normalize(seed.rawUrl) ?: return null
+    val parsed = canonicalUrl.toHttpUrlOrNull() ?: return null
+    val host = if (':' in parsed.host) "[${parsed.host}]" else parsed.host
 
     return NormalizedSeed(
         canonicalUrl = canonicalUrl,
-        host = formattedHost,
-        port = port,
-        scheme = scheme,
+        host = host,
+        port = parsed.port,
+        scheme = parsed.scheme,
         allowInsecure = seed.allowInsecure,
     )
 }
 
-internal fun endpointKey(url: String): String {
-    val parsed = url.toHttpUrlOrNull() ?: return url.trim()
-    val host = parsed.host.lowercase()
-    val formattedHost = if (':' in host) "[$host]" else host
-    return "${parsed.scheme}://$formattedHost:${parsed.port}"
-}
+internal fun endpointKey(url: String): String = ServerUrl.endpointKey(url) ?: url.trim()
 
 internal fun mergeDiscoveredServer(
     existing: List<DiscoveredServer>,
@@ -106,9 +86,15 @@ internal fun mergeDiscoveredServer(
 
     val current = existing[existingIndex]
     val replacement = when {
-        current.source == DiscoverySource.SEED && incoming.source == DiscoverySource.MDNS -> incoming
-        current.source == DiscoverySource.MDNS && incoming.source == DiscoverySource.SEED -> current
-        else -> incoming
+        current.source == DiscoverySource.SEED && incoming.source == DiscoverySource.MDNS -> incoming.copy(
+            allowInsecure = current.allowInsecure || incoming.allowInsecure,
+        )
+        current.source == DiscoverySource.MDNS && incoming.source == DiscoverySource.SEED -> current.copy(
+            allowInsecure = current.allowInsecure || incoming.allowInsecure,
+        )
+        else -> incoming.copy(
+            allowInsecure = current.allowInsecure || incoming.allowInsecure,
+        )
     }
 
     return existing.toMutableList().apply { this[existingIndex] = replacement }
@@ -291,6 +277,7 @@ class MdnsDiscoveryManager(private val context: Context) {
                         port = seed.port,
                         url = seed.canonicalUrl,
                         source = DiscoverySource.SEED,
+                        allowInsecure = seed.allowInsecure,
                     )
                     AppLog.d(TAG, "Seed probe passed for ${seed.canonicalUrl}")
                     _discoveredServers.update { servers -> mergeDiscoveredServer(servers, server) }
@@ -342,13 +329,14 @@ class MdnsDiscoveryManager(private val context: Context) {
                         hostAddress
                     }
 
-                    val url = "http://$formattedHost:$port"
+                    val url = ServerUrl.normalize("http://$formattedHost:$port") ?: "http://$formattedHost:$port"
                     val server = DiscoveredServer(
                         serviceName = info.serviceName,
                         host = formattedHost,
                         port = port,
                         url = url,
                         source = DiscoverySource.MDNS,
+                        allowInsecure = false,
                     )
 
                     AppLog.d(TAG, "Resolved: ${server.serviceName} → $url")

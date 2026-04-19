@@ -12,6 +12,7 @@ import dev.blazelight.p4oc.core.network.DiscoverySeed
 import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
+import dev.blazelight.p4oc.core.network.ServerUrl
 import dev.blazelight.p4oc.core.network.SessionDataCache
 import dev.blazelight.p4oc.core.security.CredentialStore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -112,7 +113,12 @@ class ServerViewModel constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isConnecting = true, error = null) }
 
-            val url = normalizeServerUrl(state.remoteUrl)
+            val url = ServerUrl.normalize(state.remoteUrl)
+            if (url == null) {
+                AppLog.w(TAG, "Invalid server URL: '${state.remoteUrl}'")
+                _uiState.update { it.copy(isConnecting = false, error = "Invalid server URL") }
+                return@launch
+            }
             AppLog.d(TAG, "Connecting to normalized URL: $url")
             
             val config = ServerConfig(
@@ -158,34 +164,14 @@ class ServerViewModel constructor(
         }
     }
 
-    private fun normalizeServerUrl(input: String): String {
-        var url = input.trim()
-        
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "http://$url"
-        }
-        
-        val hasPort = url.substringAfter("://").contains(":")
-        if (!hasPort) {
-            val schemeEnd = url.indexOf("://") + 3
-            val pathStart = url.indexOf("/", schemeEnd)
-            url = if (pathStart == -1) {
-                "$url:4096"
-            } else {
-                "${url.substring(0, pathStart)}:4096${url.substring(pathStart)}"
-            }
-        }
-        
-        return url
-    }
-
     fun connectToRecentServer(server: RecentServer) {
         // Load the password from CredentialStore (not from the RecentServer object)
         val savedPassword = credentialStore.getServerPassword(server.url)
-        _uiState.update { 
+        val normalizedUrl = ServerUrl.normalize(server.url) ?: server.url
+        _uiState.update {
             it.copy(
-                remoteUrl = server.url,
-                username = server.username ?: "opencode",
+                remoteUrl = normalizedUrl,
+                username = server.username ?: ServerUrl.DEFAULT_USERNAME,
                 password = savedPassword ?: "",
                 allowInsecure = server.allowInsecure
             )
@@ -233,8 +219,9 @@ class ServerViewModel constructor(
         _uiState.update {
             it.copy(
                 remoteUrl = server.url,
-                username = "opencode",
-                password = ""
+                username = ServerUrl.DEFAULT_USERNAME,
+                password = "",
+                allowInsecure = server.allowInsecure
             )
         }
         connectToRemote()
