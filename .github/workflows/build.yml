@@ -19,6 +19,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Static analysis (Detekt)
+        run: ./gradlew detekt
+        continue-on-error: true
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug
+
       - name: Compile Kotlin
         run: ./gradlew :app:compileDebugKotlin
 
@@ -27,6 +34,13 @@ jobs:
 
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -46,11 +60,9 @@ jobs:
       - name: Build optimized APK
         run: ./gradlew :app:assembleGithubRelease
 
-      - name: Rename APK
-        run: mv app/build/outputs/apk/githubRelease/app-githubRelease.apk app/build/outputs/apk/githubRelease/P4OC-${{ github.ref_name }}.apk
-
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: app/build/outputs/apk/githubRelease/P4OC-${{ github.ref_name }}.apk
+          files: |
+            app/build/outputs/apk/githubRelease/*.apk
