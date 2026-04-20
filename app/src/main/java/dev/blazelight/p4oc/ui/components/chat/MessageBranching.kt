@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -353,7 +352,7 @@ fun CreateBranchDialog(
 ) {
     val theme = LocalOpenCodeTheme.current
     var branchName by remember { mutableStateOf("") }
-    val context = LocalContext.current
+    val defaultBranchName = stringResource(R.string.new_branch_default)
     
     TuiAlertDialog(
         onDismissRequest = onDismiss,
@@ -361,7 +360,7 @@ fun CreateBranchDialog(
         title = stringResource(R.string.branch_create_title),
         confirmButton = {
             TuiButton(
-                onClick = { onConfirm(branchName.ifBlank { context.getString(R.string.new_branch_default) }) },
+                onClick = { onConfirm(branchName.ifBlank { defaultBranchName }) },
                 enabled = true
             ) {
                 Text(stringResource(R.string.create))

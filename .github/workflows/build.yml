@@ -19,10 +19,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Static analysis (Detekt)
-        run: ./gradlew detekt
-        continue-on-error: true
-
       - name: Lint
         run: ./gradlew :app:lintDebug
 

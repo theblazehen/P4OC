@@ -53,6 +53,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val theme = LocalOpenCodeTheme.current
+    val githubUrl = stringResource(R.string.settings_about_github_url)
 
     Scaffold(
         containerColor = theme.background,
@@ -216,7 +217,7 @@ fun SettingsScreen(
                 }
                 dev.blazelight.p4oc.ui.components.TuiButton(
                     onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(context.getString(R.string.settings_about_github_url)))
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubUrl))
                         context.startActivity(intent)
                     }
                 ) {

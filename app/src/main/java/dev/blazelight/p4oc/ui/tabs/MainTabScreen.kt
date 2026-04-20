@@ -230,13 +230,14 @@ fun MainTabScreen(
         containerColor = theme.background,
         contentWindowInsets = WindowInsets(0),
         modifier = modifier
-    ) { _ ->
+    ) { innerPadding ->
         // We consume the status bar insets here so child Scaffolds don't double-pad.
         // The tab bar gets the status bar padding, then consumeWindowInsets tells
         // downstream composables that the status bar is already accounted for.
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(innerPadding)
                 .statusBarsPadding()
                 .consumeWindowInsets(WindowInsets.statusBars)
         ) {
