@@ -34,6 +34,7 @@ import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
 import dev.blazelight.p4oc.ui.components.chat.JumpToBottomButton
 import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
+import dev.blazelight.p4oc.ui.components.chat.QueuedMessagesStrip
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
@@ -184,8 +185,6 @@ fun ChatScreen(
                 onViewChanges = {
                     uiState.session?.id?.let { onViewSessionDiff?.invoke(it) }
                 },
-                onAbort = viewModel::abortSession,
-                isBusy = uiState.isBusy,
                 branchName = branchName,
                 todoCount = uiState.todos.count { it.status == "in_progress" || it.status == "pending" },
                 onTodos = {
@@ -203,6 +202,10 @@ fun ChatScreen(
                         .imePadding()
                         .navigationBarsPadding()
                 ) {
+                    QueuedMessagesStrip(
+                        queuedMessages = uiState.queuedMessages,
+                        onCancel = viewModel::cancelQueuedMessage
+                    )
                     ModelAgentSelectorBar(
                         availableAgents = availableAgents,
                         selectedAgent = selectedAgent,
@@ -227,8 +230,9 @@ fun ChatScreen(
                         isLoading = uiState.isSending,
                         enabled = connectionState is ConnectionState.Connected,
                         isBusy = uiState.isBusy,
-                        hasQueuedMessage = uiState.queuedMessage != null,
+                        queuedCount = uiState.queuedMessages.size,
                         onQueueMessage = viewModel::queueMessage,
+                        onAbort = viewModel::abortSession,
                         attachedFiles = attachedFiles,
                         onAttachClick = {
                             viewModel.filePickerManager.loadPickerFiles()
@@ -441,8 +445,6 @@ private fun ChatTopBar(
     onFiles: () -> Unit,
     onCommands: () -> Unit,
     onViewChanges: () -> Unit,
-    onAbort: () -> Unit,
-    isBusy: Boolean,
     branchName: String? = null,
     todoCount: Int = 0,
     onTodos: () -> Unit = {}
@@ -470,23 +472,8 @@ private fun ChatTopBar(
                         .padding(start = Spacing.xxs)
                 )
             }
-            
+
             Spacer(Modifier.width(Spacing.xs))
-            // Abort — only when busy (red ■ glyph)
-            if (isBusy) {
-                IconButton(
-                    onClick = onAbort,
-                    modifier = Modifier.size(Sizing.iconButtonMd).testTag("chat_abort_button")
-                ) {
-                    Text(
-                        text = "■",
-                        color = theme.error,
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
-            
             // Todo count — only when there are todos (TUI glyph, no rounded badge)
             if (todoCount > 0) {
                 IconButton(

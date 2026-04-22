@@ -131,6 +131,15 @@
     <string name="chat_input_placeholder">Type a message…</string>
     <string name="chat_input_placeholder_with_commands">Type a message or / for commands…</string>
     <string name="chat_send">Send</string>
+    <string name="chat_action_send">Send</string>
+    <string name="chat_action_queue">Queue message</string>
+    <string name="chat_action_stop">Stop session</string>
+    <string name="chat_action_attach">Attach file</string>
+    <string name="chat_action_queue_full">Queue full</string>
+    <string name="chat_action_queue_cancel">Cancel queued message</string>
+    <string name="chat_disabled_disconnected">Disconnected</string>
+    <string name="chat_disabled_empty">Message is empty</string>
+    <string name="chat_queued_prefix">queued</string>
     <string name="vcs_branch_prefix">◈</string>
     
     <!-- Common -->

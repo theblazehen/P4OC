@@ -2,7 +2,6 @@ package dev.blazelight.p4oc.ui.preview
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +16,11 @@ import androidx.compose.ui.graphics.RectangleShape
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.PocketCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
+import dev.blazelight.p4oc.data.remote.dto.ModelInput
+import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
+import dev.blazelight.p4oc.ui.components.chat.QueuedMessagesStrip
+import dev.blazelight.p4oc.ui.components.chat.SelectedFile
+import dev.blazelight.p4oc.ui.screens.chat.QueuedMessage
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
@@ -249,27 +253,40 @@ private fun FileItemPreview() {
 private fun ChatInputBarPreview() {
     PocketCodeTheme {
         Surface(tonalElevation = 3.dp) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(Spacing.md),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
-            ) {
-                IconButton(onClick = {}) {
-                    Icon(Icons.Default.AttachFile, contentDescription = "Attach")
-                }
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...") },
-                    maxLines = 5
+            ChatInputBar(
+                value = "Review this diff and propose a fix",
+                onValueChange = {},
+                onSend = {},
+                isLoading = false,
+                enabled = true,
+                isBusy = true,
+                queuedCount = 2,
+                onQueueMessage = {},
+                onAbort = {},
+                attachedFiles = listOf(
+                    SelectedFile("/tmp/log.txt", "log.txt")
                 )
-                FilledIconButton(onClick = {}) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
-                }
-            }
+            )
+        }
+    }
+}
+
+@Preview(name = "Queued Messages Strip", showBackground = true)
+@Composable
+private fun QueuedMessagesStripPreview() {
+    PocketCodeTheme {
+        Surface(tonalElevation = 3.dp) {
+            QueuedMessagesStrip(
+                queuedMessages = listOf(
+                    QueuedMessage(
+                        text = "Queue this follow-up once the current task finishes",
+                        attachedFiles = listOf(SelectedFile("/tmp/trace.txt", "trace.txt")),
+                        model = ModelInput(providerID = "anthropic", modelID = "claude-sonnet-4")
+                    ),
+                    QueuedMessage(text = "Also summarize the errors")
+                ),
+                onCancel = {}
+            )
         }
     }
 }

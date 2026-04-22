@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 /**
  * Slim coordinator — delegates to sub-managers for message state,
@@ -109,6 +110,7 @@ class ChatViewModel constructor(
 
     private companion object {
         const val TAG = "ChatViewModel"
+        private const val MAX_QUEUED_MESSAGES = 10
 
         /**
          * Built-in OpenCode commands that aren't returned by the /command API endpoint.
@@ -282,7 +284,7 @@ class ChatViewModel constructor(
                 if (event.sessionID == sessionId) {
                     val wasBusy = _uiState.value.isBusy
                     val isBusy = event.status is SessionStatus.Busy || event.status is SessionStatus.Retry
-                    _uiState.update { it.copy(isBusy = isBusy, isSending = if (!isBusy) false else it.isSending) }
+                    _uiState.update { it.copy(isBusy = isBusy, isSending = false) }
 
                     // Clear streaming flags when session becomes idle
                     if (wasBusy && !isBusy) {
@@ -384,6 +386,10 @@ class ChatViewModel constructor(
         val text = _uiState.value.inputText.trim()
         val attachedFiles = filePickerManager.attachedFiles.value
         if (text.isEmpty() && attachedFiles.isEmpty()) return
+        if (_uiState.value.queuedMessages.size >= MAX_QUEUED_MESSAGES) {
+            AppLog.w(TAG, "queueMessage: Queue full, ignoring new queued message")
+            return
+        }
 
         val selectedAgent = modelAgentManager.selectedAgent.value
         val selectedModel = modelAgentManager.selectedModel.value
@@ -391,7 +397,7 @@ class ChatViewModel constructor(
         _uiState.update {
             it.copy(
                 inputText = "",
-                queuedMessage = QueuedMessage(
+                queuedMessages = it.queuedMessages + QueuedMessage(
                     text = text,
                     attachedFiles = attachedFiles,
                     agent = selectedAgent,
@@ -403,21 +409,32 @@ class ChatViewModel constructor(
         AppLog.d(TAG, "queueMessage: Queued message with ${text.length} chars, ${attachedFiles.size} files")
     }
 
+    fun cancelQueuedMessage(messageId: String) {
+        _uiState.update { state ->
+            state.copy(queuedMessages = state.queuedMessages.filterNot { it.id == messageId })
+        }
+    }
+
     private fun sendQueuedMessageIfAny() {
-        val queued = _uiState.value.queuedMessage ?: return
+        val queued = _uiState.value.queuedMessages.firstOrNull() ?: return
 
         AppLog.d(TAG, "sendQueuedMessageIfAny: Sending queued message")
-        _uiState.update { it.copy(queuedMessage = null, isSending = true) }
+        _uiState.update { state ->
+            state.copy(
+                queuedMessages = state.queuedMessages.drop(1),
+                isSending = true
+            )
+        }
 
         viewModelScope.launch {
             val api = connectionManager.getApi() ?: run {
                 _uiState.update {
                     it.copy(
                         isSending = false,
-                        inputText = queued.text,
                         error = "Not connected"
                     )
                 }
+                _uiState.update { state -> state.copy(queuedMessages = listOf(queued) + state.queuedMessages) }
                 filePickerManager.restoreAttachedFiles(queued.attachedFiles)
                 return@launch
             }
@@ -438,10 +455,10 @@ class ChatViewModel constructor(
                     _uiState.update {
                         it.copy(
                             isSending = false,
-                            inputText = queued.text,
                             error = "Failed to send queued message: ${result.message}"
                         )
                     }
+                    _uiState.update { state -> state.copy(queuedMessages = listOf(queued) + state.queuedMessages) }
                     filePickerManager.restoreAttachedFiles(queued.attachedFiles)
                 }
             }
@@ -657,11 +674,12 @@ data class ChatUiState(
     val isLoadingCommands: Boolean = false,
     val todos: List<Todo> = emptyList(),
     val isLoadingTodos: Boolean = false,
-    val queuedMessage: QueuedMessage? = null,
+    val queuedMessages: List<QueuedMessage> = emptyList(),
     val abortSummary: AbortSummary? = null
 )
 
 data class QueuedMessage(
+    val id: String = UUID.randomUUID().toString(),
     val text: String,
     val attachedFiles: List<SelectedFile> = emptyList(),
     val agent: String? = null,
