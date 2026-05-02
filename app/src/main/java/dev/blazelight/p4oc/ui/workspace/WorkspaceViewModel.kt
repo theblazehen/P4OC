@@ -5,6 +5,7 @@ import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
+import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.workspace.Workspace
 
@@ -13,9 +14,10 @@ class WorkspaceViewModel(
     val workspace: Workspace,
     val generation: ServerGeneration,
     activeServerApiProvider: ActiveServerApiProvider,
+    messageMapper: MessageMapper,
 ) : ViewModel() {
     val workspaceClient: WorkspaceClient = WorkspaceClient(workspace, generation, activeServerApiProvider)
-    val sessionRepository: SessionRepositoryImpl = SessionRepositoryImpl(workspaceClient)
+    val sessionRepository: SessionRepositoryImpl = SessionRepositoryImpl(workspaceClient, messageMapper)
 
     val identityHash: Int = System.identityHashCode(this)
 

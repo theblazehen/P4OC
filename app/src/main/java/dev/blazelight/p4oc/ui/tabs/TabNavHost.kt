@@ -244,8 +244,16 @@ fun TabNavHost(
                 }
             )
         ) { backStackEntry ->
-            TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
+            val workspaceViewModel = TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             ChatScreen(
+                viewModel = koinViewModel(
+                    parameters = {
+                        parametersOf(
+                            workspaceViewModel.workspaceClient,
+                            workspaceViewModel.sessionRepository,
+                        )
+                    },
+                ),
                 onNavigateBack = { 
                     // Clear session binding when leaving chat
                     tabManager.clearTabSession(tabId)

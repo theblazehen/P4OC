@@ -4,6 +4,7 @@ import dev.blazelight.p4oc.data.session.RepoState
 import dev.blazelight.p4oc.data.session.SessionRepository
 import dev.blazelight.p4oc.data.session.Snapshot
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
+import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.session.SessionId
 import dev.blazelight.p4oc.domain.session.WorkspaceSession
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,4 +44,10 @@ class FakeSessionRepository(
         ?: state.value.snapshot.sessions[id.value]
 
     override fun acceptEvent(event: OpenCodeEvent) = Unit
+
+    override fun messages(sessionId: SessionId): StateFlow<List<MessageWithParts>> = MutableStateFlow(emptyList())
+
+    override suspend fun loadMessages(sessionId: SessionId, limit: Int?) = Unit
+
+    override suspend fun clearStreamingFlags(sessionId: SessionId) = Unit
 }

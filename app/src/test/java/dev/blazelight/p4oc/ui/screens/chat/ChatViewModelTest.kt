@@ -8,10 +8,14 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.Connection
 import dev.blazelight.p4oc.core.network.ServerConfig
-import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.OpenCodeApi
 import dev.blazelight.p4oc.core.network.OpenCodeEventSource
+import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
+import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
+import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
+import dev.blazelight.p4oc.domain.server.ServerGeneration
+import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
@@ -22,13 +26,12 @@ import dev.blazelight.p4oc.domain.model.QuestionRequest
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.SessionStatus
 import dev.blazelight.p4oc.domain.model.TokenUsage
+import dev.blazelight.p4oc.domain.workspace.Workspace
 import dev.blazelight.p4oc.ui.navigation.Screen
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkObject
-import io.mockk.runs
 import io.mockk.unmockkObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -61,11 +64,13 @@ class ChatViewModelTest {
     val mainDispatcherRule = ChatViewModelMainDispatcherRule()
 
     private lateinit var connectionManager: ConnectionManager
-    private lateinit var directoryManager: DirectoryManager
     private lateinit var messageMapper: MessageMapper
     private lateinit var settingsDataStore: SettingsDataStore
     private lateinit var eventSource: OpenCodeEventSource
     private lateinit var events: MutableSharedFlow<OpenCodeEvent>
+    private lateinit var api: OpenCodeApi
+    private lateinit var workspaceClient: WorkspaceClient
+    private lateinit var sessionRepository: SessionRepositoryImpl
 
     @Before
     fun setUp() {
@@ -82,29 +87,34 @@ class ChatViewModelTest {
         every { AppLog.e(any(), any<String>(), any()) } returns Unit
 
         connectionManager = mockk()
-        directoryManager = mockk()
         messageMapper = mockk(relaxed = true)
         settingsDataStore = mockk()
         eventSource = mockk()
         events = MutableSharedFlow(extraBufferCapacity = 32)
+        api = mockk(relaxed = true)
+        workspaceClient = WorkspaceClient(
+            workspace = Workspace(
+                server = ServerRef.fromEndpointKey("http://test.local"),
+                directory = "/test",
+            ),
+            generation = ServerGeneration(0L),
+            apiProvider = ActiveServerApiProvider { _, _ -> api },
+        )
+        sessionRepository = SessionRepositoryImpl(workspaceClient, messageMapper)
 
         every { connectionManager.connectionState } returns MutableStateFlow(ConnectionState.Disconnected)
-        every { connectionManager.getApi() } returns null
+        every { connectionManager.getApi() } returns api
         every { connectionManager.getEventSource() } returns eventSource
         every { eventSource.events } returns events
 
         // Mock connectionManager.connection with a Connection wrapping the test eventSource
         // so that observeEvents() can flatMapLatest into the events flow
-        val mockApi = mockk<OpenCodeApi>()
         val testConnection = Connection(
             config = ServerConfig.LOCAL_DEFAULT,
-            api = mockApi,
+            api = api,
             eventSource = eventSource
         )
         every { connectionManager.connection } returns MutableStateFlow(testConnection)
-
-        every { directoryManager.getDirectory() } returns null
-        every { directoryManager.setDirectory(any()) } just runs
 
         every { settingsDataStore.favoriteModels } returns flowOf(emptySet())
         every { settingsDataStore.recentModels } returns flowOf(emptyList())
@@ -117,7 +127,7 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun handleEvent_routesMessageUpdated_toMessageStore() = runTest {
+    fun handleEvent_routesMessageUpdated_toRepositoryMessages() = runTest {
         val vm = createViewModel()
         val message = assistantMessage(id = "m1", sessionId = "session-1", createdAt = 10)
 
@@ -223,8 +233,9 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun sendMessage_clearsInput_andSetsIsSending() = runTest {
+    fun sendMessage_clearsInput_andKeepsSendingUntilSseStatus() = runTest {
         val vm = createViewModel()
+        coEvery { api.sendMessageAsync(any(), any(), any()) } returns Unit
         vm.updateInput("hello")
 
         vm.sendMessage()
@@ -233,19 +244,15 @@ class ChatViewModelTest {
         // isSending is set to true synchronously before the coroutine launches
         assertTrue(vm.uiState.value.isSending)
 
-        // After coroutine runs and getApi() returns null, input is restored
         advanceUntilIdle()
-        assertEquals("hello", vm.uiState.value.inputText)
-        assertFalse(vm.uiState.value.isSending)
+        assertEquals("", vm.uiState.value.inputText)
+        assertTrue(vm.uiState.value.isSending)
     }
 
     @Test
     fun sendMessage_restoresInput_onApiError() = runTest {
         val vm = createViewModel()
 
-        // Override getApi() after init to avoid hitting unstubbed mocks during init
-        val api = mockk<OpenCodeApi>()
-        every { connectionManager.getApi() } returns api
         coEvery { api.sendMessageAsync(any(), any(), any()) } throws RuntimeException("boom")
 
         vm.updateInput("hello")
@@ -316,9 +323,6 @@ class ChatViewModelTest {
     fun abortSession_clearsStreamingFlags_andBusyState() = runTest {
         val vm = createViewModel()
 
-        // Override getApi() after init to avoid hitting unstubbed mocks during init
-        val api = mockk<OpenCodeApi>()
-        every { connectionManager.getApi() } returns api
         coEvery { api.abortSession(any(), any()) } returns true
         events.emit(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m1", sessionId = "session-1", createdAt = 1)))
         events.emit(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "Hi"), delta = null))
@@ -338,9 +342,9 @@ class ChatViewModelTest {
     private fun TestScope.createViewModel(): ChatViewModel {
         val vm = ChatViewModel(
             savedStateHandle = SavedStateHandle(mapOf(Screen.Chat.ARG_SESSION_ID to "session-1")),
+            workspaceClient = workspaceClient,
+            sessionRepository = sessionRepository,
             connectionManager = connectionManager,
-            directoryManager = directoryManager,
-            messageMapper = messageMapper,
             settingsDataStore = settingsDataStore
         )
         advanceUntilIdle()
@@ -353,7 +357,7 @@ class ChatViewModelTest {
     }
 
     private fun ChatViewModel.currentMessages(): List<MessageWithParts> =
-        messageStore.currentMessagesSnapshot()
+        messages.value
 
     private fun assistantMessage(id: String, sessionId: String, createdAt: Long): Message.Assistant {
         return Message.Assistant(

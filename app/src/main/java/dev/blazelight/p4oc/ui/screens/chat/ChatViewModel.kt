@@ -7,9 +7,10 @@ import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.ConnectionState
-import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
+import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
+import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.data.remote.dto.ExecuteCommandRequest
 import dev.blazelight.p4oc.data.remote.dto.PartInputDto
 import dev.blazelight.p4oc.data.remote.dto.PermissionResponseRequest
@@ -17,11 +18,14 @@ import dev.blazelight.p4oc.data.remote.dto.QuestionReplyRequest
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.mapper.CommandMapper
-import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.data.remote.mapper.SessionMapper
 import dev.blazelight.p4oc.data.remote.mapper.TodoMapper
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.domain.model.SessionConnectionState as TabConnectionState
+import dev.blazelight.p4oc.domain.session.SessionId
+import dev.blazelight.p4oc.domain.workspace.RelativePath
+import dev.blazelight.p4oc.domain.workspace.WorkspacePath
+import dev.blazelight.p4oc.domain.workspace.toAttachmentUrl
 import dev.blazelight.p4oc.ui.components.chat.AbortSummary
 import dev.blazelight.p4oc.ui.components.chat.InterruptedTool
 import dev.blazelight.p4oc.ui.components.chat.SelectedFile
@@ -39,15 +43,14 @@ import java.util.UUID
  */
 class ChatViewModel constructor(
     private val savedStateHandle: SavedStateHandle,
+    private val workspaceClient: WorkspaceClient,
+    private val sessionRepository: SessionRepositoryImpl,
     private val connectionManager: ConnectionManager,
-    private val directoryManager: DirectoryManager,
-    private val messageMapper: MessageMapper,
     private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
     private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)
         ?: throw IllegalArgumentException("sessionId is required for ChatViewModel")
-    private val sessionDirectory: String? = savedStateHandle.get<String>(Screen.Chat.ARG_DIRECTORY)
 
     // Child session IDs (subagent sessions whose parentID == this sessionId)
     private val childSessionIds = mutableSetOf<String>()
@@ -59,7 +62,6 @@ class ChatViewModel constructor(
     private val json = Json { ignoreUnknownKeys = true }
 
     // --- Sub-managers ---
-    val messageStore = MessageStore(sessionId, viewModelScope)
     val dialogManager = DialogQueueManager(savedStateHandle, json)
     val modelAgentManager = ModelAgentManager(connectionManager, settingsDataStore, viewModelScope)
     val filePickerManager = FilePickerManager(connectionManager, viewModelScope)
@@ -69,7 +71,7 @@ class ChatViewModel constructor(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     /** Convenience alias — ChatScreen reads this directly. */
-    val messages: StateFlow<List<MessageWithParts>> = messageStore.messages
+    val messages: StateFlow<List<MessageWithParts>> = sessionRepository.messages(SessionId(sessionId))
 
     val connectionState: StateFlow<ConnectionState> = connectionManager.connectionState
 
@@ -155,23 +157,13 @@ class ChatViewModel constructor(
 
     // --- Session lifecycle ---
 
-    private fun getDirectory(): String? =
-        sessionDirectory ?: _uiState.value.session?.directory ?: directoryManager.getDirectory()
-
     private fun loadSession() {
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(error = "Not connected") }
-                return@launch
-            }
-            val result = safeApiCall { api.getSession(sessionId, sessionDirectory ?: directoryManager.getDirectory()) }
+            val result = safeApiCall { workspaceClient.getSession(sessionId) }
             when (result) {
                 is ApiResult.Success -> {
                     val session = SessionMapper.mapToDomain(result.data)
                     _uiState.update { it.copy(session = session) }
-                    if (sessionDirectory == null && session.directory.isNotBlank()) {
-                        directoryManager.setDirectory(session.directory)
-                    }
                     // Reload VCS now that we have the canonical session directory
                     loadVcsInfo()
                 }
@@ -187,19 +179,11 @@ class ChatViewModel constructor(
             _uiState.update { it.copy(isLoading = true) }
             AppLog.d(TAG, "loadMessages() called for session: $sessionId")
 
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
-                return@launch
-            }
-
-            val directory = getDirectory()
-            val result = safeApiCall { api.getMessages(sessionId, limit = null, directory = directory) }
+            val result = safeApiCall { sessionRepository.loadMessages(SessionId(sessionId), limit = null) }
 
             when (result) {
                 is ApiResult.Success -> {
-                    AppLog.d(TAG, "Loaded ${result.data.size} messages")
-                    val mapped = result.data.map { dto -> messageMapper.mapWrapperToDomain(dto) }
-                    messageStore.loadInitial(mapped)
+                    AppLog.d(TAG, "Loaded ${messages.value.size} messages")
                     _uiState.update { it.copy(isLoading = false) }
                 }
                 is ApiResult.Error -> {
@@ -214,9 +198,7 @@ class ChatViewModel constructor(
 
     private fun loadVcsInfo() {
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
-            val directory = getDirectory()
-            when (val result = safeApiCall { api.getVcsInfo(directory) }) {
+            when (val result = safeApiCall { workspaceClient.getVcsInfo() }) {
                 is ApiResult.Success -> _branchName.value = result.data.branch
                 is ApiResult.Error -> AppLog.w(TAG, "Failed to load VCS info: ${result.message}")
             }
@@ -247,22 +229,22 @@ class ChatViewModel constructor(
         when (event) {
             is OpenCodeEvent.MessageUpdated -> {
                 if (event.message.sessionID == sessionId) {
-                    messageStore.upsertMessage(event.message)
+                    sessionRepository.acceptEvent(event)
                 }
             }
             is OpenCodeEvent.MessagePartUpdated -> {
                 if (event.part.sessionID == sessionId) {
-                    messageStore.upsertPart(event.part, event.delta)
+                    sessionRepository.acceptEvent(event)
                 }
             }
             is OpenCodeEvent.MessageRemoved -> {
                 if (event.sessionID == sessionId) {
-                    messageStore.removeMessage(event.messageID)
+                    sessionRepository.acceptEvent(event)
                 }
             }
             is OpenCodeEvent.PartRemoved -> {
                 if (event.sessionID == sessionId) {
-                    messageStore.removePart(event.messageID, event.partID)
+                    sessionRepository.acceptEvent(event)
                 }
             }
             is OpenCodeEvent.PermissionRequested -> {
@@ -288,7 +270,7 @@ class ChatViewModel constructor(
 
                     // Clear streaming flags when session becomes idle
                     if (wasBusy && !isBusy) {
-                        viewModelScope.launch { messageStore.clearStreamingFlags() }
+                        viewModelScope.launch { sessionRepository.clearStreamingFlags(SessionId(sessionId)) }
                         _hasUnreadResponse.value = true
                     }
 
@@ -318,7 +300,7 @@ class ChatViewModel constructor(
             is OpenCodeEvent.SessionIdle -> {
                 if (event.sessionID == sessionId) {
                     AppLog.d(TAG, "Session became idle")
-                    viewModelScope.launch { messageStore.clearStreamingFlags() }
+                    viewModelScope.launch { sessionRepository.clearStreamingFlags(SessionId(sessionId)) }
                     _uiState.update { it.copy(isBusy = false, isSending = false) }
                     sendQueuedMessageIfAny()
                 }
@@ -350,12 +332,6 @@ class ChatViewModel constructor(
         filePickerManager.clearAttachedFiles()
 
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isSending = false, inputText = text, error = "Not connected") }
-                filePickerManager.restoreAttachedFiles(attachedFiles)
-                return@launch
-            }
-
             val parts = buildPartInputs(text, attachedFiles)
             val request = SendMessageRequest(
                 parts = parts,
@@ -363,7 +339,7 @@ class ChatViewModel constructor(
                 model = selectedModel
             )
 
-            val result = safeApiCall { api.sendMessageAsync(sessionId, request, getDirectory()) }
+            val result = safeApiCall { workspaceClient.sendMessageAsync(sessionId, request) }
             when (result) {
                 is ApiResult.Success -> {
                     AppLog.d(TAG, "sendMessage: Async call succeeded, waiting for SSE events")
@@ -427,18 +403,6 @@ class ChatViewModel constructor(
         }
 
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update {
-                    it.copy(
-                        isSending = false,
-                        error = "Not connected"
-                    )
-                }
-                _uiState.update { state -> state.copy(queuedMessages = listOf(queued) + state.queuedMessages) }
-                filePickerManager.restoreAttachedFiles(queued.attachedFiles)
-                return@launch
-            }
-
             val parts = buildPartInputs(queued.text, queued.attachedFiles)
             val request = SendMessageRequest(
                 parts = parts,
@@ -446,7 +410,7 @@ class ChatViewModel constructor(
                 model = queued.model
             )
 
-            val result = safeApiCall { api.sendMessageAsync(sessionId, request, getDirectory()) }
+            val result = safeApiCall { workspaceClient.sendMessageAsync(sessionId, request) }
             when (result) {
                 is ApiResult.Success -> {
                     AppLog.d(TAG, "sendQueuedMessageIfAny: Queued message sent successfully")
@@ -474,7 +438,7 @@ class ChatViewModel constructor(
             parts.add(PartInputDto(
                 type = "file",
                 filename = file.name,
-                url = "file://${file.path}"
+                url = WorkspacePath.Relative(RelativePath(file.path)).toAttachmentUrl()
             ))
         }
         return parts
@@ -484,18 +448,16 @@ class ChatViewModel constructor(
 
     fun respondToPermission(permissionId: String, response: String) {
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
             val request = PermissionResponseRequest(reply = response)
-            safeApiCall { api.respondToPermission(permissionId, request, getDirectory()) }
+            safeApiCall { workspaceClient.respondToPermission(permissionId, request) }
             dialogManager.clearPermission(permissionId)
         }
     }
 
     fun respondToQuestion(requestId: String, answers: List<List<String>>) {
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
             val request = QuestionReplyRequest(answers = answers)
-            safeApiCall { api.respondToQuestion(requestId, request, getDirectory()) }
+            safeApiCall { workspaceClient.respondToQuestion(requestId, request) }
             dialogManager.clearQuestion()
         }
     }
@@ -509,11 +471,7 @@ class ChatViewModel constructor(
     fun loadCommands() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCommands = true) }
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isLoadingCommands = false, error = "Not connected") }
-                return@launch
-            }
-            val result = safeApiCall { api.listCommands(getDirectory()) }
+            val result = safeApiCall { workspaceClient.listCommands() }
             when (result) {
                 is ApiResult.Success -> {
                     AppLog.d(TAG, "loadCommands: Got ${result.data.size} commands from API")
@@ -537,15 +495,11 @@ class ChatViewModel constructor(
     fun executeCommand(commandName: String, arguments: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSending = true) }
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isSending = false, error = "Not connected") }
-                return@launch
-            }
             val request = ExecuteCommandRequest(
                 command = commandName,
                 arguments = arguments
             )
-            val result = safeApiCall { api.executeCommand(sessionId, request, getDirectory()) }
+            val result = safeApiCall { workspaceClient.executeCommand(sessionId, request) }
             when (result) {
                 is ApiResult.Success -> {
                     _uiState.update { it.copy(isSending = false, isBusy = true) }
@@ -562,11 +516,7 @@ class ChatViewModel constructor(
     fun loadTodos() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingTodos = true) }
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isLoadingTodos = false) }
-                return@launch
-            }
-            val result = safeApiCall { api.getSessionTodos(sessionId, getDirectory()) }
+            val result = safeApiCall { workspaceClient.getSessionTodos(sessionId) }
             when (result) {
                 is ApiResult.Success -> {
                     val todos = result.data.map { TodoMapper.mapToDomain(it) }
@@ -583,9 +533,8 @@ class ChatViewModel constructor(
 
     fun revertMessage(messageId: String) {
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
             val request = dev.blazelight.p4oc.data.remote.dto.RevertSessionRequest(messageID = messageId)
-            val result = safeApiCall { api.revertSession(sessionId, request, getDirectory()) }
+            val result = safeApiCall { workspaceClient.revertSession(sessionId, request) }
             when (result) {
                 is ApiResult.Success -> {
                     loadSession()  // Refresh to get updated revert state
@@ -599,8 +548,7 @@ class ChatViewModel constructor(
 
     fun unrevertSession() {
         viewModelScope.launch {
-            val api = connectionManager.getApi() ?: return@launch
-            val result = safeApiCall { api.unrevertSession(sessionId, getDirectory()) }
+            val result = safeApiCall { workspaceClient.unrevertSession(sessionId) }
             when (result) {
                 is ApiResult.Success -> {
                     loadSession()  // Refresh to clear revert state
@@ -619,15 +567,14 @@ class ChatViewModel constructor(
             // Snapshot state BEFORE clearing flags
             val summary = buildAbortSummary()
 
-            val api = connectionManager.getApi() ?: return@launch
-            safeApiCall { api.abortSession(sessionId, getDirectory()) }
-            messageStore.clearStreamingFlags()
+            safeApiCall { workspaceClient.abortSession(sessionId) }
+            sessionRepository.clearStreamingFlags(SessionId(sessionId))
             _uiState.update { it.copy(isBusy = false, isSending = false, abortSummary = summary) }
         }
     }
 
     private suspend fun buildAbortSummary(): AbortSummary {
-        val snapshot = messageStore.snapshotMessages()
+        val snapshot = messages.value
 
         val runningTools = snapshot
             .flatMap { it.parts }

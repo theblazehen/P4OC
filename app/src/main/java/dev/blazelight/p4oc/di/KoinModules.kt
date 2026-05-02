@@ -105,9 +105,10 @@ val viewModelModule = module {
             workspace = params.get<Workspace>(),
             generation = params.get<ServerGeneration>(),
             activeServerApiProvider = get(),
+            messageMapper = get(),
         )
     }
-    viewModel { params -> ChatViewModel(params.get(), get(), get(), get(), get()) }
+    viewModel { params -> ChatViewModel(params.get(), params.get(), params.get(), get(), get()) }
     viewModel { params -> TerminalViewModel(params.get(), androidContext(), get(), get()) }
 }
 

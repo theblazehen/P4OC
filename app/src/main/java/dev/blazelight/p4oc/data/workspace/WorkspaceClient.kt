@@ -5,13 +5,18 @@ import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.ExecuteCommandRequest
 import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.InitSessionRequest
+import dev.blazelight.p4oc.data.remote.dto.PermissionResponseRequest
 import dev.blazelight.p4oc.data.remote.dto.MessageWrapperDto
+import dev.blazelight.p4oc.data.remote.dto.QuestionReplyRequest
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.dto.RevertSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.dto.SessionDto
 import dev.blazelight.p4oc.data.remote.dto.SessionStatusDto
 import dev.blazelight.p4oc.data.remote.dto.ShellCommandRequest
+import dev.blazelight.p4oc.data.remote.dto.CommandDto
+import dev.blazelight.p4oc.data.remote.dto.TodoDto
+import dev.blazelight.p4oc.data.remote.dto.VcsInfoDto
 import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.domain.server.ServerGeneration
@@ -40,6 +45,8 @@ class WorkspaceClient(
 
     override suspend fun getSession(id: String): SessionDto = api.getSession(id, directory)
 
+    suspend fun getVcsInfo(): VcsInfoDto = api.getVcsInfo(directory)
+
     override suspend fun deleteSession(id: String, directory: String?): Boolean = api.deleteSession(id, directory)
 
     override suspend fun updateSession(id: String, request: UpdateSessionRequest, directory: String?): SessionDto =
@@ -48,6 +55,8 @@ class WorkspaceClient(
     override suspend fun getSessionStatuses(directory: String?): Map<String, SessionStatusDto> = api.getSessionStatuses(directory)
 
     suspend fun abortSession(id: String): Boolean = api.abortSession(id, directory)
+
+    suspend fun getSessionTodos(id: String): List<TodoDto> = api.getSessionTodos(id, directory)
 
     suspend fun forkSession(id: String, request: ForkSessionRequest): SessionDto =
         api.forkSession(id, request, directory)
@@ -72,6 +81,14 @@ class WorkspaceClient(
     suspend fun sendMessageAsync(sessionId: String, request: SendMessageRequest) {
         api.sendMessageAsync(sessionId, request, directory)
     }
+
+    suspend fun respondToPermission(requestId: String, request: PermissionResponseRequest): Boolean =
+        api.respondToPermission(requestId, request, directory)
+
+    suspend fun respondToQuestion(requestId: String, request: QuestionReplyRequest): Boolean =
+        api.respondToQuestion(requestId, request, directory)
+
+    suspend fun listCommands(): List<CommandDto> = api.listCommands(directory)
 
     suspend fun executeCommand(sessionId: String, request: ExecuteCommandRequest): MessageWrapperDto =
         api.executeCommand(sessionId, request, directory)
