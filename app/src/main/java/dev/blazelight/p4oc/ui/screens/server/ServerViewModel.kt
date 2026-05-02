@@ -13,7 +13,6 @@ import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
 import dev.blazelight.p4oc.core.network.ServerUrl
-import dev.blazelight.p4oc.core.network.SessionDataCache
 import dev.blazelight.p4oc.core.security.CredentialStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +29,6 @@ class ServerViewModel constructor(
     private val directoryManager: DirectoryManager,
     private val credentialStore: CredentialStore,
     private val mdnsDiscoveryManager: MdnsDiscoveryManager,
-    private val sessionDataCache: SessionDataCache,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUiState())
@@ -67,7 +65,6 @@ class ServerViewModel constructor(
             result.fold(
                 onSuccess = { projects ->
                     AppLog.d(TAG, "Auto-reconnect successful")
-                    sessionDataCache.prewarm(projects)
                     initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },
@@ -145,7 +142,6 @@ class ServerViewModel constructor(
                         password = password,
                         allowInsecure = state.allowInsecure
                     )
-                    sessionDataCache.prewarm(projects)
                     initializeProjectContext()
                     _uiState.update { it.copy(isConnecting = false, isConnected = true) }
                 },

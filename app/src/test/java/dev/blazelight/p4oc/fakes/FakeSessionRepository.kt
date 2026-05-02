@@ -3,6 +3,7 @@ package dev.blazelight.p4oc.fakes
 import dev.blazelight.p4oc.data.session.RepoState
 import dev.blazelight.p4oc.data.session.SessionRepository
 import dev.blazelight.p4oc.data.session.Snapshot
+import dev.blazelight.p4oc.domain.model.OpenCodeEvent
 import dev.blazelight.p4oc.domain.session.SessionId
 import dev.blazelight.p4oc.domain.session.WorkspaceSession
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,4 +41,6 @@ class FakeSessionRepository(
 
     override suspend fun getSession(id: SessionId): WorkspaceSession? = getSessionOverride?.invoke(id)
         ?: state.value.snapshot.sessions[id.value]
+
+    override fun acceptEvent(event: OpenCodeEvent) = Unit
 }

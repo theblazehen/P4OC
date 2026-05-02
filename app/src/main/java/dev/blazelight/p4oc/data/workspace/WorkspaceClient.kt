@@ -25,33 +25,27 @@ class WorkspaceClient(
     private val api: OpenCodeApi = apiProvider.apiFor(workspace.server, generation)
     private val directory: String? = workspace.directory
 
-    suspend fun listProjects(): List<ProjectDto> = api.listProjects()
+    override suspend fun listProjects(): List<ProjectDto> = api.listProjects()
 
-    override suspend fun listSessions(): List<SessionDto> = listSessions(
-        roots = null,
-        start = null,
-        search = null,
-        limit = null,
-    )
-
-    suspend fun listSessions(
-        roots: Boolean? = null,
-        start: Long? = null,
-        search: String? = null,
-        limit: Int? = null,
+    override suspend fun listSessions(
+        directory: String?,
+        roots: Boolean?,
+        start: Long?,
+        search: String?,
+        limit: Int?,
     ): List<SessionDto> = api.listSessions(directory, roots, start, search, limit)
 
-    suspend fun createSession(request: CreateSessionRequest): SessionDto =
+    override suspend fun createSession(request: CreateSessionRequest, directory: String?): SessionDto =
         api.createSession(directory = directory, request = request)
 
     override suspend fun getSession(id: String): SessionDto = api.getSession(id, directory)
 
-    suspend fun deleteSession(id: String): Boolean = api.deleteSession(id, directory)
+    override suspend fun deleteSession(id: String, directory: String?): Boolean = api.deleteSession(id, directory)
 
-    suspend fun updateSession(id: String, request: UpdateSessionRequest): SessionDto =
+    override suspend fun updateSession(id: String, request: UpdateSessionRequest, directory: String?): SessionDto =
         api.updateSession(id, request, directory)
 
-    suspend fun getSessionStatuses(): Map<String, SessionStatusDto> = api.getSessionStatuses(directory)
+    override suspend fun getSessionStatuses(directory: String?): Map<String, SessionStatusDto> = api.getSessionStatuses(directory)
 
     suspend fun abortSession(id: String): Boolean = api.abortSession(id, directory)
 
@@ -61,9 +55,11 @@ class WorkspaceClient(
     suspend fun initSession(id: String, request: InitSessionRequest): Boolean =
         api.initSession(id, request, directory)
 
-    suspend fun shareSession(id: String): SessionDto = api.shareSession(id, directory)
+    override suspend fun shareSession(id: String, directory: String?): SessionDto = api.shareSession(id, directory)
 
-    suspend fun unshareSession(id: String): SessionDto = api.unshareSession(id, directory)
+    override suspend fun unshareSession(id: String, directory: String?): SessionDto = api.unshareSession(id, directory)
+
+    override suspend fun summarizeSession(id: String, directory: String?): Boolean = api.summarizeSession(id, directory)
 
     suspend fun revertSession(id: String, request: RevertSessionRequest): SessionDto =
         api.revertSession(id, request, directory)

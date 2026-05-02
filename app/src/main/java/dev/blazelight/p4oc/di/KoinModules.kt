@@ -6,7 +6,6 @@ import dev.blazelight.p4oc.core.security.CredentialStore
 import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.PtyWebSocketClient
-import dev.blazelight.p4oc.core.network.SessionDataCache
 import dev.blazelight.p4oc.core.notification.NotificationEventObserver
 import dev.blazelight.p4oc.core.notification.NotificationHelper
 
@@ -19,7 +18,6 @@ import dev.blazelight.p4oc.domain.workspace.Workspace
 import dev.blazelight.p4oc.ui.screens.chat.ChatViewModel
 import dev.blazelight.p4oc.ui.screens.files.FilesViewModel
 import dev.blazelight.p4oc.ui.screens.server.ServerViewModel
-import dev.blazelight.p4oc.ui.screens.sessions.SessionListViewModel
 import dev.blazelight.p4oc.ui.screens.settings.AgentsConfigViewModel
 import dev.blazelight.p4oc.ui.screens.settings.ModelControlsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.SkillsViewModel
@@ -73,7 +71,6 @@ val networkModule = module {
     single { MdnsDiscoveryManager(androidContext()) }
     factory { PtyWebSocketClient(get()) }
     single { ConnectionManager(get(), get(), get()) }
-    single { SessionDataCache(get()) }
     single<ActiveServerApiProvider> {
         val connectionManager: ConnectionManager = get()
         ActiveServerApiProvider { serverRef, generation ->
@@ -94,7 +91,6 @@ val networkModule = module {
 val viewModelModule = module {
     viewModelOf(::FilesViewModel)
     viewModelOf(::ServerViewModel)
-    viewModelOf(::SessionListViewModel)
     viewModelOf(::ModelControlsViewModel)
     viewModelOf(::AgentsConfigViewModel)
     viewModelOf(::VisualSettingsViewModel)

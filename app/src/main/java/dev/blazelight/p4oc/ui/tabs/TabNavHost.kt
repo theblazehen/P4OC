@@ -40,6 +40,7 @@ import dev.blazelight.p4oc.ui.screens.files.FileExplorerScreen
 import dev.blazelight.p4oc.ui.screens.files.FileViewerScreen
 import dev.blazelight.p4oc.ui.screens.projects.ProjectsScreen
 import dev.blazelight.p4oc.ui.screens.sessions.SessionListScreen
+import dev.blazelight.p4oc.ui.screens.sessions.SessionListViewModel
 import dev.blazelight.p4oc.ui.screens.settings.*
 import dev.blazelight.p4oc.ui.screens.terminal.TerminalScreen
 
@@ -156,8 +157,9 @@ fun TabNavHost(
         ) {
         // Sessions list (start destination for new tabs)
         composable(Screen.Sessions.route) { backStackEntry ->
-            TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
+            val workspaceViewModel = TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             SessionListScreen(
+                viewModel = remember(workspaceViewModel) { SessionListViewModel(workspaceViewModel.sessionRepository) },
                 onSessionClick = { sessionId, directory ->
                     // Check if session already open in another tab
                     val existingTab = tabManager.findTabBySessionId(sessionId)
@@ -196,9 +198,10 @@ fun TabNavHost(
                 }
             )
         ) { backStackEntry ->
-            TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
+            val workspaceViewModel = TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             val projectId = backStackEntry.arguments?.getString(Screen.SessionsFiltered.ARG_PROJECT_ID) ?: ""
             SessionListScreen(
+                viewModel = remember(workspaceViewModel) { SessionListViewModel(workspaceViewModel.sessionRepository) },
                 filterProjectId = projectId,
                 onSessionClick = { sessionId, directory ->
                     val existingTab = tabManager.findTabBySessionId(sessionId)
@@ -458,7 +461,7 @@ private fun TouchWorkspaceViewModel(
     workspace: Workspace,
     generation: ServerGeneration,
     destinationRoute: String?,
-) {
+): WorkspaceViewModel {
     val viewModel = workspaceViewModelForTab(
         navController = navController,
         workspaceRoute = workspaceRoute,
@@ -469,6 +472,7 @@ private fun TouchWorkspaceViewModel(
     LaunchedEffect(viewModel, destinationRoute) {
         viewModel.touch(destinationRoute)
     }
+    return viewModel
 }
 
 @Composable
