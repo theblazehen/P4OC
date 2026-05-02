@@ -19,12 +19,12 @@ interface OpenCodeApi {
 
     @GET("vcs")
     suspend fun getVcsInfo(
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): VcsInfoDto
 
     @GET("session")
     suspend fun listSessions(
-        @Query("directory") directory: String? = null,
+        @Query("directory") directory: String?,
         @Query("roots") roots: Boolean? = null,
         @Query("start") start: Long? = null,
         @Query("search") search: String? = null,
@@ -33,116 +33,116 @@ interface OpenCodeApi {
 
     @POST("session")
     suspend fun createSession(
-        @Query("directory") directory: String? = null,
+        @Query("directory") directory: String?,
         @Body request: CreateSessionRequest
     ): SessionDto
 
     @GET("session/{id}")
     suspend fun getSession(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): SessionDto
 
     @DELETE("session/{id}")
     suspend fun deleteSession(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): Boolean
 
     @PATCH("session/{id}")
     suspend fun updateSession(
         @Path("id") id: String,
         @Body request: UpdateSessionRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): SessionDto
 
     @GET("session/status")
     suspend fun getSessionStatuses(
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): Map<String, SessionStatusDto>
 
     @POST("session/{id}/abort")
     suspend fun abortSession(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): Boolean
 
     @POST("session/{id}/fork")
     suspend fun forkSession(
         @Path("id") id: String,
         @Body request: ForkSessionRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): SessionDto
 
     @GET("session/{id}/children")
     suspend fun getSessionChildren(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): List<SessionDto>
 
     @GET("session/{id}/todo")
     suspend fun getSessionTodos(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): List<TodoDto>
 
     @POST("session/{id}/init")
     suspend fun initSession(
         @Path("id") id: String,
         @Body request: InitSessionRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): Boolean
 
     @POST("session/{id}/share")
     suspend fun shareSession(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): SessionDto
 
     @DELETE("session/{id}/share")
     suspend fun unshareSession(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): SessionDto
 
     @GET("session/{id}/diff")
     suspend fun getSessionDiff(
         @Path("id") id: String,
         @Query("messageID") messageID: String? = null,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): List<FileDiffDto>
 
     @POST("session/{id}/summarize")
     suspend fun summarizeSession(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): Boolean
 
     @POST("session/{id}/revert")
     suspend fun revertSession(
         @Path("id") id: String,
         @Body request: RevertSessionRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): SessionDto
 
     @POST("session/{id}/unrevert")
     suspend fun unrevertSession(
         @Path("id") id: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): SessionDto
 
     @GET("session/{sessionId}/message")
     suspend fun getMessages(
         @Path("sessionId") sessionId: String,
         @Query("limit") limit: Int? = null,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): List<MessageWrapperDto>
 
     @GET("session/{sessionId}/message/{messageId}")
     suspend fun getMessage(
         @Path("sessionId") sessionId: String,
         @Path("messageId") messageId: String,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): MessageWrapperDto
 
     /**
@@ -154,28 +154,28 @@ interface OpenCodeApi {
     suspend fun sendMessageAsync(
         @Path("sessionId") sessionId: String,
         @Body request: SendMessageRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     )
 
     @POST("session/{sessionId}/command")
     suspend fun executeCommand(
         @Path("sessionId") sessionId: String,
         @Body request: ExecuteCommandRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): MessageWrapperDto
 
     @POST("session/{sessionId}/shell")
     suspend fun executeShellCommand(
         @Path("sessionId") sessionId: String,
         @Body request: ShellCommandRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): MessageWrapperDto
 
     @POST("permission/{requestId}/reply")
     suspend fun respondToPermission(
         @Path("requestId") requestId: String,
         @Body request: PermissionResponseRequest,
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): Boolean
 
     @POST("question/{requestId}/reply")
@@ -187,7 +187,7 @@ interface OpenCodeApi {
 
     @GET("command")
     suspend fun listCommands(
-        @Query("directory") directory: String? = null
+        @Query("directory") directory: String?
     ): List<CommandDto>
 
     @GET("file")
