@@ -37,19 +37,19 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
+import dev.blazelight.p4oc.domain.workspace.WorkspacePathParser
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileExplorerScreen(
-    viewModel: FilesViewModel = koinViewModel(),
+    viewModel: FilesViewModel,
     onFileClick: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -215,9 +215,7 @@ fun FileExplorerScreen(
                             SymbolResultItem(
                                 symbol = symbol,
                                 onClick = {
-                                    // Extract file path from URI (strip file:// prefix)
-                                    val filePath = symbol.uri.removePrefix("file://")
-                                    onFileClick(filePath)
+                                    onFileClick(WorkspacePathParser.parseFromServer(symbol.uri).value)
                                 }
                             )
                         }
@@ -310,7 +308,7 @@ private fun BreadcrumbNavigation(
                 color = theme.textMuted
             )
             
-            currentPath = if (currentPath.isEmpty()) "/$part" else "$currentPath/$part"
+            currentPath = if (currentPath.isEmpty()) part else "$currentPath/$part"
             val pathToNavigate = currentPath
             
             Surface(

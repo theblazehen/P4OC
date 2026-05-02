@@ -3,6 +3,10 @@ package dev.blazelight.p4oc.data.workspace
 import dev.blazelight.p4oc.core.network.OpenCodeApi
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.ExecuteCommandRequest
+import dev.blazelight.p4oc.data.remote.dto.FileContentDto
+import dev.blazelight.p4oc.data.remote.dto.FileDiffDto
+import dev.blazelight.p4oc.data.remote.dto.FileNodeDto
+import dev.blazelight.p4oc.data.remote.dto.FileStatusDto
 import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.InitSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.PermissionResponseRequest
@@ -15,6 +19,7 @@ import dev.blazelight.p4oc.data.remote.dto.SessionDto
 import dev.blazelight.p4oc.data.remote.dto.SessionStatusDto
 import dev.blazelight.p4oc.data.remote.dto.ShellCommandRequest
 import dev.blazelight.p4oc.data.remote.dto.CommandDto
+import dev.blazelight.p4oc.data.remote.dto.SymbolDto
 import dev.blazelight.p4oc.data.remote.dto.TodoDto
 import dev.blazelight.p4oc.data.remote.dto.VcsInfoDto
 import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
@@ -75,6 +80,9 @@ class WorkspaceClient(
 
     suspend fun unrevertSession(id: String): SessionDto = api.unrevertSession(id, directory)
 
+    suspend fun getSessionDiff(id: String, messageId: String? = null): List<FileDiffDto> =
+        api.getSessionDiff(id, messageId, directory)
+
     suspend fun getMessages(sessionId: String, limit: Int? = null): List<MessageWrapperDto> =
         api.getMessages(sessionId, limit, directory)
 
@@ -95,4 +103,12 @@ class WorkspaceClient(
 
     suspend fun executeShellCommand(sessionId: String, request: ShellCommandRequest): MessageWrapperDto =
         api.executeShellCommand(sessionId, request, directory)
+
+    suspend fun listFiles(path: String): List<FileNodeDto> = api.listFiles(path)
+
+    suspend fun readFile(path: String): FileContentDto = api.readFile(path)
+
+    suspend fun getFileStatus(): List<FileStatusDto> = api.getFileStatus()
+
+    suspend fun searchSymbols(query: String): List<SymbolDto> = api.searchSymbols(query)
 }

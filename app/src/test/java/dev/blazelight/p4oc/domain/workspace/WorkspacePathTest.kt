@@ -18,6 +18,7 @@ class WorkspacePathTest {
             "src/My File.kt",
             "docs/ümlaut/こんにちは.md",
             "./a..b/.hidden file.txt",
+            "src/a?b#c.kt",
         )
 
         paths.forEach { rawPath ->
@@ -28,8 +29,28 @@ class WorkspacePathTest {
     }
 
     @Test
+    fun `server symbol uri parses encoded path query and fragment characters`() {
+        val uri = "file://src/My%20File%3F%23.kt"
+
+        assertEquals(
+            WorkspacePath.Relative(RelativePath("src/My File?#.kt")),
+            WorkspacePathParser.parseFromServer(uri),
+        )
+    }
+
+    @Test
+    fun `server symbol uri preserves unencoded query and fragment as path characters`() {
+        val uri = "file://src/My%20File.kt?symbol%3Fquery#heading%23one"
+
+        assertEquals(
+            WorkspacePath.Relative(RelativePath("src/My File.kt?symbol?query#heading#one")),
+            WorkspacePathParser.parseFromServer(uri),
+        )
+    }
+
+    @Test
     fun `relative workspace path rejects invalid server values`() {
-        listOf("", "   ", "/absolute/path", "file:///tmp/file.txt").forEach { value ->
+        listOf("", "   ", "/absolute/path").forEach { value ->
             assertThrows(IllegalArgumentException::class.java) {
                 WorkspacePathAttachmentCodec.parseFromServer(value)
             }

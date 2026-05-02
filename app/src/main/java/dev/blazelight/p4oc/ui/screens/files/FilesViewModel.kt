@@ -3,9 +3,9 @@ package dev.blazelight.p4oc.ui.screens.files
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.network.ApiResult
-import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.mapper.SymbolMapper
+import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
 import kotlinx.coroutines.Job
@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 
 class FilesViewModel constructor(
-    private val connectionManager: ConnectionManager
+    private val workspaceClient: WorkspaceClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FilesUiState())
@@ -31,11 +31,11 @@ class FilesViewModel constructor(
     private var loadContentJob: Job? = null
 
     init {
-        loadFiles(".")
+        loadFiles(ROOT_PATH)
     }
 
     fun refresh() {
-        loadFiles(_uiState.value.currentPath.ifBlank { "." })
+        loadFiles(_uiState.value.currentPath)
     }
 
     fun navigateTo(path: String) {
@@ -44,22 +44,18 @@ class FilesViewModel constructor(
     }
 
     fun navigateUp() {
-        val previousPath = pathStack.removeLastOrNull() ?: "."
-        loadFiles(previousPath.ifBlank { "." })
+        val previousPath = pathStack.removeLastOrNull() ?: ROOT_PATH
+        loadFiles(previousPath)
     }
 
     private fun loadFiles(path: String) {
+        val canonicalPath = path.canonicalFilePath()
         loadFilesJob?.cancel()
         loadFilesJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
-                return@launch
-            }
             
-            val filesResult = safeApiCall { api.listFiles(path) }
-            val statusResult = safeApiCall { api.getFileStatus() }
+            val filesResult = safeApiCall { workspaceClient.listFiles(canonicalPath.ifBlank { "." }) }
+            val statusResult = safeApiCall { workspaceClient.getFileStatus() }
             
             val statusMap = when (statusResult) {
                 is ApiResult.Success -> statusResult.data.associateBy { it.path }
@@ -83,7 +79,7 @@ class FilesViewModel constructor(
                         it.copy(
                             isLoading = false,
                             files = files,
-                            currentPath = if (path == ".") "" else path
+                            currentPath = canonicalPath
                         )
                     }
                 }
@@ -100,8 +96,7 @@ class FilesViewModel constructor(
         viewModelScope.launch {
             _symbolResults.value = emptyList()
             if (query.isBlank()) return@launch
-            val api = connectionManager.getApi() ?: return@launch
-            val result = safeApiCall { api.searchSymbols(query) }
+            val result = safeApiCall { workspaceClient.searchSymbols(query) }
             when (result) {
                 is ApiResult.Success -> {
                     _symbolResults.value = result.data.map { SymbolMapper.mapToDomain(it) }
@@ -112,15 +107,11 @@ class FilesViewModel constructor(
     }
 
     fun loadFileContent(path: String) {
+        val canonicalPath = path.canonicalFilePath()
         loadContentJob?.cancel()
         loadContentJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, fileContent = null, error = null) }
-
-            val api = connectionManager.getApi() ?: run {
-                _uiState.update { it.copy(isLoading = false, error = "Not connected") }
-                return@launch
-            }
-            val result = safeApiCall { api.readFile(path) }
+            val result = safeApiCall { workspaceClient.readFile(canonicalPath) }
 
             when (result) {
                 is ApiResult.Success -> {
@@ -136,6 +127,10 @@ class FilesViewModel constructor(
             }
         }
     }
+
+    private companion object {
+        const val ROOT_PATH = ""
+    }
 }
 
 data class FilesUiState(
@@ -145,3 +140,7 @@ data class FilesUiState(
     val fileContent: String? = null,
     val error: String? = null
 )
+
+private fun String.canonicalFilePath(): String = trim().trim('/').let { path ->
+    if (path == ".") "" else path
+}

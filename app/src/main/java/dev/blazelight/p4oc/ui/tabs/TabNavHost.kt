@@ -37,6 +37,7 @@ import dev.blazelight.p4oc.ui.screens.diff.DiffViewerScreen
 import dev.blazelight.p4oc.ui.screens.diff.SessionDiffScreen
 import dev.blazelight.p4oc.ui.screens.files.FileExplorerScreen
 import dev.blazelight.p4oc.ui.screens.files.FileViewerScreen
+import dev.blazelight.p4oc.ui.screens.files.FilesViewModel
 import dev.blazelight.p4oc.ui.screens.projects.ProjectsScreen
 import dev.blazelight.p4oc.ui.screens.sessions.SessionListScreen
 import dev.blazelight.p4oc.ui.screens.sessions.SessionListViewModel
@@ -325,8 +326,9 @@ fun TabNavHost(
 
         // Files screen
         composable(Screen.Files.route) { backStackEntry ->
-            TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
+            val workspaceViewModel = TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             FileExplorerScreen(
+                viewModel = remember(workspaceViewModel) { FilesViewModel(workspaceViewModel.workspaceClient) },
                 onFileClick = { path ->
                     navController.navigate(Screen.FileViewer.createRoute(path))
                 },
@@ -341,10 +343,11 @@ fun TabNavHost(
                 navArgument(Screen.FileViewer.ARG_PATH) { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
+            val workspaceViewModel = TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             val encodedPath = backStackEntry.arguments?.getString(Screen.FileViewer.ARG_PATH) ?: ""
             FileViewerScreen(
                 path = Uri.decode(encodedPath),
+                viewModel = remember(workspaceViewModel) { FilesViewModel(workspaceViewModel.workspaceClient) },
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -376,10 +379,11 @@ fun TabNavHost(
                 navArgument(Screen.SessionDiff.ARG_SESSION_ID) { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
+            val workspaceViewModel = TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             val sessionId = backStackEntry.arguments?.getString(Screen.SessionDiff.ARG_SESSION_ID).orEmpty()
             SessionDiffScreen(
                 sessionId = sessionId,
+                workspaceClient = workspaceViewModel.workspaceClient,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

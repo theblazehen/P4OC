@@ -11,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.components.code.Language
@@ -26,7 +25,7 @@ import dev.blazelight.p4oc.ui.theme.Spacing
 @Composable
 fun FileViewerScreen(
     path: String,
-    viewModel: FilesViewModel = koinViewModel(),
+    viewModel: FilesViewModel,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

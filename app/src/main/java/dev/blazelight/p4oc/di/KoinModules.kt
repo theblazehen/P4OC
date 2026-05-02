@@ -16,7 +16,6 @@ import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.workspace.Workspace
 import dev.blazelight.p4oc.ui.screens.chat.ChatViewModel
-import dev.blazelight.p4oc.ui.screens.files.FilesViewModel
 import dev.blazelight.p4oc.ui.screens.server.ServerViewModel
 import dev.blazelight.p4oc.ui.screens.settings.AgentsConfigViewModel
 import dev.blazelight.p4oc.ui.screens.settings.ModelControlsViewModel
@@ -89,7 +88,6 @@ val networkModule = module {
 }
 
 val viewModelModule = module {
-    viewModelOf(::FilesViewModel)
     viewModelOf(::ServerViewModel)
     viewModelOf(::ModelControlsViewModel)
     viewModelOf(::AgentsConfigViewModel)

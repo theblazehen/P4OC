@@ -28,28 +28,24 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ApiResult
-import dev.blazelight.p4oc.core.network.ConnectionManager
-import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.dto.FileDiffDto
+import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.ui.components.TuiEmptyState
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.chat.InlineDiffViewer
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Spacing
-import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionDiffScreen(
     sessionId: String,
+    workspaceClient: WorkspaceClient,
     onNavigateBack: () -> Unit,
-    connectionManager: ConnectionManager = koinInject(),
-    directoryManager: DirectoryManager = koinInject()
 ) {
     val theme = LocalOpenCodeTheme.current
-    val disconnectedText = stringResource(R.string.connection_status_disconnected)
     var diffs by remember { mutableStateOf<List<FileDiffDto>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -58,15 +54,8 @@ fun SessionDiffScreen(
         isLoading = true
         errorMessage = null
 
-        val api = connectionManager.getApi()
-        if (api == null) {
-            errorMessage = disconnectedText
-            isLoading = false
-            return@LaunchedEffect
-        }
-
         when (val result = safeApiCall {
-            api.getSessionDiff(sessionId, directory = directoryManager.getDirectory())
+            workspaceClient.getSessionDiff(sessionId)
         }) {
             is ApiResult.Success -> diffs = result.data
             is ApiResult.Error -> errorMessage = result.message
