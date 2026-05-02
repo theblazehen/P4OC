@@ -12,6 +12,10 @@ import dev.blazelight.p4oc.core.notification.NotificationHelper
 
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
+import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
+import dev.blazelight.p4oc.domain.server.ServerGeneration
+import dev.blazelight.p4oc.domain.server.ServerRef
+import dev.blazelight.p4oc.domain.workspace.Workspace
 import dev.blazelight.p4oc.ui.screens.chat.ChatViewModel
 import dev.blazelight.p4oc.ui.screens.files.FilesViewModel
 import dev.blazelight.p4oc.ui.screens.server.ServerViewModel
@@ -26,6 +30,7 @@ import dev.blazelight.p4oc.ui.screens.settings.ProviderConfigViewModel
 import dev.blazelight.p4oc.ui.screens.projects.ProjectsViewModel
 import dev.blazelight.p4oc.ui.screens.terminal.TerminalViewModel
 import dev.blazelight.p4oc.ui.tabs.TabManager
+import dev.blazelight.p4oc.ui.workspace.WorkspaceViewModel
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -69,6 +74,21 @@ val networkModule = module {
     factory { PtyWebSocketClient(get()) }
     single { ConnectionManager(get(), get(), get()) }
     single { SessionDataCache(get()) }
+    single<ActiveServerApiProvider> {
+        val connectionManager: ConnectionManager = get()
+        ActiveServerApiProvider { serverRef, generation ->
+            // TODO(oa-6d53 follow-up): validate ServerGeneration once ConnectionManager exposes
+            // generation-aware active server state. For now, require the endpoint to still match
+            // the active connection before bridging to the legacy active API.
+            val activeBaseUrl = connectionManager.currentBaseUrl
+                ?: throw IllegalStateException("No active server for workspace ${serverRef.endpointKey} generation=${generation.value}")
+            val activeServerRef = ServerRef.fromEndpoint(activeBaseUrl)
+            check(activeServerRef == serverRef) {
+                "Workspace server ${serverRef.endpointKey} does not match active server ${activeServerRef.endpointKey}"
+            }
+            connectionManager.requireApi()
+        }
+    }
 }
 
 val viewModelModule = module {
@@ -83,6 +103,14 @@ val viewModelModule = module {
     viewModelOf(::NotificationSettingsViewModel)
     viewModelOf(::ProviderConfigViewModel)
     viewModelOf(::ProjectsViewModel)
+    viewModel { params ->
+        WorkspaceViewModel(
+            tabId = params.get<String>(),
+            workspace = params.get<Workspace>(),
+            generation = params.get<ServerGeneration>(),
+            activeServerApiProvider = get(),
+        )
+    }
     viewModel { params -> ChatViewModel(params.get(), get(), get(), get(), get()) }
     viewModel { params -> TerminalViewModel(params.get(), androidContext(), get(), get()) }
 }
