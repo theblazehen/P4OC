@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit
 class ConnectionManager constructor(
     private val json: Json,
     private val eventMapper: EventMapper,
-    private val directoryManager: DirectoryManager
 ) {
     companion object {
         private const val TAG = "ConnectionManager"
@@ -107,7 +106,6 @@ class ConnectionManager constructor(
                 json = json,
                 baseUrl = config.url,
                 eventMapper = eventMapper,
-                directoryProvider = { directoryManager.getDirectory() }
             )
 
             // Build and store the auth-aware WebSocket client (shares pool with base)
@@ -127,10 +125,6 @@ class ConnectionManager constructor(
                         _connectionState.value = sseState
                     }
                 }
-            }
-
-            directoryManager.setOnDirectoryChangedListener {
-                eventSource.reconnect()
             }
 
             eventSource.connect()

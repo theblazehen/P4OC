@@ -30,8 +30,6 @@ class OpenCodeEventSource(
     private val json: Json,
     private val baseUrl: String,
     private val eventMapper: EventMapper,
-    @Suppress("unused") // kept for constructor compatibility; directory changes trigger reconnect() externally
-    private val directoryProvider: () -> String?
 ) {
     companion object {
         private const val TAG = "OpenCodeEventSource"

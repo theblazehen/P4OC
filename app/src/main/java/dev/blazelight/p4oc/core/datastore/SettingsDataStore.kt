@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.core.datastore
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.DataMigration
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import dev.blazelight.p4oc.core.log.AppLog
@@ -18,7 +19,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "settings",
+    produceMigrations = { listOf(removeDeadWorkspacePrefsMigration()) },
+)
 
 private const val TAG = "SettingsDataStore"
 
@@ -37,7 +41,6 @@ class SettingsDataStore constructor(
         
         const val DEFAULT_THEME_NAME = "catppuccin"
         private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
-        private val KEY_LAST_SESSION_ID = stringPreferencesKey("last_session_id")
         private val KEY_RECENT_SERVERS = stringPreferencesKey("recent_servers")
         
         // Visual settings keys
@@ -68,9 +71,6 @@ class SettingsDataStore constructor(
         // Connection settings keys
         private val KEY_AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
         private val KEY_RECONNECT_TIMEOUT_SECONDS = intPreferencesKey("reconnect_timeout_seconds")
-
-        // Project directory persistence
-        private val KEY_PROJECT_WORKTREE = stringPreferencesKey("project_worktree")
 
         const val DEFAULT_LOCAL_URL = "http://localhost:4096"
         const val THEME_SYSTEM = "system"
@@ -133,10 +133,6 @@ class SettingsDataStore constructor(
         prefs[KEY_ONBOARDING_COMPLETED] ?: false
     }
 
-    val lastSessionId: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[KEY_LAST_SESSION_ID]
-    }
-
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = url
@@ -184,16 +180,6 @@ class SettingsDataStore constructor(
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_ONBOARDING_COMPLETED] = completed
-        }
-    }
-
-    suspend fun setLastSessionId(sessionId: String?) {
-        context.dataStore.edit { prefs ->
-            if (sessionId != null) {
-                prefs[KEY_LAST_SESSION_ID] = sessionId
-            } else {
-                prefs.remove(KEY_LAST_SESSION_ID)
-            }
         }
     }
 
@@ -456,25 +442,6 @@ class SettingsDataStore constructor(
         }
     }
 
-    // Project directory persistence
-    val projectWorktree: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[KEY_PROJECT_WORKTREE]
-    }
-
-    suspend fun getProjectWorktree(): String? {
-        return context.dataStore.data.first()[KEY_PROJECT_WORKTREE]
-    }
-
-    suspend fun setProjectWorktree(worktree: String?) {
-        context.dataStore.edit { prefs ->
-            if (worktree != null) {
-                prefs[KEY_PROJECT_WORKTREE] = worktree
-            } else {
-                prefs.remove(KEY_PROJECT_WORKTREE)
-            }
-        }
-    }
-
     /**
      * Parse recent servers from stored format (kotlinx.serialization JSON).
      */
@@ -486,6 +453,21 @@ class SettingsDataStore constructor(
             emptyList()
         }
     }
+}
+
+private fun removeDeadWorkspacePrefsMigration(): DataMigration<Preferences> = object : DataMigration<Preferences> {
+    private val projectWorktree = stringPreferencesKey("project_worktree")
+    private val lastSessionId = stringPreferencesKey("last_session_id")
+
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean =
+        projectWorktree in currentData || lastSessionId in currentData
+
+    override suspend fun migrate(currentData: Preferences): Preferences = currentData.toMutablePreferences().apply {
+        remove(projectWorktree)
+        remove(lastSessionId)
+    }.toPreferences()
+
+    override suspend fun cleanUp() = Unit
 }
 
 private fun ModelInput.toStorageKey(): String = "$providerID/$modelID"
