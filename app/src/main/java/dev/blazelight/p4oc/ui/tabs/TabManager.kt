@@ -1,5 +1,11 @@
 package dev.blazelight.p4oc.ui.tabs
 
+import dev.blazelight.p4oc.core.datastore.PersistedTab
+import dev.blazelight.p4oc.core.datastore.PersistedTabState
+import dev.blazelight.p4oc.domain.server.ServerRef
+import dev.blazelight.p4oc.ui.navigation.Screen
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +37,7 @@ class TabManager {
     val showTabWarning: StateFlow<Boolean> = _showTabWarning.asStateFlow()
     
     private var tabWarningShown = false
+    private var restored = false
     
     /**
      * Get the currently active tab, or null if no tabs exist.
@@ -149,6 +156,64 @@ class TabManager {
             }
         }
     }
+
+    fun saveState(serverRef: ServerRef): PersistedTabState? {
+        val currentTabs = _tabs.value
+        if (currentTabs.isEmpty()) return null
+        return PersistedTabState(
+            serverEndpointKey = serverRef.endpointKey,
+            activeTabId = _activeTabId.value,
+            tabs = currentTabs.map { tab ->
+                PersistedTab(
+                    id = tab.id,
+                    startRoute = persistableStartRoute(tab),
+                    sessionId = tab.sessionId,
+                    sessionTitle = tab.sessionTitle,
+                    workspaceDirectory = tab.workspaceDirectory,
+                )
+            },
+        )
+    }
+
+    fun restoreState(state: PersistedTabState, activeServer: ServerRef): RestoreResult {
+        if (state.version != PersistedTabState.CURRENT_VERSION) {
+            restored = true
+            return RestoreResult.VersionMismatch(state.version)
+        }
+        if (state.serverEndpointKey != activeServer.endpointKey) {
+            restored = true
+            return RestoreResult.ServerMismatch(state.serverEndpointKey, activeServer.endpointKey)
+        }
+
+        val restoredTabs = state.tabs.mapNotNull { persisted ->
+            if (persisted.id.isBlank()) return@mapNotNull null
+            val route = persisted.sessionId?.let { chatRoute(it, persisted.workspaceDirectory) }
+                ?: persisted.startRoute.takeIf { it.isNotBlank() }
+                ?: Screen.Sessions.route
+            TabInstance(
+                state = TabState.withId(
+                    id = persisted.id,
+                    sessionId = persisted.sessionId,
+                    sessionTitle = persisted.sessionTitle,
+                    workspaceDirectory = persisted.workspaceDirectory,
+                ),
+                startRoute = route,
+            )
+        }
+
+        if (restoredTabs.isEmpty()) {
+            restored = true
+            return RestoreResult.Empty
+        }
+
+        _tabs.value = restoredTabs
+        _activeTabId.value = state.activeTabId?.takeIf { activeId -> restoredTabs.any { it.id == activeId } }
+            ?: restoredTabs.first().id
+        restored = true
+        return RestoreResult.Restored(restoredTabs.size)
+    }
+
+    fun shouldAttemptRestore(): Boolean = !restored && _tabs.value.isEmpty()
     
     /**
      * Dismiss the tab warning snackbar.
@@ -191,4 +256,27 @@ class TabManager {
      * Get tab count.
      */
     fun tabCount(): Int = _tabs.value.size
+
+    private fun persistableStartRoute(tab: TabInstance): String = when (val sessionId = tab.sessionId) {
+        null -> if (tab.startRoute.startsWith("terminal/")) Screen.Sessions.route else tab.startRoute
+        else -> chatRoute(sessionId, tab.workspaceDirectory)
+    }
+
+    private fun chatRoute(sessionId: String, directory: String?): String =
+        if (directory != null) {
+            "chat/${sessionId.routeEncode()}?directory=${directory.routeEncode()}"
+        } else {
+            "chat/${sessionId.routeEncode()}"
+        }
+}
+
+private fun String.routeEncode(): String = URLEncoder
+    .encode(this, StandardCharsets.UTF_8.name())
+    .replace("+", "%20")
+
+sealed interface RestoreResult {
+    data class Restored(val count: Int) : RestoreResult
+    data object Empty : RestoreResult
+    data class VersionMismatch(val version: Int) : RestoreResult
+    data class ServerMismatch(val persistedEndpointKey: String, val activeEndpointKey: String) : RestoreResult
 }

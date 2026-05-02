@@ -27,6 +27,7 @@ import dev.blazelight.p4oc.data.remote.dto.CreatePtyRequest
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.core.datastore.ConnectionSettings
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
+import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.ui.navigation.Screen
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import kotlinx.coroutines.delay
@@ -61,6 +62,7 @@ fun MainTabScreen(
     
     var wasEverConnected by remember { mutableStateOf(false) }
     var reconnectAttempted by remember { mutableStateOf(false) }
+    var restoreError by remember { mutableStateOf<String?>(null) }
 
     // Foreground resume: lightweight SSE reconnect without isConnected guard.
     // When the app returns from background, the SSE connection is likely dead.
@@ -146,12 +148,34 @@ fun MainTabScreen(
         }
     }
     
-    // Create initial tab if needed (no NavController required)
-    LaunchedEffect(Unit) {
-        if (!tabManager.hasTabs()) {
-            val initialTab = TabInstance(TabState())
-            tabManager.registerTab(initialTab, focus = true)
+    LaunchedEffect(connectionManager.currentBaseUrl) {
+        val baseUrl = connectionManager.currentBaseUrl ?: return@LaunchedEffect
+        if (tabManager.shouldAttemptRestore()) {
+            val persisted = settingsDataStore.getPersistedTabState()
+            if (persisted != null) {
+                when (val result = tabManager.restoreState(persisted, ServerRef.fromEndpoint(baseUrl))) {
+                    is RestoreResult.Restored -> AppLog.d(TAG, "Restored ${result.count} tabs")
+                    RestoreResult.Empty -> AppLog.w(TAG, "Persisted tab state was empty")
+                    is RestoreResult.VersionMismatch -> {
+                        restoreError = "Saved tabs use unsupported version ${result.version}. Starting fresh."
+                    }
+                    is RestoreResult.ServerMismatch -> {
+                        restoreError = "Saved tabs belong to ${result.persistedEndpointKey}, not ${result.activeEndpointKey}. Starting fresh."
+                    }
+                }
+            }
+
+            if (!tabManager.hasTabs()) {
+                val initialTab = TabInstance(TabState())
+                tabManager.registerTab(initialTab, focus = true)
+            }
         }
+    }
+
+    LaunchedEffect(tabs, activeTabId, connectionManager.currentBaseUrl) {
+        val baseUrl = connectionManager.currentBaseUrl ?: return@LaunchedEffect
+        val state = tabManager.saveState(ServerRef.fromEndpoint(baseUrl)) ?: return@LaunchedEffect
+        settingsDataStore.setPersistedTabState(state)
     }
     
     // Build tab titles and icons from current routes (updated inside pager pages).
@@ -222,6 +246,13 @@ fun MainTabScreen(
                 duration = SnackbarDuration.Short
             )
             tabManager.dismissTabWarning()
+        }
+    }
+
+    LaunchedEffect(restoreError) {
+        restoreError?.let { message ->
+            snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Long)
+            restoreError = null
         }
     }
     

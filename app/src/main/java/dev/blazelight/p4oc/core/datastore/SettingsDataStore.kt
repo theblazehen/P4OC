@@ -42,6 +42,7 @@ class SettingsDataStore constructor(
         const val DEFAULT_THEME_NAME = "catppuccin"
         private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val KEY_RECENT_SERVERS = stringPreferencesKey("recent_servers")
+        private val KEY_TAB_STATE = stringPreferencesKey("tab_state_v1")
         
         // Visual settings keys
         private val KEY_FONT_SIZE = intPreferencesKey("font_size")
@@ -180,6 +181,23 @@ class SettingsDataStore constructor(
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_ONBOARDING_COMPLETED] = completed
+        }
+    }
+
+    val persistedTabState: Flow<PersistedTabState?> = context.dataStore.data.map { prefs ->
+        prefs[KEY_TAB_STATE]?.let(::parsePersistedTabState)
+    }
+
+    suspend fun getPersistedTabState(): PersistedTabState? =
+        context.dataStore.data.first()[KEY_TAB_STATE]?.let(::parsePersistedTabState)
+
+    suspend fun setPersistedTabState(state: PersistedTabState?) {
+        context.dataStore.edit { prefs ->
+            if (state == null) {
+                prefs.remove(KEY_TAB_STATE)
+            } else {
+                prefs[KEY_TAB_STATE] = json.encodeToString(state)
+            }
         }
     }
 
@@ -453,6 +471,13 @@ class SettingsDataStore constructor(
             emptyList()
         }
     }
+
+    private fun parsePersistedTabState(stored: String): PersistedTabState? = try {
+        json.decodeFromString<PersistedTabState>(stored).takeIf { it.version == PersistedTabState.CURRENT_VERSION }
+    } catch (e: Exception) {
+        AppLog.w(TAG, "Ignoring invalid persisted tab state: ${e.message}")
+        null
+    }
 }
 
 private fun removeDeadWorkspacePrefsMigration(): DataMigration<Preferences> = object : DataMigration<Preferences> {
@@ -489,6 +514,27 @@ data class RecentServer(
     val name: String,
     val username: String? = null,
     val allowInsecure: Boolean = false
+)
+
+@Serializable
+data class PersistedTabState(
+    val version: Int = CURRENT_VERSION,
+    val serverEndpointKey: String,
+    val activeTabId: String?,
+    val tabs: List<PersistedTab>,
+) {
+    companion object {
+        const val CURRENT_VERSION = 1
+    }
+}
+
+@Serializable
+data class PersistedTab(
+    val id: String,
+    val startRoute: String,
+    val sessionId: String? = null,
+    val sessionTitle: String? = null,
+    val workspaceDirectory: String? = null,
 )
 
 data class VisualSettings(

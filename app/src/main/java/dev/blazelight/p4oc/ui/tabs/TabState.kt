@@ -45,6 +45,22 @@ data class TabState(
         sessionTitle.length <= 6 -> sessionTitle
         else -> sessionTitle.take(5) + "…"
     }
+
+    companion object {
+        fun withId(
+            id: String,
+            sessionId: String? = null,
+            sessionTitle: String? = null,
+            workspaceDirectory: String? = null,
+            workspaceRevision: Int = 0,
+        ): TabState = TabState(
+            id = id,
+            sessionId = sessionId,
+            sessionTitle = sessionTitle,
+            workspaceDirectory = workspaceDirectory,
+            workspaceRevision = workspaceRevision,
+        )
+    }
 }
 
 /**
