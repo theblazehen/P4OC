@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.datastore.RecentServer
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.network.ConnectionManager
-import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.DiscoveredServer
 import dev.blazelight.p4oc.core.network.DiscoverySeed
 import dev.blazelight.p4oc.core.network.DiscoveryState
@@ -26,7 +25,6 @@ private const val TAG = "ServerViewModel"
 class ServerViewModel constructor(
     private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
-    private val directoryManager: DirectoryManager,
     private val credentialStore: CredentialStore,
     private val mdnsDiscoveryManager: MdnsDiscoveryManager,
 ) : ViewModel() {
@@ -228,9 +226,6 @@ class ServerViewModel constructor(
      * Now always navigates to the unified Sessions screen.
      */
     private suspend fun initializeProjectContext() {
-        // Clear any persisted directory - we now show all sessions unified
-        directoryManager.setDirectory(null)
-        
         AppLog.d(TAG, "Navigating to unified Sessions screen")
         _uiState.update { it.copy(navigationDestination = NavigationDestination.Sessions) }
     }

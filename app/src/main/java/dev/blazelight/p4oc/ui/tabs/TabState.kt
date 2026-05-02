@@ -29,7 +29,13 @@ data class TabState(
      * Optional session title for display in tab bar.
      * Only populated when sessionId is set.
      */
-    val sessionTitle: String? = null
+    val sessionTitle: String? = null,
+
+    /** Workspace directory owned by this tab. Null means server-global workspace. */
+    val workspaceDirectory: String? = null,
+
+    /** Incremented when workspace changes so navigation graph scoped ViewModels are recreated. */
+    val workspaceRevision: Int = 0,
 ) {
     /**
      * Short title for tab bar display (max 6 chars with ellipsis).
@@ -53,6 +59,8 @@ class TabInstance(
     val id: String get() = state.id
     val sessionId: String? get() = state.sessionId
     val sessionTitle: String? get() = state.sessionTitle
+    val workspaceDirectory: String? get() = state.workspaceDirectory
+    val workspaceRevision: Int get() = state.workspaceRevision
     val shortTitle: String get() = state.shortTitle
     
     /** Saved NavController state for restoring after page disposal/recreation */
@@ -76,5 +84,18 @@ class TabInstance(
     
     fun withSessionId(sessionId: String?, sessionTitle: String? = null): TabInstance {
         return withState(state.copy(sessionId = sessionId, sessionTitle = sessionTitle))
+    }
+
+    fun withWorkspaceDirectory(directory: String?): TabInstance {
+        val normalized = directory?.takeIf { it.isNotBlank() }
+        if (normalized == state.workspaceDirectory) return this
+        return withState(
+            state.copy(
+                workspaceDirectory = normalized,
+                workspaceRevision = state.workspaceRevision + 1,
+                sessionId = null,
+                sessionTitle = null,
+            ),
+        )
     }
 }

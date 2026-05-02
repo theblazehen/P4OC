@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
-import dev.blazelight.p4oc.core.network.DirectoryManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,8 +19,7 @@ data class ProjectsUiState(
 )
 
 class ProjectsViewModel constructor(
-    private val connectionManager: ConnectionManager,
-    private val directoryManager: DirectoryManager
+    private val connectionManager: ConnectionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProjectsUiState())
@@ -52,15 +50,6 @@ class ProjectsViewModel constructor(
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
             }
-        }
-    }
-
-    /**
-     * Select a project and persist the directory.
-     */
-    fun selectProject(worktree: String) {
-        viewModelScope.launch {
-            directoryManager.setDirectoryAndPersist(worktree)
         }
     }
 }

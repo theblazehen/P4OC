@@ -138,6 +138,17 @@ class TabManager {
     fun clearTabSession(tabId: String) {
         updateTabSession(tabId, null, null)
     }
+
+    /**
+     * Switch only one tab to a different workspace directory.
+     */
+    fun updateTabWorkspace(tabId: String, directory: String?) {
+        _tabs.update { tabs ->
+            tabs.map { tab ->
+                if (tab.id == tabId) tab.withWorkspaceDirectory(directory) else tab
+            }
+        }
+    }
     
     /**
      * Dismiss the tab warning snackbar.

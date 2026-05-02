@@ -130,7 +130,6 @@ fun ProjectsScreen(
                         ProjectCard(
                             project = project,
                             onClick = { 
-                                viewModel.selectProject(project.worktree)
                                 onProjectClick(project.id, project.worktree) 
                             }
                         )

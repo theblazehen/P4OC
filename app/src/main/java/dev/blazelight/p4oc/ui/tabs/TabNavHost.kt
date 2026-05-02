@@ -18,7 +18,6 @@ import androidx.navigation.NavHostController
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.core.network.ConnectionManager
-import dev.blazelight.p4oc.core.network.DirectoryManager
 import org.koin.compose.koinInject
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -46,9 +45,10 @@ import dev.blazelight.p4oc.ui.screens.terminal.TerminalScreen
 
 private const val ANIMATION_DURATION = 300
 private const val WORKSPACE_ROUTE_ARG_TAB_ID = "tabId"
-private const val WORKSPACE_GRAPH_ROUTE = "workspace/{$WORKSPACE_ROUTE_ARG_TAB_ID}"
+private const val WORKSPACE_ROUTE_ARG_REVISION = "workspaceRevision"
+private const val WORKSPACE_GRAPH_ROUTE = "workspace/{$WORKSPACE_ROUTE_ARG_TAB_ID}/{$WORKSPACE_ROUTE_ARG_REVISION}"
 
-private fun workspaceGraphRoute(tabId: String): String = "workspace/$tabId"
+private fun workspaceGraphRoute(tabId: String, revision: Int): String = "workspace/$tabId/$revision"
 
 /**
  * Per-tab navigation host.
@@ -73,9 +73,12 @@ fun TabNavHost(
     // Read visual settings for sub-agent tab behavior
     val settingsDataStore: SettingsDataStore = koinInject()
     val connectionManager: ConnectionManager = koinInject()
-    val directoryManager: DirectoryManager = koinInject()
     val visualSettings by settingsDataStore.visualSettings.collectAsState(initial = VisualSettings())
     val openSubAgentInNewTab = visualSettings.openSubAgentInNewTab
+    val tabs by tabManager.tabs.collectAsState()
+    val tab = tabs.firstOrNull { it.id == tabId }
+    val workspaceDirectory = tab?.workspaceDirectory
+    val workspaceRevision = tab?.workspaceRevision ?: 0
 
     val baseUrl = connectionManager.currentBaseUrl
     if (baseUrl == null) {
@@ -83,19 +86,17 @@ fun TabNavHost(
         return
     }
 
-    val workspace = remember(tabId, startRoute, baseUrl) {
-        // TODO(oa-6d53 follow-up): seed this from explicit per-tab workspace state once tab routes
-        // carry workspace identity. This bridge snapshots the active server and legacy directory once.
+    val workspace = remember(tabId, startRoute, baseUrl, workspaceDirectory) {
         Workspace(
             server = ServerRef.fromEndpoint(baseUrl),
-            directory = initialDirectoryFromRoute(startRoute) ?: directoryManager.getDirectory(),
+            directory = workspaceDirectory ?: initialDirectoryFromRoute(startRoute),
         )
     }
     val generation = remember(tabId) {
         // TODO(oa-6d53 follow-up): replace placeholder when ConnectionManager exposes server generations.
         ServerGeneration(0L)
     }
-    val workspaceRoute = remember(tabId) { workspaceGraphRoute(tabId) }
+    val workspaceRoute = remember(tabId, workspaceRevision) { workspaceGraphRoute(tabId, workspaceRevision) }
 
     // Double-back-to-close when at the root of any tab.
     // Dedicated tabs (terminal, files, chat): closes the tab.
@@ -152,7 +153,8 @@ fun TabNavHost(
             startDestination = startRoute,
             route = WORKSPACE_GRAPH_ROUTE,
             arguments = listOf(
-                navArgument(WORKSPACE_ROUTE_ARG_TAB_ID) { type = NavType.StringType }
+                navArgument(WORKSPACE_ROUTE_ARG_TAB_ID) { type = NavType.StringType },
+                navArgument(WORKSPACE_ROUTE_ARG_REVISION) { type = NavType.IntType },
             )
         ) {
         // Sessions list (start destination for new tabs)
@@ -298,7 +300,8 @@ fun TabNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onProjectClick = { projectId, _ ->
+                onProjectClick = { projectId, worktree ->
+                    tabManager.updateTabWorkspace(tabId, worktree)
                     navController.navigate(Screen.SessionsFiltered.createRoute(projectId))
                 }
             )
