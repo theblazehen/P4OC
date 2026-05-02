@@ -171,7 +171,7 @@ fun SessionListScreen(
                                 title = stringResource(R.string.sessions_quick_global),
                                 subtitle = stringResource(R.string.sessions_quick_global_desc),
                                 onClick = {
-                                    viewModel.createSession(title = null, directory = null)
+                                    viewModel.createSession(title = null)
                                 },
                                 modifier = Modifier.testTag("quick_action_global")
                             )
@@ -225,16 +225,16 @@ fun SessionListScreen(
                                 onRenameSession = { showRenameDialog = it },
                                 onShareSession = { session ->
                                     if (session.shareUrl != null) {
-                                        viewModel.unshareSession(session.id, session.directory)
+                                        viewModel.unshareSession(session.id)
                                     } else {
-                                        viewModel.shareSession(session.id, session.directory)
+                                        viewModel.shareSession(session.id)
                                     }
                                 },
                                 onViewChanges = { session ->
                                     onViewChanges(session.id)
                                 },
                                 onSummarizeSession = { session ->
-                                    viewModel.summarizeSession(session.id, session.directory)
+                                    viewModel.summarizeSession(session.id)
                                 },
                                 onProjectClick = onProjectClick,
                                 onToggleExpand = { id ->
@@ -272,8 +272,8 @@ fun SessionListScreen(
                 showNewSessionDialog = false
                 showNewSessionCustomDir = false
             },
-            onCreate = { title, directory ->
-                viewModel.createSession(title, directory)
+            onCreate = { title, _ ->
+                viewModel.createSession(title)
                 showNewSessionDialog = false
                 showNewSessionCustomDir = false
             }
@@ -283,7 +283,7 @@ fun SessionListScreen(
     showDeleteDialog?.let { session ->
         TuiConfirmDialog(
             onDismissRequest = { showDeleteDialog = null },
-            onConfirm = { viewModel.deleteSession(session.id, session.directory) },
+            onConfirm = { viewModel.deleteSession(session.id) },
             title = stringResource(R.string.sessions_delete_title),
             message = stringResource(R.string.sessions_delete_confirm, session.title),
             confirmText = stringResource(R.string.sessions_delete),
@@ -296,7 +296,7 @@ fun SessionListScreen(
         TuiInputDialog(
             onDismissRequest = { showRenameDialog = null },
             onConfirm = { newTitle ->
-                viewModel.renameSession(session.id, newTitle, session.directory)
+                viewModel.renameSession(session.id, newTitle)
                 showRenameDialog = null
             },
             title = stringResource(R.string.sessions_rename_title),

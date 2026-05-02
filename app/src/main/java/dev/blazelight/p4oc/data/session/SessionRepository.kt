@@ -19,5 +19,7 @@ interface SessionRepository {
 
     suspend fun loadMessages(sessionId: SessionId, limit: Int? = null)
 
-    suspend fun clearStreamingFlags(sessionId: SessionId)
+    fun clearStreamingFlags(sessionId: SessionId)
+
+    fun close()
 }

@@ -18,6 +18,11 @@ object TabChatRouteCodec {
         return "tab/${tabId.routeEncode()}/chat/${sessionId.routeEncode()}"
     }
 
+    fun chatRoute(sessionId: String): String {
+        require(sessionId.isNotBlank()) { "Session id must not be blank" }
+        return "chat/${sessionId.routeEncode()}"
+    }
+
     fun decode(route: String): TabChatRoute? {
         val segments = route.split("/")
         if (segments.size != 4) return null

@@ -47,6 +47,7 @@ fun FilePickerDialog(
     files: List<FileNode>,
     currentPath: String,
     isLoading: Boolean,
+    error: String?,
     selectedFiles: List<SelectedFile>,
     onNavigateTo: (String) -> Unit,
     onNavigateUp: () -> Unit,
@@ -200,6 +201,25 @@ fun FilePickerDialog(
                     when {
                         isLoading -> {
                             TuiLoadingScreen(modifier = Modifier.align(Alignment.Center))
+                        }
+                        error != null -> {
+                            Column(
+                                modifier = Modifier.align(Alignment.Center),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                            ) {
+                                Text(
+                                    text = "!",
+                                    style = MaterialTheme.typography.displaySmall,
+                                    color = theme.error,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = error,
+                                    color = theme.textMuted,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                         filteredFiles.isEmpty() -> {
                             Column(

@@ -66,11 +66,11 @@ class SessionListViewModel constructor(
         }
     }
 
-    fun createSession(title: String?, directory: String?) {
+    fun createSession(title: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val created = sessionRepository.createSession(title, directory)
+                val created = sessionRepository.createSession(title)
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -84,10 +84,10 @@ class SessionListViewModel constructor(
         }
     }
 
-    fun deleteSession(sessionId: String, directory: String? = null) {
+    fun deleteSession(sessionId: String) {
         viewModelScope.launch {
             try {
-                sessionRepository.deleteSession(SessionId(sessionId), directory)
+                sessionRepository.deleteSession(SessionId(sessionId))
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to delete session: ${e.message}") }
             }
@@ -98,20 +98,20 @@ class SessionListViewModel constructor(
         _uiState.update { it.copy(newSessionId = null, newSessionDirectory = null) }
     }
 
-    fun renameSession(sessionId: String, newTitle: String, directory: String? = null) {
+    fun renameSession(sessionId: String, newTitle: String) {
         viewModelScope.launch {
             try {
-                sessionRepository.renameSession(SessionId(sessionId), newTitle, directory)
+                sessionRepository.renameSession(SessionId(sessionId), newTitle)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to rename: ${e.message}") }
             }
         }
     }
 
-    fun shareSession(sessionId: String, directory: String? = null) {
+    fun shareSession(sessionId: String) {
         viewModelScope.launch {
             try {
-                val updated = sessionRepository.shareSession(SessionId(sessionId), directory)
+                val updated = sessionRepository.shareSession(SessionId(sessionId))
                 _uiState.update { it.copy(shareUrl = updated.session.shareUrl) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to share session: ${e.message}") }
@@ -119,10 +119,10 @@ class SessionListViewModel constructor(
         }
     }
 
-    fun unshareSession(sessionId: String, directory: String? = null) {
+    fun unshareSession(sessionId: String) {
         viewModelScope.launch {
             try {
-                sessionRepository.unshareSession(SessionId(sessionId), directory)
+                sessionRepository.unshareSession(SessionId(sessionId))
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to unshare: ${e.message}") }
             }
@@ -133,10 +133,10 @@ class SessionListViewModel constructor(
         _uiState.update { it.copy(shareUrl = null) }
     }
 
-    fun summarizeSession(sessionId: String, directory: String? = null) {
+    fun summarizeSession(sessionId: String) {
         viewModelScope.launch {
             try {
-                sessionRepository.summarizeSession(SessionId(sessionId), directory)
+                sessionRepository.summarizeSession(SessionId(sessionId))
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to summarize: ${e.message}") }
             }

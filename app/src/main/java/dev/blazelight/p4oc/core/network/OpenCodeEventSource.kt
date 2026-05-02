@@ -31,6 +31,11 @@ class OpenCodeEventSource(
     private val baseUrl: String,
     private val eventMapper: EventMapper,
 ) {
+    data class DirectoryEvent(
+        val directory: String?,
+        val event: OpenCodeEvent,
+    )
+
     companion object {
         private const val TAG = "OpenCodeEventSource"
         private const val MAX_CONSECUTIVE_ERRORS = 15
@@ -42,6 +47,13 @@ class OpenCodeEventSource(
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val events: SharedFlow<OpenCodeEvent> = _events.asSharedFlow()
+
+    private val _directoryEvents = MutableSharedFlow<DirectoryEvent>(
+        replay = 0,
+        extraBufferCapacity = 256,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val directoryEvents: SharedFlow<DirectoryEvent> = _directoryEvents.asSharedFlow()
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -190,7 +202,7 @@ class OpenCodeEventSource(
             val globalEvent = json.decodeFromString<GlobalEventDto>(data)
             val event = eventMapper.mapToEvent(globalEvent.payload)
             if (event != null) {
-                val emitted = _events.tryEmit(event)
+                val emitted = emitMappedEvent(event, globalEvent.directory)
                 AppLog.d(TAG, "Event emitted: ${event::class.simpleName}, success=$emitted")
                 if (!emitted) {
                     AppLog.w(TAG, "Dropped event (buffer full): ${event::class.simpleName}")
@@ -201,7 +213,7 @@ class OpenCodeEventSource(
                 val eventData = json.decodeFromString<EventDataDto>(data)
                 val event = eventMapper.mapToEvent(eventData)
                 if (event != null) {
-                    val emitted = _events.tryEmit(event)
+                    val emitted = emitMappedEvent(event, directory = null)
                     AppLog.d(TAG, "Event emitted (fallback): ${event::class.simpleName}, success=$emitted")
                     if (!emitted) {
                         AppLog.w(TAG, "Dropped event (buffer full, fallback): ${event::class.simpleName}")
@@ -220,6 +232,15 @@ class OpenCodeEventSource(
         if (!emitted) {
             AppLog.w(TAG, "Dropped lifecycle event (buffer full): ${event::class.simpleName}")
         }
+    }
+
+    private fun emitMappedEvent(event: OpenCodeEvent, directory: String?): Boolean {
+        val eventEmitted = _events.tryEmit(event)
+        val scopedEmitted = _directoryEvents.tryEmit(DirectoryEvent(directory = directory, event = event))
+        if (!scopedEmitted) {
+            AppLog.w(TAG, "Dropped directory event (buffer full): ${event::class.simpleName}")
+        }
+        return eventEmitted && scopedEmitted
     }
 
     /**

@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.core.network
 
+import dev.blazelight.p4oc.domain.server.ServerGeneration
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -24,6 +25,7 @@ data class ServerConfig(
 
 data class Connection(
     val config: ServerConfig,
+    val generation: ServerGeneration,
     val api: OpenCodeApi,
     val eventSource: OpenCodeEventSource
 ) {

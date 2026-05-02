@@ -49,5 +49,7 @@ class FakeSessionRepository(
 
     override suspend fun loadMessages(sessionId: SessionId, limit: Int?) = Unit
 
-    override suspend fun clearStreamingFlags(sessionId: SessionId) = Unit
+    override fun clearStreamingFlags(sessionId: SessionId) = Unit
+
+    override fun close() = Unit
 }

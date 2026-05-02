@@ -68,6 +68,9 @@ class SettingsDataStore constructor(
         private val KEY_NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         private val KEY_NOTIFY_PERMISSIONS = booleanPreferencesKey("notify_permissions")
         private val KEY_NOTIFY_QUESTIONS = booleanPreferencesKey("notify_questions")
+        private val KEY_NOTIFY_VIBRATE_ON_COMPLETION = booleanPreferencesKey("notify_vibrate_on_completion")
+        private val KEY_NOTIFY_VIBRATION_PATTERN = stringPreferencesKey("notify_vibration_pattern")
+        private val KEY_NOTIFY_ON_COMPLETION = booleanPreferencesKey("notify_on_completion")
 
         // Connection settings keys
         private val KEY_AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
@@ -378,7 +381,10 @@ class SettingsDataStore constructor(
         NotificationSettings(
             enabled = prefs[KEY_NOTIFICATIONS_ENABLED] ?: true,
             permissionRequests = prefs[KEY_NOTIFY_PERMISSIONS] ?: true,
-            questions = prefs[KEY_NOTIFY_QUESTIONS] ?: true
+            questions = prefs[KEY_NOTIFY_QUESTIONS] ?: true,
+            vibrationPattern = prefs[KEY_NOTIFY_VIBRATION_PATTERN]?.toVibrationPattern()
+                ?: if (prefs[KEY_NOTIFY_VIBRATE_ON_COMPLETION] == true) VibrationPattern.Tick else VibrationPattern.None,
+            notifyOnCompletion = prefs[KEY_NOTIFY_ON_COMPLETION] ?: false,
         )
     }
 
@@ -387,6 +393,9 @@ class SettingsDataStore constructor(
             prefs[KEY_NOTIFICATIONS_ENABLED] = settings.enabled
             prefs[KEY_NOTIFY_PERMISSIONS] = settings.permissionRequests
             prefs[KEY_NOTIFY_QUESTIONS] = settings.questions
+            prefs[KEY_NOTIFY_VIBRATION_PATTERN] = settings.vibrationPattern.storageValue
+            prefs[KEY_NOTIFY_ON_COMPLETION] = settings.notifyOnCompletion
+            prefs.remove(KEY_NOTIFY_VIBRATE_ON_COMPLETION)
         }
     }
 
@@ -473,7 +482,7 @@ class SettingsDataStore constructor(
     }
 
     private fun parsePersistedTabState(stored: String): PersistedTabState? = try {
-        json.decodeFromString<PersistedTabState>(stored).takeIf { it.version == PersistedTabState.CURRENT_VERSION }
+        json.decodeFromString<PersistedTabState>(stored)
     } catch (e: Exception) {
         AppLog.w(TAG, "Ignoring invalid persisted tab state: ${e.message}")
         null
@@ -555,8 +564,24 @@ data class VisualSettings(
 data class NotificationSettings(
     val enabled: Boolean = true,
     val permissionRequests: Boolean = true,
-    val questions: Boolean = true
+    val questions: Boolean = true,
+    val vibrationPattern: VibrationPattern = VibrationPattern.None,
+    val notifyOnCompletion: Boolean = false,
 )
+
+enum class VibrationPattern(val storageValue: String) {
+    None("none"),
+    Tick("tick"),
+    Click("click"),
+    HeavyClick("heavy_click"),
+    DoubleClick("double_click"),
+    LongPulse("long_pulse"),
+    DoubleLongPulse("double_long_pulse"),
+}
+
+fun String.toVibrationPattern(): VibrationPattern = VibrationPattern.entries
+    .firstOrNull { it.storageValue == this }
+    ?: VibrationPattern.None
 
 data class ConnectionSettings(
     val autoReconnect: Boolean = true,

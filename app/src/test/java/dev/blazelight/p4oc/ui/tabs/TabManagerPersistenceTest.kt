@@ -51,7 +51,7 @@ class TabManagerPersistenceTest {
         assertEquals("tab-1", manager.activeTabId.value)
         assertEquals("session with space", manager.tabs.value.single().sessionId)
         assertEquals("/repo/a b", manager.tabs.value.single().workspaceDirectory)
-        assertEquals("chat/session%20with%20space?directory=%2Frepo%2Fa%20b", manager.tabs.value.single().startRoute)
+        assertEquals("chat/session%20with%20space", manager.tabs.value.single().startRoute)
     }
 
     @Test

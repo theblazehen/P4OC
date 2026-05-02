@@ -26,10 +26,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlin.coroutines.coroutineContext
@@ -49,7 +51,8 @@ class SessionRepositoryImpl(
 
     private val reducer = SessionReducer(client.workspace)
     private val hydrateBuffer = HydrationEventBuffer()
-    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(job + dispatcher)
 
     private val _state = MutableStateFlow<RepoState>(RepoState.Hydrating())
     override val state: StateFlow<RepoState> = _state.asStateFlow()
@@ -126,7 +129,7 @@ class SessionRepositoryImpl(
 
     override fun acceptEvent(event: OpenCodeEvent) {
         _state.value = when (val current = _state.value) {
-            is RepoState.Hydrating -> hydrateBuffer.buffer(event).copy(snapshot = current.snapshot)
+            is RepoState.Hydrating -> if (isSessionEvent(event)) hydrateBuffer.buffer(event).copy(snapshot = current.snapshot) else current
             is RepoState.Live -> RepoState.Live(reducer.reduce(current.snapshot, event))
             is RepoState.Stale -> current.copy(snapshot = reducer.reduce(current.snapshot, event))
         }
@@ -147,61 +150,69 @@ class SessionRepositoryImpl(
             ?: error("Message loading requires WorkspaceClient")
         val mapper = messageMapper ?: error("Message loading requires MessageMapper")
         val messages = workspaceClient.getMessages(sessionId.value, limit).map { dto -> mapper.mapWrapperToDomain(dto) }
-        messageState(sessionId.value).value = messages.sortedBy { it.message.createdAt }
+        mergeLoadedMessages(sessionId.value, messages)
     }
 
-    override suspend fun clearStreamingFlags(sessionId: SessionId) {
-        val state = messageState(sessionId.value)
-        state.value = state.value.map { msgWithParts ->
+    override fun clearStreamingFlags(sessionId: SessionId) {
+        messageState(sessionId.value).update { messages -> messages.map { msgWithParts ->
             msgWithParts.copy(
                 parts = msgWithParts.parts.map { part ->
                     if (part is Part.Text && part.isStreaming) part.copy(isStreaming = false) else part
                 },
             )
-        }
+        } }
     }
 
-    suspend fun createSession(title: String?, directory: String?): WorkspaceSession {
-        val dto = client.createSession(CreateSessionRequest(title = title), directory)
+    override fun close() {
+        invalidate()
+        job.cancel("SessionRepository closed")
+        synchronized(messageStates) { messageStates.clear() }
+    }
+
+    suspend fun createSession(title: String?): WorkspaceSession {
+        val dto = client.createSession(CreateSessionRequest(title = title))
         val session = SessionMapper.mapToDomain(dto)
         val workspaceSession = workspaceSession(session)
         upsert(workspaceSession)
         return workspaceSession
     }
 
-    suspend fun deleteSession(id: SessionId, directory: String?) {
+    suspend fun deleteSession(id: SessionId) {
         val before = state.value.snapshot
         _state.value = RepoState.Live(before.copy(sessions = before.sessions - id.value))
         try {
-            client.deleteSession(id.value, directory)
+            client.deleteSession(id.value)
         } catch (e: Exception) {
-            runCatching { refresh() }
-            _state.value = RepoState.Stale(state.value.snapshot, reason = e.message)
+            val refetch = runCatching { hydrate(client.listProjects()).snapshot }
+            _state.value = refetch.fold(
+                onSuccess = { RepoState.Live(it) },
+                onFailure = { RepoState.Stale(before, reason = it.message ?: e.message) },
+            )
             throw e
         }
     }
 
-    suspend fun renameSession(id: SessionId, title: String, directory: String?): WorkspaceSession {
-        val dto = client.updateSession(id.value, UpdateSessionRequest(title = title), directory)
+    suspend fun renameSession(id: SessionId, title: String): WorkspaceSession {
+        val dto = client.updateSession(id.value, UpdateSessionRequest(title = title))
         val session = workspaceSession(SessionMapper.mapToDomain(dto))
         upsert(session)
         return session
     }
 
-    suspend fun shareSession(id: SessionId, directory: String?): WorkspaceSession {
-        val session = workspaceSession(SessionMapper.mapToDomain(client.shareSession(id.value, directory)))
+    suspend fun shareSession(id: SessionId): WorkspaceSession {
+        val session = workspaceSession(SessionMapper.mapToDomain(client.shareSession(id.value)))
         upsert(session)
         return session
     }
 
-    suspend fun unshareSession(id: SessionId, directory: String?): WorkspaceSession {
-        val session = workspaceSession(SessionMapper.mapToDomain(client.unshareSession(id.value, directory)))
+    suspend fun unshareSession(id: SessionId): WorkspaceSession {
+        val session = workspaceSession(SessionMapper.mapToDomain(client.unshareSession(id.value)))
         upsert(session)
         return session
     }
 
-    suspend fun summarizeSession(id: SessionId, directory: String?) {
-        client.summarizeSession(id.value, directory)
+    suspend fun summarizeSession(id: SessionId) {
+        client.summarizeSession(id.value)
         refresh()
     }
 
@@ -318,48 +329,75 @@ class SessionRepositoryImpl(
         messageStates.getOrPut(sessionId) { MutableStateFlow(emptyList()) }
     }
 
+    private fun mergeLoadedMessages(sessionId: String, loaded: List<MessageWithParts>) {
+        val state = messageState(sessionId)
+        state.update { current ->
+            val currentById = current.associateBy { it.message.id }
+            loaded.map { loadedMessage ->
+                val currentMessage = currentById[loadedMessage.message.id]
+                if (currentMessage == null) {
+                    loadedMessage
+                } else {
+                    loadedMessage.copy(parts = mergeParts(loadedMessage.parts, currentMessage.parts))
+                }
+            }.let { mergedLoaded ->
+                val loadedIds = mergedLoaded.map { it.message.id }.toSet()
+                (mergedLoaded + current.filter { it.message.id !in loadedIds }).sortedBy { it.message.createdAt }
+            }
+        }
+    }
+
+    private fun mergeParts(loaded: List<Part>, current: List<Part>): List<Part> {
+        val loadedById = loaded.associateBy { it.id }
+        val currentById = current.associateBy { it.id }
+        val mergedIds = loaded.map { it.id } + current.map { it.id }.filterNot { it in loadedById }
+        return mergedIds.mapNotNull { id -> currentById[id] ?: loadedById[id] }
+    }
+
     private fun upsertMessage(message: Message) {
         val state = messageState(message.sessionID)
-        val existing = state.value.firstOrNull { it.message.id == message.id }
-        val updated = if (existing != null) {
-            state.value.map { if (it.message.id == message.id) it.copy(message = message) else it }
-        } else {
-            state.value + MessageWithParts(message, emptyList())
+        state.update { messages ->
+            val existing = messages.firstOrNull { it.message.id == message.id }
+            val updated = if (existing != null) {
+                messages.map { if (it.message.id == message.id) it.copy(message = message) else it }
+            } else {
+                messages + MessageWithParts(message, emptyList())
+            }
+            updated.sortedBy { it.message.createdAt }
         }
-        state.value = updated.sortedBy { it.message.createdAt }
     }
 
     private fun upsertPart(part: Part, delta: String?) {
         val state = messageState(part.sessionID)
-        val existingMessage = state.value.firstOrNull { it.message.id == part.messageID }
-            ?: createPlaceholderMessage(part.sessionID, part.messageID)
-        val partIndex = existingMessage.parts.indexOfFirst { it.id == part.id }
-        val updatedParts = if (partIndex >= 0) {
-            existingMessage.parts.toMutableList().apply {
-                this[partIndex] = applyDelta(this[partIndex], part, delta)
+        state.update { messages ->
+            val existingMessage = messages.firstOrNull { it.message.id == part.messageID }
+                ?: createPlaceholderMessage(part.sessionID, part.messageID)
+            val partIndex = existingMessage.parts.indexOfFirst { it.id == part.id }
+            val updatedParts = if (partIndex >= 0) {
+                existingMessage.parts.toMutableList().apply {
+                    this[partIndex] = applyDelta(this[partIndex], part, delta)
+                }
+            } else {
+                existingMessage.parts + part
             }
-        } else {
-            existingMessage.parts + part
+            val updatedMessage = existingMessage.copy(parts = updatedParts)
+            (messages.filterNot { it.message.id == part.messageID } + updatedMessage)
+                .sortedBy { it.message.createdAt }
         }
-        val updatedMessage = existingMessage.copy(parts = updatedParts)
-        state.value = (state.value.filterNot { it.message.id == part.messageID } + updatedMessage)
-            .sortedBy { it.message.createdAt }
     }
 
     private fun removeMessage(sessionId: String, messageId: String) {
-        val state = messageState(sessionId)
-        state.value = state.value.filterNot { it.message.id == messageId }
+        messageState(sessionId).update { messages -> messages.filterNot { it.message.id == messageId } }
     }
 
     private fun removePart(sessionId: String, messageId: String, partId: String) {
-        val state = messageState(sessionId)
-        state.value = state.value.map { msgWithParts ->
+        messageState(sessionId).update { messages -> messages.map { msgWithParts ->
             if (msgWithParts.message.id == messageId) {
                 msgWithParts.copy(parts = msgWithParts.parts.filterNot { it.id == partId })
             } else {
                 msgWithParts
             }
-        }
+        } }
     }
 
     private fun applyDelta(existing: Part, incoming: Part, delta: String?): Part =
@@ -373,7 +411,7 @@ class SessionRepositoryImpl(
         message = Message.Assistant(
             id = messageId,
             sessionID = sessionId,
-            createdAt = System.currentTimeMillis(),
+            createdAt = nowMs(),
             parentID = "",
             providerID = "",
             modelID = "",
@@ -384,6 +422,18 @@ class SessionRepositoryImpl(
         ),
         parts = emptyList(),
     )
+
+    private fun isSessionEvent(event: OpenCodeEvent): Boolean = when (event) {
+        is OpenCodeEvent.SessionCreated,
+        is OpenCodeEvent.SessionUpdated,
+        is OpenCodeEvent.SessionDeleted,
+        is OpenCodeEvent.SessionStatusChanged,
+        is OpenCodeEvent.SessionDiff,
+        is OpenCodeEvent.SessionIdle,
+        is OpenCodeEvent.SessionCompacted,
+        is OpenCodeEvent.SessionError -> true
+        else -> false
+    }
 
     private companion object {
         const val FRESHNESS_MS = 30_000L

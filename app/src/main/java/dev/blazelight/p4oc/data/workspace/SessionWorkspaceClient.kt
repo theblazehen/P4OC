@@ -13,7 +13,7 @@ interface SessionWorkspaceClient {
     suspend fun listProjects(): List<ProjectDto>
 
     suspend fun listSessions(
-        directory: String? = workspace.directory,
+        directory: String?,
         roots: Boolean? = null,
         start: Long? = null,
         search: String? = null,
@@ -22,17 +22,17 @@ interface SessionWorkspaceClient {
 
     suspend fun getSession(id: String): SessionDto
 
-    suspend fun getSessionStatuses(directory: String? = workspace.directory): Map<String, SessionStatusDto>
+    suspend fun getSessionStatuses(directory: String?): Map<String, SessionStatusDto>
 
-    suspend fun createSession(request: CreateSessionRequest, directory: String? = workspace.directory): SessionDto
+    suspend fun createSession(request: CreateSessionRequest): SessionDto
 
-    suspend fun deleteSession(id: String, directory: String? = workspace.directory): Boolean
+    suspend fun deleteSession(id: String): Boolean
 
-    suspend fun updateSession(id: String, request: UpdateSessionRequest, directory: String? = workspace.directory): SessionDto
+    suspend fun updateSession(id: String, request: UpdateSessionRequest): SessionDto
 
-    suspend fun shareSession(id: String, directory: String? = workspace.directory): SessionDto
+    suspend fun shareSession(id: String): SessionDto
 
-    suspend fun unshareSession(id: String, directory: String? = workspace.directory): SessionDto
+    suspend fun unshareSession(id: String): SessionDto
 
-    suspend fun summarizeSession(id: String, directory: String? = workspace.directory): Boolean
+    suspend fun summarizeSession(id: String): Boolean
 }

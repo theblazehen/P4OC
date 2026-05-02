@@ -333,13 +333,12 @@ fun MainTabScreen(
                             if (route != null) {
                                 tabTitles[tab.id] = getTitleForRoute(route, tab.sessionTitle)
                                 tabIcons[tab.id] = getIconForRoute(route)
-                                // Track route for PTY cleanup on tab close
-                                tabRoutes[tab.id] = route
                             }
                             // Track PTY ID if on a terminal route
                             val ptyId = backStackEntry?.arguments?.getString(Screen.Terminal.ARG_PTY_ID)
                             if (ptyId != null) {
                                 tabPtyIds[tab.id] = ptyId
+                                tabRoutes[tab.id] = Screen.Terminal.createRoute(ptyId)
                             }
                         }
                         
@@ -352,7 +351,11 @@ fun MainTabScreen(
                             onCloseTab = { closeTab(tab.id) },
                             startRoute = tab.startRoute,
                             onNewFilesTab = {
-                                tabManager.createTab(startRoute = Screen.Files.route, focus = true)
+                                tabManager.createTab(
+                                    startRoute = Screen.Files.route,
+                                    workspaceDirectory = tab.workspaceDirectory,
+                                    focus = true,
+                                )
                             },
                             onNewTerminalTab = {
                                 coroutineScope.launch {
@@ -367,7 +370,8 @@ fun MainTabScreen(
                                             val ptyId = result.data.id
                                             tabManager.createTab(
                                                 startRoute = Screen.Terminal.createRoute(ptyId),
-                                                focus = true
+                                                workspaceDirectory = tab.workspaceDirectory,
+                                                focus = true,
                                             )
                                         }
                                         is ApiResult.Error -> {

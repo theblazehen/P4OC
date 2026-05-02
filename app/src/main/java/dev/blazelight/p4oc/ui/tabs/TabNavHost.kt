@@ -80,23 +80,21 @@ fun TabNavHost(
     val tab = tabs.firstOrNull { it.id == tabId }
     val workspaceDirectory = tab?.workspaceDirectory
     val workspaceRevision = tab?.workspaceRevision ?: 0
+    val connection by connectionManager.connection.collectAsState()
 
-    val baseUrl = connectionManager.currentBaseUrl
+    val baseUrl = connection?.config?.url
     if (baseUrl == null) {
         Box(modifier = modifier)
         return
     }
 
-    val workspace = remember(tabId, startRoute, baseUrl, workspaceDirectory) {
+    val workspace = remember(tabId, baseUrl, workspaceDirectory, workspaceRevision) {
         Workspace(
             server = ServerRef.fromEndpoint(baseUrl),
-            directory = workspaceDirectory ?: initialDirectoryFromRoute(startRoute),
+            directory = workspaceDirectory,
         )
     }
-    val generation = remember(tabId) {
-        // TODO(oa-6d53 follow-up): replace placeholder when ConnectionManager exposes server generations.
-        ServerGeneration(0L)
-    }
+    val generation = connection?.generation ?: error("Connected server is missing generation")
     val workspaceRoute = remember(tabId, workspaceRevision) { workspaceGraphRoute(tabId, workspaceRevision) }
 
     // Double-back-to-close when at the root of any tab.
@@ -171,11 +169,13 @@ fun TabNavHost(
                         tabManager.focusTab(existingTab.id)
                     } else {
                         // Navigate within this tab
-                        navController.navigate(Screen.Chat.createRoute(sessionId, directory))
+                        tabManager.updateTabWorkspace(tabId, directory)
+                        navController.navigate(Screen.Chat.createRoute(sessionId))
                     }
                 },
                 onNewSession = { sessionId, directory ->
-                    navController.navigate(Screen.Chat.createRoute(sessionId, directory))
+                    tabManager.updateTabWorkspace(tabId, directory)
+                    navController.navigate(Screen.Chat.createRoute(sessionId))
                 },
                 onSettings = {
                     navController.navigate(Screen.Settings.route)
@@ -211,11 +211,13 @@ fun TabNavHost(
                     if (existingTab != null && existingTab.id != tabId) {
                         tabManager.focusTab(existingTab.id)
                     } else {
-                        navController.navigate(Screen.Chat.createRoute(sessionId, directory))
+                        tabManager.updateTabWorkspace(tabId, directory)
+                        navController.navigate(Screen.Chat.createRoute(sessionId))
                     }
                 },
                 onNewSession = { sessionId, directory ->
-                    navController.navigate(Screen.Chat.createRoute(sessionId, directory))
+                    tabManager.updateTabWorkspace(tabId, directory)
+                    navController.navigate(Screen.Chat.createRoute(sessionId))
                 },
                 onSettings = {
                     navController.navigate(Screen.Settings.route)
@@ -238,14 +240,7 @@ fun TabNavHost(
         // Chat screen
         composable(
             route = Screen.Chat.route,
-            arguments = listOf(
-                navArgument(Screen.Chat.ARG_SESSION_ID) { type = NavType.StringType },
-                navArgument(Screen.Chat.ARG_DIRECTORY) {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
-            )
+            arguments = listOf(navArgument(Screen.Chat.ARG_SESSION_ID) { type = NavType.StringType })
         ) { backStackEntry ->
             val workspaceViewModel = TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             ChatScreen(
@@ -275,10 +270,11 @@ fun TabNavHost(
                         // Focus the existing tab
                         tabManager.focusTab(existingTab.id)
                     } else if (openSubAgentInNewTab) {
-                        // Open in a new tab (default)
+                        // Open in a new tab (default), inheriting the source tab's workspace
                         tabManager.createTab(
                             startRoute = Screen.Chat.createRoute(subSessionId),
-                            focus = true
+                            workspaceDirectory = workspace.directory,
+                            focus = true,
                         )
                     } else {
                         // Same tab (legacy behavior)
@@ -506,8 +502,3 @@ private fun workspaceViewModelForTab(
         parameters = { parametersOf(tabId, workspace, generation) },
     )
 }
-
-private fun initialDirectoryFromRoute(route: String): String? =
-    runCatching {
-        Uri.parse(route).getQueryParameter(Screen.Chat.ARG_DIRECTORY)
-    }.getOrNull()?.takeIf { it.isNotBlank() }

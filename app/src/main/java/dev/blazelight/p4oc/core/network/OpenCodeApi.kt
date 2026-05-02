@@ -191,13 +191,21 @@ interface OpenCodeApi {
     ): List<CommandDto>
 
     @GET("file")
-    suspend fun listFiles(@Query("path") path: String = "."): List<FileNodeDto>
+    suspend fun listFiles(
+        @Query("path") path: String,
+        @Query("directory") directory: String?
+    ): List<FileNodeDto>
 
     @GET("file/content")
-    suspend fun readFile(@Query("path") path: String): FileContentDto
+    suspend fun readFile(
+        @Query("path") path: String,
+        @Query("directory") directory: String?
+    ): FileContentDto
 
     @GET("file/status")
-    suspend fun getFileStatus(): List<FileStatusDto>
+    suspend fun getFileStatus(
+        @Query("directory") directory: String?
+    ): List<FileStatusDto>
 
     @GET("find")
     suspend fun searchText(@Query("pattern") pattern: String): List<SearchResultDto>
@@ -210,7 +218,10 @@ interface OpenCodeApi {
     ): List<String>
 
     @GET("find/symbol")
-    suspend fun searchSymbols(@Query("query") query: String): List<SymbolDto>
+    suspend fun searchSymbols(
+        @Query("query") query: String,
+        @Query("directory") directory: String?
+    ): List<SymbolDto>
 
     @GET("config")
     suspend fun getConfig(): ConfigDto

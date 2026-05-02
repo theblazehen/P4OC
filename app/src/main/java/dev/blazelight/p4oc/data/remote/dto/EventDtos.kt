@@ -16,7 +16,7 @@ data class EventDataDto(
 
 @Serializable
 data class GlobalEventDto(
-    val directory: String,
+    val directory: String? = null,
     val payload: EventDataDto
 )
 

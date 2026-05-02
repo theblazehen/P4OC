@@ -5,6 +5,7 @@ import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.security.CredentialStore
 import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.PtyWebSocketClient
+import dev.blazelight.p4oc.core.haptic.HapticFeedback
 import dev.blazelight.p4oc.core.notification.NotificationEventObserver
 import dev.blazelight.p4oc.core.notification.NotificationHelper
 
@@ -51,7 +52,8 @@ val appModule = module {
     // Core services
     single { SettingsDataStore(androidContext(), get()) }
     single { NotificationHelper(androidContext()) }
-    single { NotificationEventObserver(get(), get(), get()) }
+    single { NotificationEventObserver(get(), get(), get(), get()) }
+    single { HapticFeedback(androidContext()) }
 
     // Tab management (singleton for app lifetime)
     single { TabManager() }
@@ -71,14 +73,15 @@ val networkModule = module {
     single<ActiveServerApiProvider> {
         val connectionManager: ConnectionManager = get()
         ActiveServerApiProvider { serverRef, generation ->
-            // TODO(oa-6d53 follow-up): validate ServerGeneration once ConnectionManager exposes
-            // generation-aware active server state. For now, require the endpoint to still match
-            // the active connection before bridging to the legacy active API.
             val activeBaseUrl = connectionManager.currentBaseUrl
                 ?: throw IllegalStateException("No active server for workspace ${serverRef.endpointKey} generation=${generation.value}")
             val activeServerRef = ServerRef.fromEndpoint(activeBaseUrl)
             check(activeServerRef == serverRef) {
                 "Workspace server ${serverRef.endpointKey} does not match active server ${activeServerRef.endpointKey}"
+            }
+            val activeGeneration = connectionManager.currentGeneration
+            check(activeGeneration == generation) {
+                "Workspace generation ${generation.value} does not match active generation ${activeGeneration?.value ?: "<none>"}"
             }
             connectionManager.requireApi()
         }
@@ -102,9 +105,10 @@ val viewModelModule = module {
             generation = params.get<ServerGeneration>(),
             activeServerApiProvider = get(),
             messageMapper = get(),
+            connectionManager = get(),
         )
     }
-    viewModel { params -> ChatViewModel(params.get(), params.get(), params.get(), get(), get()) }
+    viewModel { params -> ChatViewModel(params.get(), params.get(), params.get(), get(), get(), get()) }
     viewModel { params -> TerminalViewModel(params.get(), androidContext(), get(), get()) }
 }
 

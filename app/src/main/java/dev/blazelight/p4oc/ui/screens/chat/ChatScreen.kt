@@ -83,6 +83,7 @@ fun ChatScreen(
     val pickerFiles by viewModel.filePickerManager.pickerFiles.collectAsStateWithLifecycle()
     val pickerCurrentPath by viewModel.filePickerManager.pickerCurrentPath.collectAsStateWithLifecycle()
     val isPickerLoading by viewModel.filePickerManager.isPickerLoading.collectAsStateWithLifecycle()
+    val pickerError by viewModel.filePickerManager.pickerError.collectAsStateWithLifecycle()
     
     // Notify parent when session is loaded
     LaunchedEffect(uiState.session) {
@@ -409,6 +410,7 @@ fun ChatScreen(
             files = pickerFiles,
             currentPath = pickerCurrentPath,
             isLoading = isPickerLoading,
+            error = pickerError,
             selectedFiles = attachedFiles,
             onNavigateTo = { path -> viewModel.filePickerManager.loadPickerFiles(path.ifBlank { "." }) },
             onNavigateUp = {

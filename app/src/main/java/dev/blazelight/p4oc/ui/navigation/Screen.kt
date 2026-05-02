@@ -7,11 +7,9 @@ sealed class Screen(val route: String) {
     data object Server : Screen("server")
     data object Sessions : Screen("sessions")
     
-    data object Chat : Screen("chat/{sessionId}?directory={directory}") {
-        fun createRoute(sessionId: String, directory: String? = null) = 
-            if (directory != null) "chat/$sessionId?directory=${Uri.encode(directory)}" else "chat/$sessionId"
+    data object Chat : Screen("chat/{sessionId}") {
+        fun createRoute(sessionId: String) = "chat/${Uri.encode(sessionId)}"
         const val ARG_SESSION_ID = "sessionId"
-        const val ARG_DIRECTORY = "directory"
     }
     
     data object Terminal : Screen("terminal/{ptyId}") {

@@ -1,8 +1,10 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
 import androidx.lifecycle.SavedStateHandle
+import dev.blazelight.p4oc.core.datastore.NotificationSettings
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
+import dev.blazelight.p4oc.core.haptic.HapticFeedback
 import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.ConnectionState
@@ -14,6 +16,7 @@ import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
+import dev.blazelight.p4oc.domain.server.ScopedEvent
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.model.Message
@@ -67,10 +70,11 @@ class ChatViewModelTest {
     private lateinit var messageMapper: MessageMapper
     private lateinit var settingsDataStore: SettingsDataStore
     private lateinit var eventSource: OpenCodeEventSource
-    private lateinit var events: MutableSharedFlow<OpenCodeEvent>
+    private lateinit var events: MutableSharedFlow<ScopedEvent>
     private lateinit var api: OpenCodeApi
     private lateinit var workspaceClient: WorkspaceClient
     private lateinit var sessionRepository: SessionRepositoryImpl
+    private lateinit var hapticFeedback: HapticFeedback
 
     @Before
     fun setUp() {
@@ -105,20 +109,25 @@ class ChatViewModelTest {
         every { connectionManager.connectionState } returns MutableStateFlow(ConnectionState.Disconnected)
         every { connectionManager.getApi() } returns api
         every { connectionManager.getEventSource() } returns eventSource
-        every { eventSource.events } returns events
+        every { eventSource.events } returns MutableSharedFlow(extraBufferCapacity = 32)
 
         // Mock connectionManager.connection with a Connection wrapping the test eventSource
         // so that observeEvents() can flatMapLatest into the events flow
         val testConnection = Connection(
             config = ServerConfig.LOCAL_DEFAULT,
+            generation = ServerGeneration(0L),
             api = api,
             eventSource = eventSource
         )
         every { connectionManager.connection } returns MutableStateFlow(testConnection)
+        every { connectionManager.scopedEvents } returns events
 
         every { settingsDataStore.favoriteModels } returns flowOf(emptySet())
         every { settingsDataStore.recentModels } returns flowOf(emptyList())
         every { settingsDataStore.visualSettings } returns flowOf(VisualSettings())
+        every { settingsDataStore.notificationSettings } returns flowOf(NotificationSettings())
+
+        hapticFeedback = mockk(relaxed = true)
     }
 
     @After
@@ -131,7 +140,7 @@ class ChatViewModelTest {
         val vm = createViewModel()
         val message = assistantMessage(id = "m1", sessionId = "session-1", createdAt = 10)
 
-        events.emit(OpenCodeEvent.MessageUpdated(message))
+        emitEvent(OpenCodeEvent.MessageUpdated(message))
         flushMessages()
 
         assertEquals(listOf("m1"), vm.currentMessages().map { it.message.id })
@@ -142,7 +151,7 @@ class ChatViewModelTest {
         val vm = createViewModel()
         val permission = permission(id = "perm-1", sessionId = "session-1")
 
-        events.emit(OpenCodeEvent.PermissionRequested(permission))
+        emitEvent(OpenCodeEvent.PermissionRequested(permission))
         advanceUntilIdle()
 
         assertEquals(permission, vm.dialogManager.pendingPermission.value)
@@ -152,8 +161,8 @@ class ChatViewModelTest {
     fun handleEvent_filtersEventsBySessionId() = runTest {
         val vm = createViewModel()
 
-        events.emit(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m-x", sessionId = "other", createdAt = 10)))
-        events.emit(OpenCodeEvent.PermissionRequested(permission(id = "perm-x", sessionId = "other")))
+        emitEvent(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m-x", sessionId = "other", createdAt = 10)))
+        emitEvent(OpenCodeEvent.PermissionRequested(permission(id = "perm-x", sessionId = "other")))
         flushMessages()
 
         assertTrue(vm.currentMessages().isEmpty())
@@ -166,12 +175,12 @@ class ChatViewModelTest {
 
         // Register a child session via SessionCreated
         val childSession = testSession(id = "child-1", parentID = "session-1")
-        events.emit(OpenCodeEvent.SessionCreated(childSession))
+        emitEvent(OpenCodeEvent.SessionCreated(childSession))
         advanceUntilIdle()
 
         // Emit permission from the child session
         val perm = permission(id = "perm-child", sessionId = "child-1")
-        events.emit(OpenCodeEvent.PermissionRequested(perm))
+        emitEvent(OpenCodeEvent.PermissionRequested(perm))
         advanceUntilIdle()
 
         assertEquals(perm, vm.dialogManager.pendingPermission.value)
@@ -183,12 +192,12 @@ class ChatViewModelTest {
 
         // Register a child session via SessionCreated
         val childSession = testSession(id = "child-2", parentID = "session-1")
-        events.emit(OpenCodeEvent.SessionCreated(childSession))
+        emitEvent(OpenCodeEvent.SessionCreated(childSession))
         advanceUntilIdle()
 
         // Emit question from the child session
         val question = questionRequest(id = "q-child", sessionId = "child-2")
-        events.emit(OpenCodeEvent.QuestionAsked(question))
+        emitEvent(OpenCodeEvent.QuestionAsked(question))
         advanceUntilIdle()
 
         assertEquals(question, vm.dialogManager.pendingQuestion.value)
@@ -200,7 +209,7 @@ class ChatViewModelTest {
 
         // Emit permission from an unrelated session (not parent, not child)
         val perm = permission(id = "perm-rando", sessionId = "random-session-999")
-        events.emit(OpenCodeEvent.PermissionRequested(perm))
+        emitEvent(OpenCodeEvent.PermissionRequested(perm))
         advanceUntilIdle()
 
         assertNull(vm.dialogManager.pendingPermission.value)
@@ -210,7 +219,7 @@ class ChatViewModelTest {
     fun sessionStatusChanged_busy_setsIsBusyTrue() = runTest {
         val vm = createViewModel()
 
-        events.emit(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
         advanceUntilIdle()
 
         assertTrue(vm.uiState.value.isBusy)
@@ -219,13 +228,13 @@ class ChatViewModelTest {
     @Test
     fun sessionStatusChanged_idle_clearsStreamingFlags() = runTest {
         val vm = createViewModel()
-        events.emit(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m1", sessionId = "session-1", createdAt = 1)))
-        events.emit(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "Hello"), delta = null))
-        events.emit(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "ignored"), delta = " world"))
-        events.emit(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
+        emitEvent(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m1", sessionId = "session-1", createdAt = 1)))
+        emitEvent(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "Hello"), delta = null))
+        emitEvent(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "ignored"), delta = " world"))
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
         flushMessages()
 
-        events.emit(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
         flushMessages()
 
         val text = vm.currentMessages().single().parts.single() as Part.Text
@@ -324,10 +333,10 @@ class ChatViewModelTest {
         val vm = createViewModel()
 
         coEvery { api.abortSession(any(), any()) } returns true
-        events.emit(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m1", sessionId = "session-1", createdAt = 1)))
-        events.emit(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "Hi"), delta = null))
-        events.emit(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "ignored"), delta = "!"))
-        events.emit(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
+        emitEvent(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m1", sessionId = "session-1", createdAt = 1)))
+        emitEvent(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "Hi"), delta = null))
+        emitEvent(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "ignored"), delta = "!"))
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
         flushMessages()
 
         vm.abortSession()
@@ -345,7 +354,8 @@ class ChatViewModelTest {
             workspaceClient = workspaceClient,
             sessionRepository = sessionRepository,
             connectionManager = connectionManager,
-            settingsDataStore = settingsDataStore
+            settingsDataStore = settingsDataStore,
+            hapticFeedback = hapticFeedback,
         )
         advanceUntilIdle()
         return vm
@@ -354,6 +364,18 @@ class ChatViewModelTest {
     private fun TestScope.flushMessages() {
         advanceUntilIdle()
         advanceUntilIdle()
+    }
+
+    private suspend fun emitEvent(event: OpenCodeEvent) {
+        sessionRepository.acceptEvent(event)
+        events.emit(
+            ScopedEvent(
+                serverRef = workspaceClient.workspace.server,
+                generation = workspaceClient.generation,
+                workspaceKey = workspaceClient.workspace.key,
+                event = event,
+            ),
+        )
     }
 
     private fun ChatViewModel.currentMessages(): List<MessageWithParts> =

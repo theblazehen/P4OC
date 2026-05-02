@@ -9,6 +9,9 @@
     <!-- Notification permission (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Vibration for completion haptic feedback -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
 
 
     <!-- Termux integration permission -->

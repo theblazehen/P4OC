@@ -87,41 +87,41 @@ class FakeWorkspaceClient(
         return statusesByDirectory[directory].orEmpty()
     }
 
-    override suspend fun createSession(request: CreateSessionRequest, directory: String?): SessionDto {
-        val session = sessionDto(id = "created", title = request.title ?: "created", directory = directory ?: workspace.directory.orEmpty())
+    override suspend fun createSession(request: CreateSessionRequest): SessionDto {
+        val session = sessionDto(id = "created", title = request.title ?: "created", directory = workspace.directory.orEmpty())
         setSessions(session, *listSessionsResult.toTypedArray())
         return session
     }
 
-    override suspend fun deleteSession(id: String, directory: String?): Boolean {
+    override suspend fun deleteSession(id: String): Boolean {
         deleteSessionCalls += 1
         deleteSessionFailure?.let { throw it }
         listSessionsResult = listSessionsResult.filterNot { it.id == id }
         return true
     }
 
-    override suspend fun updateSession(id: String, request: UpdateSessionRequest, directory: String?): SessionDto {
-        val existing = getSessionResults[id] ?: sessionDto(id = id, directory = directory ?: workspace.directory.orEmpty())
+    override suspend fun updateSession(id: String, request: UpdateSessionRequest): SessionDto {
+        val existing = getSessionResults[id] ?: sessionDto(id = id, directory = workspace.directory.orEmpty())
         val updated = existing.copy(title = request.title ?: existing.title)
         getSessionResults[id] = updated
         return updated
     }
 
-    override suspend fun shareSession(id: String, directory: String?): SessionDto {
-        val updated = (getSessionResults[id] ?: sessionDto(id = id, directory = directory ?: workspace.directory.orEmpty()))
+    override suspend fun shareSession(id: String): SessionDto {
+        val updated = (getSessionResults[id] ?: sessionDto(id = id, directory = workspace.directory.orEmpty()))
             .copy(share = SessionShareDto(url = "https://share/$id"))
         getSessionResults[id] = updated
         return updated
     }
 
-    override suspend fun unshareSession(id: String, directory: String?): SessionDto {
-        val updated = (getSessionResults[id] ?: sessionDto(id = id, directory = directory ?: workspace.directory.orEmpty()))
+    override suspend fun unshareSession(id: String): SessionDto {
+        val updated = (getSessionResults[id] ?: sessionDto(id = id, directory = workspace.directory.orEmpty()))
             .copy(share = null)
         getSessionResults[id] = updated
         return updated
     }
 
-    override suspend fun summarizeSession(id: String, directory: String?): Boolean = true
+    override suspend fun summarizeSession(id: String): Boolean = true
 
     fun setSessions(vararg sessions: SessionDto) {
         listSessionsResult = sessions.toList()

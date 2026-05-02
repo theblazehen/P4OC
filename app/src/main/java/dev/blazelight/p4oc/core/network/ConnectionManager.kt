@@ -4,13 +4,21 @@ import dev.blazelight.p4oc.BuildConfig
 import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
+import dev.blazelight.p4oc.domain.server.ServerGeneration
+import dev.blazelight.p4oc.domain.server.ScopedEvent
+import dev.blazelight.p4oc.domain.server.ServerRef
+import dev.blazelight.p4oc.domain.server.WorkspaceKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
@@ -35,6 +43,7 @@ class ConnectionManager constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sseForwardingJob: Job? = null
+    private var generationCounter: Long = 0L
     private val sharedConnectionPool = ConnectionPool(
         maxIdleConnections = 10,
         keepAliveDuration = 5,
@@ -64,6 +73,9 @@ class ConnectionManager constructor(
     val currentBaseUrl: String?
         get() = _connection.value?.config?.url
 
+    val currentGeneration: ServerGeneration?
+        get() = _connection.value?.generation
+
     fun requireApi(): OpenCodeApi {
         return _connection.value?.api
             ?: throw IllegalStateException("Not connected to any server")
@@ -72,6 +84,24 @@ class ConnectionManager constructor(
     fun getApi(): OpenCodeApi? = _connection.value?.api
 
     fun getEventSource(): OpenCodeEventSource? = _connection.value?.eventSource
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val scopedEvents: Flow<ScopedEvent>
+        get() = connection.flatMapLatest { conn ->
+            if (conn == null) {
+                emptyFlow()
+            } else {
+                val serverRef = ServerRef.fromEndpoint(conn.config.url)
+                conn.eventSource.directoryEvents.map { directoryEvent ->
+                    ScopedEvent(
+                        serverRef = serverRef,
+                        generation = conn.generation,
+                        workspaceKey = directoryEvent.directory?.takeIf { it.isNotBlank() }?.let(WorkspaceKey::Directory) ?: WorkspaceKey.Global,
+                        event = directoryEvent.event,
+                    )
+                }
+            }
+        }
 
     suspend fun connect(config: ServerConfig, password: String? = null): Result<List<ProjectDto>> {
         AppLog.d(TAG, "Connecting to ${config.url}")
@@ -111,7 +141,8 @@ class ConnectionManager constructor(
             // Build and store the auth-aware WebSocket client (shares pool with base)
             _authOkHttpClient.value = buildWebSocketOkHttpClient(baseClient)
 
-            val connection = Connection(config, api, eventSource)
+            val generation = ServerGeneration(++generationCounter)
+            val connection = Connection(config, generation, api, eventSource)
             _connection.value = connection
 
             // Forward SSE connection state instead of setting Connected optimistically.

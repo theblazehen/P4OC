@@ -554,6 +554,17 @@
     <string name="notification_permission_requests_desc">Notify when a tool needs approval</string>
     <string name="notification_questions">AI questions</string>
     <string name="notification_questions_desc">Notify when the AI asks a question</string>
+    <string name="notification_completion">Response completion</string>
+    <string name="notification_completion_desc">Post a notification when the assistant finishes in the background</string>
+    <string name="notification_vibration_pattern">Vibration pattern</string>
+    <string name="vibration_pattern_none">Off</string>
+    <string name="vibration_pattern_tick">Tick</string>
+    <string name="vibration_pattern_click">Click</string>
+    <string name="vibration_pattern_heavy_click">Heavy click</string>
+    <string name="vibration_pattern_double_click">Double click</string>
+    <string name="vibration_pattern_long_pulse">Long pulse</string>
+    <string name="vibration_pattern_double_long_pulse">2x long pulse</string>
+    <string name="button_done">Done</string>
 
     <!-- Connection Status -->
     <string name="connection_status_connected">Connected</string>

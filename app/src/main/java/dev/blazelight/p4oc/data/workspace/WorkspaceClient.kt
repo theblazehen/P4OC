@@ -45,16 +45,16 @@ class WorkspaceClient(
         limit: Int?,
     ): List<SessionDto> = api.listSessions(directory, roots, start, search, limit)
 
-    override suspend fun createSession(request: CreateSessionRequest, directory: String?): SessionDto =
+    override suspend fun createSession(request: CreateSessionRequest): SessionDto =
         api.createSession(directory = directory, request = request)
 
     override suspend fun getSession(id: String): SessionDto = api.getSession(id, directory)
 
     suspend fun getVcsInfo(): VcsInfoDto = api.getVcsInfo(directory)
 
-    override suspend fun deleteSession(id: String, directory: String?): Boolean = api.deleteSession(id, directory)
+    override suspend fun deleteSession(id: String): Boolean = api.deleteSession(id, directory)
 
-    override suspend fun updateSession(id: String, request: UpdateSessionRequest, directory: String?): SessionDto =
+    override suspend fun updateSession(id: String, request: UpdateSessionRequest): SessionDto =
         api.updateSession(id, request, directory)
 
     override suspend fun getSessionStatuses(directory: String?): Map<String, SessionStatusDto> = api.getSessionStatuses(directory)
@@ -69,11 +69,11 @@ class WorkspaceClient(
     suspend fun initSession(id: String, request: InitSessionRequest): Boolean =
         api.initSession(id, request, directory)
 
-    override suspend fun shareSession(id: String, directory: String?): SessionDto = api.shareSession(id, directory)
+    override suspend fun shareSession(id: String): SessionDto = api.shareSession(id, directory)
 
-    override suspend fun unshareSession(id: String, directory: String?): SessionDto = api.unshareSession(id, directory)
+    override suspend fun unshareSession(id: String): SessionDto = api.unshareSession(id, directory)
 
-    override suspend fun summarizeSession(id: String, directory: String?): Boolean = api.summarizeSession(id, directory)
+    override suspend fun summarizeSession(id: String): Boolean = api.summarizeSession(id, directory)
 
     suspend fun revertSession(id: String, request: RevertSessionRequest): SessionDto =
         api.revertSession(id, request, directory)
@@ -104,11 +104,11 @@ class WorkspaceClient(
     suspend fun executeShellCommand(sessionId: String, request: ShellCommandRequest): MessageWrapperDto =
         api.executeShellCommand(sessionId, request, directory)
 
-    suspend fun listFiles(path: String): List<FileNodeDto> = api.listFiles(path)
+    suspend fun listFiles(path: String): List<FileNodeDto> = api.listFiles(path, directory)
 
-    suspend fun readFile(path: String): FileContentDto = api.readFile(path)
+    suspend fun readFile(path: String): FileContentDto = api.readFile(path, directory)
 
-    suspend fun getFileStatus(): List<FileStatusDto> = api.getFileStatus()
+    suspend fun getFileStatus(): List<FileStatusDto> = api.getFileStatus(directory)
 
-    suspend fun searchSymbols(query: String): List<SymbolDto> = api.searchSymbols(query)
+    suspend fun searchSymbols(query: String): List<SymbolDto> = api.searchSymbols(query, directory)
 }

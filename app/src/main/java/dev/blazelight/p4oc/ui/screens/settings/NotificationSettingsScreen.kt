@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -28,6 +30,8 @@ import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.NotificationSettings
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
+import dev.blazelight.p4oc.core.datastore.VibrationPattern
+import dev.blazelight.p4oc.core.haptic.HapticFeedback
 import dev.blazelight.p4oc.ui.components.TuiAlertDialog
 import dev.blazelight.p4oc.ui.components.TuiButton
 import dev.blazelight.p4oc.ui.components.TuiSwitch
@@ -43,7 +47,8 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
 class NotificationSettingsViewModel constructor(
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val hapticFeedback: HapticFeedback,
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow(NotificationSettings())
@@ -74,6 +79,22 @@ class NotificationSettingsViewModel constructor(
         _settings.value = new
         viewModelScope.launch { settingsDataStore.updateNotificationSettings(new) }
     }
+
+    fun toggleNotifyOnCompletion() {
+        val new = _settings.value.copy(notifyOnCompletion = !_settings.value.notifyOnCompletion)
+        _settings.value = new
+        viewModelScope.launch { settingsDataStore.updateNotificationSettings(new) }
+    }
+
+    fun setVibrationPattern(pattern: VibrationPattern) {
+        val new = _settings.value.copy(vibrationPattern = pattern)
+        _settings.value = new
+        viewModelScope.launch { settingsDataStore.updateNotificationSettings(new) }
+    }
+
+    fun previewVibration(pattern: VibrationPattern) {
+        hapticFeedback.preview(pattern)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,6 +121,7 @@ fun NotificationSettingsScreen(
     }
 
     var showPermissionDeniedDialog by remember { mutableStateOf(false) }
+    var showVibrationPatternDialog by remember { mutableStateOf(false) }
 
     // Re-check permission when screen resumes (e.g., returning from system settings)
     LifecycleResumeEffect(Unit) {
@@ -193,6 +215,21 @@ fun NotificationSettingsScreen(
                 enabled = settings.enabled,
                 testTag = "notification_questions_switch"
             )
+
+            NotificationSwitch(
+                title = stringResource(R.string.notification_completion),
+                subtitle = stringResource(R.string.notification_completion_desc),
+                icon = Icons.Default.DoneAll,
+                checked = settings.notifyOnCompletion,
+                onCheckedChange = { viewModel.toggleNotifyOnCompletion() },
+                enabled = settings.enabled,
+                testTag = "notify_on_completion_switch"
+            )
+
+            VibrationPatternRow(
+                pattern = settings.vibrationPattern,
+                onClick = { showVibrationPatternDialog = true }
+            )
         }
     }
 
@@ -226,6 +263,18 @@ fun NotificationSettingsScreen(
                 color = theme.textMuted
             )
         }
+    }
+
+    if (showVibrationPatternDialog) {
+        VibrationPatternDialog(
+            currentPattern = settings.vibrationPattern,
+            onPreview = viewModel::previewVibration,
+            onConfirm = { pattern ->
+                viewModel.setVibrationPattern(pattern)
+                showVibrationPatternDialog = false
+            },
+            onDismiss = { showVibrationPatternDialog = false }
+        )
     }
 }
 
@@ -283,6 +332,122 @@ private fun SectionHeader(title: String) {
         color = theme.accent,
         modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)
     )
+}
+
+@Composable
+private fun VibrationPatternRow(
+    pattern: VibrationPattern,
+    onClick: () -> Unit,
+) {
+    val theme = LocalOpenCodeTheme.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .testTag("vibration_pattern_row")
+            .padding(horizontal = Spacing.lg, vertical = Spacing.mdLg),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Vibration,
+                contentDescription = null,
+                tint = theme.textMuted
+            )
+            Column {
+                Text(
+                    text = stringResource(R.string.notification_vibration_pattern),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.text
+                )
+                Text(
+                    text = stringResource(pattern.labelRes()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted
+                )
+            }
+        }
+        Text(
+            text = "→",
+            style = MaterialTheme.typography.bodyMedium,
+            color = theme.textMuted
+        )
+    }
+    HorizontalDivider(
+        thickness = Sizing.dividerThickness,
+        color = theme.borderSubtle
+    )
+}
+
+@Composable
+private fun VibrationPatternDialog(
+    currentPattern: VibrationPattern,
+    onPreview: (VibrationPattern) -> Unit,
+    onConfirm: (VibrationPattern) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedPattern by remember(currentPattern) { mutableStateOf(currentPattern) }
+
+    TuiAlertDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.notification_vibration_pattern),
+        icon = Icons.Default.Vibration,
+        confirmButton = {
+            TuiButton(onClick = { onConfirm(selectedPattern) }) {
+                Text(stringResource(R.string.button_done))
+            }
+        },
+        dismissButton = {
+            TuiTextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.button_cancel))
+            }
+        },
+        modifier = Modifier.testTag("vibration_pattern_dialog"),
+    ) {
+        VibrationPattern.entries.forEach { pattern ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button) {
+                        selectedPattern = pattern
+                        onPreview(pattern)
+                    }
+                    .testTag("vibration_pattern_${pattern.storageValue}")
+                    .padding(vertical = Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = selectedPattern == pattern,
+                    onClick = {
+                        selectedPattern = pattern
+                        onPreview(pattern)
+                    }
+                )
+                Text(
+                    text = stringResource(pattern.labelRes()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LocalOpenCodeTheme.current.text
+                )
+            }
+        }
+    }
+}
+
+private fun VibrationPattern.labelRes(): Int = when (this) {
+    VibrationPattern.None -> R.string.vibration_pattern_none
+    VibrationPattern.Tick -> R.string.vibration_pattern_tick
+    VibrationPattern.Click -> R.string.vibration_pattern_click
+    VibrationPattern.HeavyClick -> R.string.vibration_pattern_heavy_click
+    VibrationPattern.DoubleClick -> R.string.vibration_pattern_double_click
+    VibrationPattern.LongPulse -> R.string.vibration_pattern_long_pulse
+    VibrationPattern.DoubleLongPulse -> R.string.vibration_pattern_double_long_pulse
 }
 
 @Composable

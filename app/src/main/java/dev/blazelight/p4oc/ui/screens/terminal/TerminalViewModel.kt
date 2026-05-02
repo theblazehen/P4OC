@@ -239,8 +239,8 @@ class TerminalViewModel constructor(
 
     private fun observeEvents() {
         viewModelScope.launch {
-            connectionManager.getEventSource()?.events?.collect { event ->
-                when (event) {
+            connectionManager.scopedEvents.collect { scopedEvent ->
+                when (val event = scopedEvent.event) {
                     is OpenCodeEvent.PtyUpdated -> {
                         if (event.pty.id == ptyId) {
                             _uiState.update { it.copy(title = event.pty.title) }

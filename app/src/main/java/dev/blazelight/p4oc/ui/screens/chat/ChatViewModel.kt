@@ -8,7 +8,9 @@ import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.core.datastore.NotificationSettings
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
+import dev.blazelight.p4oc.core.haptic.HapticFeedback
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.data.remote.dto.ExecuteCommandRequest
@@ -46,7 +48,8 @@ class ChatViewModel constructor(
     private val workspaceClient: WorkspaceClient,
     private val sessionRepository: SessionRepositoryImpl,
     private val connectionManager: ConnectionManager,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val hapticFeedback: HapticFeedback,
 ) : ViewModel() {
 
     private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)
@@ -64,7 +67,7 @@ class ChatViewModel constructor(
     // --- Sub-managers ---
     val dialogManager = DialogQueueManager(savedStateHandle, json)
     val modelAgentManager = ModelAgentManager(connectionManager, settingsDataStore, viewModelScope)
-    val filePickerManager = FilePickerManager(connectionManager, viewModelScope)
+    val filePickerManager = FilePickerManager(workspaceClient, viewModelScope)
 
     // --- Core state ---
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -109,6 +112,10 @@ class ChatViewModel constructor(
 
     val visualSettings = settingsDataStore.visualSettings
         .stateIn(viewModelScope, SharingStarted.Eagerly, dev.blazelight.p4oc.core.datastore.VisualSettings())
+
+    private val notificationSettings: StateFlow<NotificationSettings> =
+        settingsDataStore.notificationSettings
+            .stateIn(viewModelScope, SharingStarted.Eagerly, NotificationSettings())
 
     private companion object {
         const val TAG = "ChatViewModel"
@@ -211,42 +218,21 @@ class ChatViewModel constructor(
     private fun observeEvents() {
         viewModelScope.launch {
             AppLog.d(TAG, "observeEvents: Starting to collect SSE events")
-            // Use flatMapLatest on the connection flow so that if a full reconnect
-            // creates a new Connection (with a new EventSource), we automatically
-            // switch to the new event stream instead of staying on the stale one.
-            connectionManager.connection
-                .flatMapLatest { conn ->
-                    conn?.eventSource?.events ?: emptyFlow()
+            connectionManager.scopedEvents
+                .filter { scopedEvent ->
+                    scopedEvent.serverRef == workspaceClient.workspace.server &&
+                    scopedEvent.generation == workspaceClient.generation &&
+                    scopedEvent.workspaceKey == workspaceClient.workspace.key
                 }
-                .collect { event ->
-                    AppLog.d(TAG, "observeEvents: Received ${event::class.simpleName}")
-                    handleEvent(event)
+                .collect { scopedEvent ->
+                    AppLog.d(TAG, "observeEvents: Received ${scopedEvent.event::class.simpleName}")
+                    handleEvent(scopedEvent.event)
                 }
         }
     }
 
     private fun handleEvent(event: OpenCodeEvent) {
         when (event) {
-            is OpenCodeEvent.MessageUpdated -> {
-                if (event.message.sessionID == sessionId) {
-                    sessionRepository.acceptEvent(event)
-                }
-            }
-            is OpenCodeEvent.MessagePartUpdated -> {
-                if (event.part.sessionID == sessionId) {
-                    sessionRepository.acceptEvent(event)
-                }
-            }
-            is OpenCodeEvent.MessageRemoved -> {
-                if (event.sessionID == sessionId) {
-                    sessionRepository.acceptEvent(event)
-                }
-            }
-            is OpenCodeEvent.PartRemoved -> {
-                if (event.sessionID == sessionId) {
-                    sessionRepository.acceptEvent(event)
-                }
-            }
             is OpenCodeEvent.PermissionRequested -> {
                 if (isOwnedSession(event.permission.sessionID)) {
                     dialogManager.enqueuePermission(event.permission)
@@ -272,6 +258,7 @@ class ChatViewModel constructor(
                     if (wasBusy && !isBusy) {
                         viewModelScope.launch { sessionRepository.clearStreamingFlags(SessionId(sessionId)) }
                         _hasUnreadResponse.value = true
+                        handleResponseCompleted()
                     }
 
                     // Send queued message when session becomes idle
@@ -299,9 +286,11 @@ class ChatViewModel constructor(
             }
             is OpenCodeEvent.SessionIdle -> {
                 if (event.sessionID == sessionId) {
+                    val wasBusy = _uiState.value.isBusy
                     AppLog.d(TAG, "Session became idle")
                     viewModelScope.launch { sessionRepository.clearStreamingFlags(SessionId(sessionId)) }
                     _uiState.update { it.copy(isBusy = false, isSending = false) }
+                    if (wasBusy) handleResponseCompleted()
                     sendQueuedMessageIfAny()
                 }
             }
@@ -317,6 +306,11 @@ class ChatViewModel constructor(
             }
             else -> {}
         }
+    }
+
+    private fun handleResponseCompleted() {
+        val settings = notificationSettings.value
+        hapticFeedback.vibrate(settings.vibrationPattern)
     }
 
     // --- Message sending ---
@@ -449,16 +443,20 @@ class ChatViewModel constructor(
     fun respondToPermission(permissionId: String, response: String) {
         viewModelScope.launch {
             val request = PermissionResponseRequest(reply = response)
-            safeApiCall { workspaceClient.respondToPermission(permissionId, request) }
-            dialogManager.clearPermission(permissionId)
+            when (val result = safeApiCall { workspaceClient.respondToPermission(permissionId, request) }) {
+                is ApiResult.Success -> dialogManager.clearPermission(permissionId)
+                is ApiResult.Error -> _uiState.update { it.copy(error = "Failed to respond to permission: ${result.message}") }
+            }
         }
     }
 
     fun respondToQuestion(requestId: String, answers: List<List<String>>) {
         viewModelScope.launch {
             val request = QuestionReplyRequest(answers = answers)
-            safeApiCall { workspaceClient.respondToQuestion(requestId, request) }
-            dialogManager.clearQuestion()
+            when (val result = safeApiCall { workspaceClient.respondToQuestion(requestId, request) }) {
+                is ApiResult.Success -> dialogManager.clearQuestion()
+                is ApiResult.Error -> _uiState.update { it.copy(error = "Failed to answer question: ${result.message}") }
+            }
         }
     }
 
@@ -567,9 +565,13 @@ class ChatViewModel constructor(
             // Snapshot state BEFORE clearing flags
             val summary = buildAbortSummary()
 
-            safeApiCall { workspaceClient.abortSession(sessionId) }
-            sessionRepository.clearStreamingFlags(SessionId(sessionId))
-            _uiState.update { it.copy(isBusy = false, isSending = false, abortSummary = summary) }
+            when (val result = safeApiCall { workspaceClient.abortSession(sessionId) }) {
+                is ApiResult.Success -> {
+                    sessionRepository.clearStreamingFlags(SessionId(sessionId))
+                    _uiState.update { it.copy(isBusy = false, isSending = false, abortSummary = summary) }
+                }
+                is ApiResult.Error -> _uiState.update { it.copy(error = "Failed to abort session: ${result.message}") }
+            }
         }
     }
 

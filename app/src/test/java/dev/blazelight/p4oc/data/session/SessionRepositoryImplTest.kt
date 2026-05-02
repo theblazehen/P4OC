@@ -180,13 +180,13 @@ class SessionRepositoryImplTest {
         repository.refresh()
 
         try {
-            repository.deleteSession(SessionId("s1"), directory = "/workspace")
+            repository.deleteSession(SessionId("s1"))
         } catch (_: RuntimeException) {
         }
 
         assertEquals(1, client.deleteSessionCalls)
         assertEquals("Server Truth", repository.state.value.snapshot.sessions.getValue("s1").session.title)
-        assertEquals("HTTP 5xx", (repository.state.value as? RepoState.Stale)?.reason)
+        assertTrue(repository.state.value is RepoState.Live)
     }
 
     @Test
