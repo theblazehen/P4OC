@@ -122,6 +122,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.datetime)
 
+    // Diff parsing
+    implementation(libs.java.diff.utils)
+
     // DataStore Preferences
     implementation(libs.datastore.preferences)
 

@@ -15,6 +15,7 @@ coroutines-test = "1.10.2"
 datastore = "1.2.0"
 espresso = "3.7.0"
 eventsource = "4.2.0"
+java-diff-utils = "4.15"
 # Testing
 junit = "4.13.2"
 # Koin (replaces Hilt - no codegen, works with AGP 9)
@@ -68,6 +69,7 @@ coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ve
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 eventsource = { module = "com.launchdarkly:okhttp-eventsource", version.ref = "eventsource" }
+java-diff-utils = { module = "io.github.java-diff-utils:java-diff-utils", version.ref = "java-diff-utils" }
 # Testing
 junit = { module = "junit:junit", version.ref = "junit" }
 # Koin DI

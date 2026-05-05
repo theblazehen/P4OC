@@ -30,78 +30,14 @@ import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiTopBar
+import dev.blazelight.p4oc.ui.diff.ParsedDiffLine
+import dev.blazelight.p4oc.ui.diff.ParsedDiffLineType
+import dev.blazelight.p4oc.ui.diff.ParsedDiffParser
+import dev.blazelight.p4oc.ui.diff.ParsedFileDiff
+import dev.blazelight.p4oc.ui.diff.allHunks
 
 enum class DiffViewMode { UNIFIED, SIDE_BY_SIDE }
 
-data class DiffLine(
-    val type: LineType,
-    val content: String,
-    val oldLineNumber: Int?,
-    val newLineNumber: Int?
-) {
-    enum class LineType { CONTEXT, ADDED, REMOVED, HEADER }
-}
-
-data class DiffHunk(
-    val header: String,
-    val oldStart: Int,
-    val newStart: Int,
-    val lines: List<DiffLine>
-)
-
-fun parseDiff(diffContent: String): Pair<String, List<DiffHunk>> {
-    val lines = diffContent.lines()
-    val hunks = mutableListOf<DiffHunk>()
-    var fileName = ""
-    var currentHunkLines = mutableListOf<DiffLine>()
-    var currentHeader = ""
-    var oldStart = 0
-    var newStart = 0
-    var oldLine = 0
-    var newLine = 0
-
-    for (line in lines) {
-        when {
-            line.startsWith("---") -> {
-                fileName = line.removePrefix("--- ").removePrefix("a/")
-            }
-            line.startsWith("+++") -> {
-                if (fileName.isEmpty()) {
-                    fileName = line.removePrefix("+++ ").removePrefix("b/")
-                }
-            }
-            line.startsWith("@@") -> {
-                if (currentHunkLines.isNotEmpty()) {
-                    hunks.add(DiffHunk(currentHeader, oldStart, newStart, currentHunkLines.toList()))
-                    currentHunkLines = mutableListOf()
-                }
-                currentHeader = line
-                val match = Regex("""@@ -(\d+)(?:,\d+)? \+(\d+)""").find(line)
-                oldStart = match?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                newStart = match?.groupValues?.get(2)?.toIntOrNull() ?: 0
-                oldLine = oldStart
-                newLine = newStart
-                currentHunkLines.add(DiffLine(DiffLine.LineType.HEADER, line, null, null))
-            }
-            line.startsWith("+") && !line.startsWith("+++") -> {
-                currentHunkLines.add(DiffLine(DiffLine.LineType.ADDED, line.drop(1), null, newLine++))
-            }
-            line.startsWith("-") && !line.startsWith("---") -> {
-                currentHunkLines.add(DiffLine(DiffLine.LineType.REMOVED, line.drop(1), oldLine++, null))
-            }
-            line.startsWith(" ") || (currentHunkLines.isNotEmpty() && !line.startsWith("\\")) -> {
-                val content = if (line.startsWith(" ")) line.drop(1) else line
-                currentHunkLines.add(DiffLine(DiffLine.LineType.CONTEXT, content, oldLine++, newLine++))
-            }
-        }
-    }
-
-    if (currentHunkLines.isNotEmpty()) {
-        hunks.add(DiffHunk(currentHeader, oldStart, newStart, currentHunkLines.toList()))
-    }
-
-    return fileName to hunks
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,8 +49,10 @@ fun DiffViewerScreen(
 ) {
     val theme = LocalOpenCodeTheme.current
     var viewMode by remember { mutableStateOf(DiffViewMode.UNIFIED) }
-    val (parsedFileName, hunks) = remember(diffContent) { parseDiff(diffContent) }
-    val displayFileName = fileName ?: parsedFileName
+    val parsedDiff = remember(diffContent) { ParsedDiffParser.parse(diffContent) }
+    val files = parsedDiff.files
+    val hunks = parsedDiff.allHunks()
+    val displayFileName = fileName ?: files.singleOrNull()?.displayFileName.orEmpty()
 
     Scaffold(
         topBar = {
@@ -176,13 +114,13 @@ fun DiffViewerScreen(
         } else {
             when (viewMode) {
                 DiffViewMode.UNIFIED -> UnifiedDiffView(
-                    hunks = hunks,
+                    files = files,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
                 )
                 DiffViewMode.SIDE_BY_SIDE -> SideBySideDiffView(
-                    hunks = hunks,
+                    files = files,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
@@ -194,7 +132,7 @@ fun DiffViewerScreen(
 
 @Composable
 private fun UnifiedDiffView(
-    hunks: List<DiffHunk>,
+    files: List<ParsedFileDiff>,
     modifier: Modifier = Modifier
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -203,8 +141,16 @@ private fun UnifiedDiffView(
     val addedTextColor = SemanticColors.Diff.addedText
     val removedTextColor = SemanticColors.Diff.removedText
 
-    val allLines = remember(hunks) {
-        hunks.flatMap { hunk -> hunk.lines }
+    val allLines = remember(files) {
+        files.flatMap { file ->
+            val fileHeader = ParsedDiffLine(
+                type = ParsedDiffLineType.HEADER,
+                content = file.displayFileName,
+                oldLineNumber = null,
+                newLineNumber = null
+            )
+            listOf(fileHeader) + file.hunks.flatMap { hunk -> hunk.lines }
+        }
     }
 
     LazyColumn(
@@ -212,7 +158,7 @@ private fun UnifiedDiffView(
     ) {
         itemsIndexed(allLines) { _, line ->
             when (line.type) {
-                DiffLine.LineType.HEADER -> {
+                ParsedDiffLineType.HEADER -> {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -234,8 +180,8 @@ private fun UnifiedDiffView(
                             .fillMaxWidth()
                             .background(
                                 when (line.type) {
-                                    DiffLine.LineType.ADDED -> addedBgColor
-                                    DiffLine.LineType.REMOVED -> removedBgColor
+                                    ParsedDiffLineType.ADDED -> addedBgColor
+                                    ParsedDiffLineType.REMOVED -> removedBgColor
                                     else -> Color.Transparent
                                 }
                             )
@@ -262,18 +208,18 @@ private fun UnifiedDiffView(
                         Text(
                             text = buildAnnotatedString {
                                 val prefix = when (line.type) {
-                                    DiffLine.LineType.ADDED -> "+"
-                                    DiffLine.LineType.REMOVED -> "-"
+                                    ParsedDiffLineType.ADDED -> "+"
+                                    ParsedDiffLineType.REMOVED -> "-"
                                     else -> " "
                                 }
                                 withStyle(
                                     SpanStyle(
                                         color = when (line.type) {
-                                            DiffLine.LineType.ADDED -> addedTextColor
-                                            DiffLine.LineType.REMOVED -> removedTextColor
+                                            ParsedDiffLineType.ADDED -> addedTextColor
+                                            ParsedDiffLineType.REMOVED -> removedTextColor
                                             else -> theme.text
                                         },
-                                        fontWeight = if (line.type != DiffLine.LineType.CONTEXT) 
+                                        fontWeight = if (line.type != ParsedDiffLineType.CONTEXT) 
                                             FontWeight.Medium else FontWeight.Normal
                                     )
                                 ) {
@@ -296,7 +242,7 @@ private fun UnifiedDiffView(
 
 @Composable
 private fun SideBySideDiffView(
-    hunks: List<DiffHunk>,
+    files: List<ParsedFileDiff>,
     modifier: Modifier = Modifier
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -308,68 +254,76 @@ private fun SideBySideDiffView(
     data class SideBySideLine(
         val leftLineNum: Int?,
         val leftContent: String?,
-        val leftType: DiffLine.LineType?,
+        val leftType: ParsedDiffLineType?,
         val rightLineNum: Int?,
         val rightContent: String?,
-        val rightType: DiffLine.LineType?,
+        val rightType: ParsedDiffLineType?,
         val isHeader: Boolean = false,
         val headerContent: String = ""
     )
 
-    val sideBySideLines = remember(hunks) {
+    val sideBySideLines = remember(files) {
         val result = mutableListOf<SideBySideLine>()
         
-        for (hunk in hunks) {
+        for (file in files) {
             result.add(SideBySideLine(
                 leftLineNum = null, leftContent = null, leftType = null,
                 rightLineNum = null, rightContent = null, rightType = null,
-                isHeader = true, headerContent = hunk.header
+                isHeader = true, headerContent = file.displayFileName
             ))
 
-            val removed = mutableListOf<DiffLine>()
-            val added = mutableListOf<DiffLine>()
+            for (hunk in file.hunks) {
+                result.add(SideBySideLine(
+                    leftLineNum = null, leftContent = null, leftType = null,
+                    rightLineNum = null, rightContent = null, rightType = null,
+                    isHeader = true, headerContent = hunk.header
+                ))
 
-            for (line in hunk.lines) {
-                when (line.type) {
-                    DiffLine.LineType.HEADER -> {}
-                    DiffLine.LineType.CONTEXT -> {
-                        while (removed.isNotEmpty() || added.isNotEmpty()) {
-                            val rem = removed.removeFirstOrNull()
-                            val add = added.removeFirstOrNull()
+                val removed = mutableListOf<ParsedDiffLine>()
+                val added = mutableListOf<ParsedDiffLine>()
+
+                for (line in hunk.lines) {
+                    when (line.type) {
+                        ParsedDiffLineType.HEADER -> {}
+                        ParsedDiffLineType.CONTEXT -> {
+                            while (removed.isNotEmpty() || added.isNotEmpty()) {
+                                val rem = removed.removeFirstOrNull()
+                                val add = added.removeFirstOrNull()
+                                result.add(SideBySideLine(
+                                    leftLineNum = rem?.oldLineNumber,
+                                    leftContent = rem?.content,
+                                    leftType = rem?.type,
+                                    rightLineNum = add?.newLineNumber,
+                                    rightContent = add?.content,
+                                    rightType = add?.type
+                                ))
+                            }
                             result.add(SideBySideLine(
-                                leftLineNum = rem?.oldLineNumber,
-                                leftContent = rem?.content,
-                                leftType = rem?.type,
-                                rightLineNum = add?.newLineNumber,
-                                rightContent = add?.content,
-                                rightType = add?.type
+                                leftLineNum = line.oldLineNumber,
+                                leftContent = line.content,
+                                leftType = ParsedDiffLineType.CONTEXT,
+                                rightLineNum = line.newLineNumber,
+                                rightContent = line.content,
+                                rightType = ParsedDiffLineType.CONTEXT
                             ))
                         }
-                        result.add(SideBySideLine(
-                            leftLineNum = line.oldLineNumber,
-                            leftContent = line.content,
-                            leftType = DiffLine.LineType.CONTEXT,
-                            rightLineNum = line.newLineNumber,
-                            rightContent = line.content,
-                            rightType = DiffLine.LineType.CONTEXT
-                        ))
+                        ParsedDiffLineType.REMOVED -> removed.add(line)
+                        ParsedDiffLineType.ADDED -> added.add(line)
                     }
-                    DiffLine.LineType.REMOVED -> removed.add(line)
-                    DiffLine.LineType.ADDED -> added.add(line)
                 }
-            }
 
-            while (removed.isNotEmpty() || added.isNotEmpty()) {
-                val rem = removed.removeFirstOrNull()
-                val add = added.removeFirstOrNull()
-                result.add(SideBySideLine(
-                    leftLineNum = rem?.oldLineNumber,
-                    leftContent = rem?.content,
-                    leftType = rem?.type,
-                    rightLineNum = add?.newLineNumber,
-                    rightContent = add?.content,
-                    rightType = add?.type
-                ))
+                while (removed.isNotEmpty() || added.isNotEmpty()) {
+                    val rem = removed.removeFirstOrNull()
+                    val add = added.removeFirstOrNull()
+                    result.add(SideBySideLine(
+                        leftLineNum = rem?.oldLineNumber,
+                        leftContent = rem?.content,
+                        leftType = rem?.type,
+                        rightLineNum = add?.newLineNumber,
+                        rightContent = add?.content,
+                        rightType = add?.type
+                    ))
+                }
             }
         }
         result
@@ -406,7 +360,7 @@ private fun SideBySideDiffView(
                             .fillMaxHeight()
                             .background(
                                 when (line.leftType) {
-                                    DiffLine.LineType.REMOVED -> removedBgColor
+                                    ParsedDiffLineType.REMOVED -> removedBgColor
                                     else -> Color.Transparent
                                 }
                             )
@@ -427,7 +381,7 @@ private fun SideBySideDiffView(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = TuiCodeFontSize.lg
                             ),
-                            color = if (line.leftType == DiffLine.LineType.REMOVED) 
+                            color = if (line.leftType == ParsedDiffLineType.REMOVED) 
                                 removedTextColor else theme.text,
                             modifier = Modifier.padding(start = Spacing.xs)
                         )
@@ -445,7 +399,7 @@ private fun SideBySideDiffView(
                             .fillMaxHeight()
                             .background(
                                 when (line.rightType) {
-                                    DiffLine.LineType.ADDED -> addedBgColor
+                                    ParsedDiffLineType.ADDED -> addedBgColor
                                     else -> Color.Transparent
                                 }
                             )
@@ -466,7 +420,7 @@ private fun SideBySideDiffView(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = TuiCodeFontSize.lg
                             ),
-                            color = if (line.rightType == DiffLine.LineType.ADDED) 
+                            color = if (line.rightType == ParsedDiffLineType.ADDED) 
                                 addedTextColor else theme.text,
                             modifier = Modifier.padding(start = Spacing.xs)
                         )

@@ -25,6 +25,10 @@ import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
+import dev.blazelight.p4oc.ui.diff.ParsedDiffLine
+import dev.blazelight.p4oc.ui.diff.ParsedDiffLineType
+import dev.blazelight.p4oc.ui.diff.ParsedDiffParser
+import dev.blazelight.p4oc.ui.diff.allHunks
 
 @Composable
 fun InlineDiffViewer(
@@ -36,7 +40,9 @@ fun InlineDiffViewer(
 ) {
     val theme = LocalOpenCodeTheme.current
     var expanded by remember { mutableStateOf(false) }
-    val diffLines = remember(diffContent) { parseInlineDiff(diffContent) }
+    val diffLines = remember(diffContent) {
+        ParsedDiffParser.parse(diffContent).allHunks().flatMap { it.lines }
+    }
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -116,26 +122,26 @@ fun InlineDiffViewer(
 }
 
 @Composable
-private fun InlineDiffLineRow(line: DiffLine) {
+private fun InlineDiffLineRow(line: ParsedDiffLine) {
     val theme = LocalOpenCodeTheme.current
     
     val (bgColor, textColor, prefix) = when (line.type) {
-        DiffLineType.ADDED -> Triple(
+        ParsedDiffLineType.ADDED -> Triple(
             SemanticColors.Diff.addedBackground,
             SemanticColors.Diff.addedText,
             "+"
         )
-        DiffLineType.REMOVED -> Triple(
+        ParsedDiffLineType.REMOVED -> Triple(
             SemanticColors.Diff.removedBackground,
             SemanticColors.Diff.removedText,
             "-"
         )
-        DiffLineType.HEADER -> Triple(
+        ParsedDiffLineType.HEADER -> Triple(
             theme.accent.copy(alpha = 0.1f),
             theme.accent,
             ""
         )
-        DiffLineType.CONTEXT -> Triple(
+        ParsedDiffLineType.CONTEXT -> Triple(
             Color.Transparent,
             theme.text,
             " "
@@ -149,9 +155,9 @@ private fun InlineDiffLineRow(line: DiffLine) {
             .padding(horizontal = Spacing.md, vertical = Spacing.xxs),
         horizontalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        if (line.type != DiffLineType.HEADER) {
+        if (line.type != ParsedDiffLineType.HEADER) {
             Text(
-                text = line.lineNumber?.toString()?.padStart(4) ?: "    ",
+                text = (line.newLineNumber ?: line.oldLineNumber)?.toString()?.padStart(4) ?: "    ",
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
                 fontSize = TuiCodeFontSize.md,
@@ -160,7 +166,7 @@ private fun InlineDiffLineRow(line: DiffLine) {
             )
         }
         Text(
-            text = if (line.type == DiffLineType.HEADER) line.content else "$prefix ${line.content}",
+            text = if (line.type == ParsedDiffLineType.HEADER) line.content else "$prefix ${line.content}",
             style = MaterialTheme.typography.bodySmall,
             fontFamily = FontFamily.Monospace,
             fontSize = TuiCodeFontSize.md,
@@ -169,31 +175,6 @@ private fun InlineDiffLineRow(line: DiffLine) {
     }
 }
 
-private fun parseInlineDiff(diffContent: String): List<DiffLine> {
-    val lines = mutableListOf<DiffLine>()
-    var lineNumber = 0
-
-    diffContent.lines().forEach { line ->
-        when {
-            line.startsWith("@@") -> {
-                val match = Regex("@@ -\\d+(?:,\\d+)? \\+(\\d+)").find(line)
-                lineNumber = match?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                lines.add(DiffLine(DiffLineType.HEADER, line, null))
-            }
-            line.startsWith("+") && !line.startsWith("+++") -> {
-                lines.add(DiffLine(DiffLineType.ADDED, line.drop(1), lineNumber++))
-            }
-            line.startsWith("-") && !line.startsWith("---") -> {
-                lines.add(DiffLine(DiffLineType.REMOVED, line.drop(1), null))
-            }
-            line.startsWith("+++") || line.startsWith("---") -> {}
-            else -> {
-                lines.add(DiffLine(DiffLineType.CONTEXT, line.trimStart(), lineNumber++))
-            }
-        }
-    }
-    return lines
-}
 
 @Composable
 fun PatchDiffViewer(
@@ -273,8 +254,9 @@ fun PatchDiffViewer(
                         HorizontalDivider(color = theme.border)
                         
                         val currentDiffContent = diffContent
-                        val diffLines = remember(currentDiffContent) { 
-                            currentDiffContent?.let { parseInlineDiff(it) } ?: emptyList()
+                        val diffLines = remember(currentDiffContent) {
+                            currentDiffContent?.let { ParsedDiffParser.parse(it).allHunks().flatMap { hunk -> hunk.lines } }
+                                ?: emptyList()
                         }
                         
                         Box(
