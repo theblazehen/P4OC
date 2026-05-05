@@ -624,4 +624,17 @@
     <string name="symbol_kind_enum">E</string>
     <string name="symbol_kind_default">◇</string>
     <string name="cd_symbol_search">Search workspace symbols</string>
+    <string name="cd_upload_files">Upload files here</string>
+    <string name="upload_sheet_title">[ Uploading files ]</string>
+    <string name="upload_sheet_done_title">[ Upload complete ]</string>
+    <string name="upload_sheet_progress">Uploading %1$d of %2$d: %3$s — %4$s / %5$s</string>
+    <string name="upload_sheet_summary">%1$d uploaded · %2$d failed</string>
+    <string name="upload_sheet_cancel">Cancel</string>
+    <string name="upload_sheet_dismiss">Dismiss</string>
+    <string name="upload_sheet_retry_failed">Retry failed</string>
+    <string name="upload_phase_pending">pending</string>
+    <string name="upload_phase_reading">reading</string>
+    <string name="upload_phase_uploading">uploading</string>
+    <string name="upload_phase_done">done</string>
+    <string name="upload_phase_failed">failed</string>
 </resources>

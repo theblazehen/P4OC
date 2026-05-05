@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -21,6 +23,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import dev.blazelight.p4oc.ui.components.TuiTopBar
@@ -43,6 +47,8 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
 import dev.blazelight.p4oc.domain.workspace.WorkspacePathParser
+import dev.blazelight.p4oc.ui.screens.files.upload.ContentResolverUploadSource
+import dev.blazelight.p4oc.ui.screens.files.upload.UploadProgressSheet
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 
@@ -56,10 +62,23 @@ fun FileExplorerScreen(
     val theme = LocalOpenCodeTheme.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val symbolResults by viewModel.symbolResults.collectAsStateWithLifecycle()
+    val uploadState by viewModel.uploadState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
     var isSymbolMode by remember { mutableStateOf(false) }
     var symbolQuery by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+    val uploadSource = remember(context) {
+        ContentResolverUploadSource(context.applicationContext.contentResolver)
+    }
+    val uploadLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (!uris.isNullOrEmpty()) {
+            viewModel.uploadFromSources(uploadSource, uris.map { it.toString() })
+        }
+    }
 
     val filteredFiles = remember(uiState.files, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -146,6 +165,21 @@ fun FileExplorerScreen(
                                 modifier = Modifier.size(Sizing.iconButtonMd)
                             ) {
                                 Icon(Icons.Default.Code, contentDescription = stringResource(R.string.cd_symbol_search), tint = theme.textMuted, modifier = Modifier.size(Sizing.iconAction))
+                            }
+                        }
+                        if (!isSearchActive && !isSymbolMode) {
+                            IconButton(
+                                onClick = { uploadLauncher.launch(arrayOf("*/*")) },
+                                modifier = Modifier
+                                    .size(Sizing.iconButtonMd)
+                                    .testTag("files_upload_action")
+                            ) {
+                                Icon(
+                                    Icons.Default.Upload,
+                                    contentDescription = stringResource(R.string.cd_upload_files),
+                                    tint = theme.textMuted,
+                                    modifier = Modifier.size(Sizing.iconAction)
+                                )
                             }
                         }
                         IconButton(
@@ -264,6 +298,15 @@ fun FileExplorerScreen(
                         }
                     }
                 }
+            }
+
+            if (!uploadState.isEmpty) {
+                UploadProgressSheet(
+                    state = uploadState,
+                    onCancel = { viewModel.cancelUploads() },
+                    onDismiss = { viewModel.dismissUploadResult() },
+                    onRetryFailed = { viewModel.retryFailedUploads() },
+                )
             }
         }
     }
@@ -610,9 +653,4 @@ private fun getSymbolKind(kind: Int): Pair<String, Color> {
     }
 }
 
-private fun formatFileSize(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-    bytes < 1024 * 1024 * 1024 -> String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
-    else -> String.format(java.util.Locale.US, "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0))
-}
+// formatFileSize moved to ui.screens.files.upload.UploadVisuals
