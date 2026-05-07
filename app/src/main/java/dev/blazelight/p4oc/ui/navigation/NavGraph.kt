@@ -107,6 +107,9 @@ fun NavGraph(
                 onProviderConfig = {
                     navController.navigate(Screen.ProviderConfig.route)
                 },
+                onVoiceSettings = {
+                    navController.navigate(Screen.VoiceSettings.route)
+                },
                 onVisualSettings = {
                     navController.navigate(Screen.VisualSettings.route)
                 },
@@ -129,6 +132,12 @@ fun NavGraph(
         
         composable(Screen.VisualSettings.route) {
             VisualSettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.VoiceSettings.route) {
+            dev.blazelight.p4oc.ui.screens.settings.VoiceSettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

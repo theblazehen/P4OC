@@ -24,6 +24,7 @@ import dev.blazelight.p4oc.ui.screens.settings.VisualSettingsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.SettingsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.NotificationSettingsViewModel
 import dev.blazelight.p4oc.ui.screens.settings.ProviderConfigViewModel
+import dev.blazelight.p4oc.ui.screens.settings.VoiceSettingsViewModel
 import dev.blazelight.p4oc.ui.screens.projects.ProjectsViewModel
 import dev.blazelight.p4oc.ui.screens.terminal.TerminalViewModel
 import dev.blazelight.p4oc.ui.tabs.TabManager
@@ -54,6 +55,7 @@ val appModule = module {
     single { NotificationHelper(androidContext()) }
     single { NotificationEventObserver(get(), get(), get(), get()) }
     single { HapticFeedback(androidContext()) }
+    single { dev.blazelight.p4oc.core.voice.VoiceManager(androidContext()) }
 
     // Tab management (singleton for app lifetime)
     single { TabManager() }
@@ -96,6 +98,7 @@ val viewModelModule = module {
     viewModelOf(::SkillsViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::NotificationSettingsViewModel)
+    viewModelOf(::VoiceSettingsViewModel)
     viewModelOf(::ProviderConfigViewModel)
     viewModelOf(::ProjectsViewModel)
     viewModel { params ->
@@ -108,7 +111,7 @@ val viewModelModule = module {
             connectionManager = get(),
         )
     }
-    viewModel { params -> ChatViewModel(params.get(), params.get(), params.get(), get(), get(), get()) }
+    viewModel { params -> ChatViewModel(params.get(), params.get(), params.get(), get(), get(), get(), get()) }
     viewModel { params -> TerminalViewModel(params.get(), androidContext(), get(), get()) }
 }
 

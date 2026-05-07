@@ -83,6 +83,8 @@
     <string name="settings_requires_connection">Requires active server connection</string>
     <string name="settings_visual">Visual Settings</string>
     <string name="settings_visual_desc">Theme, font size, and display options</string>
+    <string name="settings_voice">Voice &amp; Audio</string>
+    <string name="settings_voice_desc">Speech-to-text, Text-to-speech</string>
     <string name="settings_about">About</string>
     <string name="settings_version_format">OpenCode v%s</string>
     <string name="settings_about_github">View on GitHub</string>
@@ -624,4 +626,11 @@
     <string name="symbol_kind_enum">E</string>
     <string name="symbol_kind_default">◇</string>
     <string name="cd_symbol_search">Search workspace symbols</string>
+
+    <!-- Voice Settings Screen -->
+    <string name="voice_settings_title">Voice &amp; Audio</string>
+    <string name="voice_settings_enable">Enable Voice Mode</string>
+    <string name="voice_settings_enable_desc">Shows STT button and automatically reads assistant responses</string>
+    <string name="voice_settings_read_streaming">Read while streaming</string>
+    <string name="voice_settings_read_streaming_desc">Reads responses as they are generated (sentence by sentence)</string>
 </resources>

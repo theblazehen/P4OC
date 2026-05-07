@@ -50,6 +50,7 @@ class ChatViewModel constructor(
     private val connectionManager: ConnectionManager,
     private val settingsDataStore: SettingsDataStore,
     private val hapticFeedback: HapticFeedback,
+    private val voiceManager: dev.blazelight.p4oc.core.voice.VoiceManager
 ) : ViewModel() {
 
     private val sessionId: String = savedStateHandle.get<String>(Screen.Chat.ARG_SESSION_ID)
@@ -117,6 +118,11 @@ class ChatViewModel constructor(
         settingsDataStore.notificationSettings
             .stateIn(viewModelScope, SharingStarted.Eagerly, NotificationSettings())
 
+    val voiceSettings = settingsDataStore.voiceSettings
+        .stateIn(viewModelScope, SharingStarted.Eagerly, dev.blazelight.p4oc.core.datastore.VoiceSettings())
+
+    val voiceState = voiceManager.voiceState
+
     private companion object {
         const val TAG = "ChatViewModel"
         private const val MAX_QUEUED_MESSAGES = 10
@@ -146,6 +152,71 @@ class ChatViewModel constructor(
         modelAgentManager.loadModels()
         observeEvents()
         loadVcsInfo()
+
+        viewModelScope.launch {
+            // Observe message changes for TTS streaming
+            var lastProcessedTextLength = 0
+            messages.collect { messageList ->
+                if (!voiceSettings.value.enabled || !voiceSettings.value.readWhileStreaming) return@collect
+
+                val lastMsgWithParts = messageList.lastOrNull()
+                val lastMsg = lastMsgWithParts?.message as? Message.Assistant ?: return@collect
+                val currentText = lastMsgWithParts.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }
+
+                // Detect if the message is new or has been reset
+                if (currentText.length < lastProcessedTextLength) {
+                    lastProcessedTextLength = 0
+                }
+
+                // If new text has arrived, find the new sentences
+                if (currentText.length > lastProcessedTextLength) {
+                    val newText = currentText.substring(lastProcessedTextLength)
+
+                    // Simple sentence boundary detection (.?!)
+                    // We only speak when a sentence is complete to make it sound natural
+                    val sentenceEndings = listOf('.', '?', '!', '\n')
+                    val lastEndingIndex = newText.indexOfLast { it in sentenceEndings }
+
+                    if (lastEndingIndex != -1) {
+                        val chunkToSpeak = newText.substring(0, lastEndingIndex + 1).trim()
+                        if (chunkToSpeak.isNotBlank()) {
+                            voiceManager.speak(chunkToSpeak, flush = false)
+                            lastProcessedTextLength += (lastEndingIndex + 1)
+                        }
+                    }
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            voiceManager.voiceState.collect { state ->
+                if (state.finalResult != null) {
+                    val currentText = _uiState.value.inputText
+                    val separator = if (currentText.isNotEmpty() && !currentText.endsWith(" ")) " " else ""
+                    _uiState.update { it.copy(inputText = currentText + separator + state.finalResult) }
+                    voiceManager.clearResult()
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        voiceManager.cleanup()
+    }
+
+    // --- Voice actions ---
+
+    fun toggleListening() {
+        if (voiceState.value.isListening) {
+            voiceManager.stopListening()
+        } else {
+            voiceManager.startListening()
+        }
+    }
+
+    fun stopSpeaking() {
+        voiceManager.stopSpeaking()
     }
 
     // --- Public API (delegating) ---
@@ -311,6 +382,18 @@ class ChatViewModel constructor(
     private fun handleResponseCompleted() {
         val settings = notificationSettings.value
         hapticFeedback.vibrate(settings.vibrationPattern)
+
+        if (voiceSettings.value.enabled && !voiceSettings.value.readWhileStreaming) {
+            val lastAssistantMessageWithParts = messages.value.lastOrNull()
+            val lastAssistantMessage = lastAssistantMessageWithParts?.message as? Message.Assistant
+
+            if (lastAssistantMessage != null) {
+                val fullText = lastAssistantMessageWithParts.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }
+                if (fullText.isNotBlank()) {
+                    voiceManager.speak(fullText)
+                }
+            }
+        }
     }
 
     // --- Message sending ---

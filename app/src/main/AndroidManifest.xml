@@ -15,6 +15,10 @@
 
 
     <!-- Termux integration permission -->
+    <!-- Audio recording for STT -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Termux integration permission -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
     <!-- For Android 11+ package visibility -->

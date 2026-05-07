@@ -59,6 +59,10 @@ class SettingsDataStore constructor(
         private val KEY_TOOL_WIDGET_DEFAULT_STATE = stringPreferencesKey("tool_widget_default_state")
         private val KEY_OPEN_SUB_AGENT_NEW_TAB = booleanPreferencesKey("open_sub_agent_new_tab")
         
+        // Voice & Audio
+        private val KEY_VOICE_MODE_ENABLED = booleanPreferencesKey("voice_mode_enabled")
+        private val KEY_VOICE_READ_STREAMING = booleanPreferencesKey("voice_read_streaming")
+
         // Model favorites and recents
         private val KEY_FAVORITE_MODELS = stringSetPreferencesKey("favorite_models")
         private val KEY_RECENT_MODELS = stringPreferencesKey("recent_models")
@@ -399,6 +403,22 @@ class SettingsDataStore constructor(
         }
     }
 
+    // ── Voice settings ──
+
+    val voiceSettings: Flow<VoiceSettings> = context.dataStore.data.map { prefs ->
+        VoiceSettings(
+            enabled = prefs[KEY_VOICE_MODE_ENABLED] ?: false,
+            readWhileStreaming = prefs[KEY_VOICE_READ_STREAMING] ?: true
+        )
+    }
+
+    suspend fun updateVoiceSettings(settings: VoiceSettings) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_VOICE_MODE_ENABLED] = settings.enabled
+            prefs[KEY_VOICE_READ_STREAMING] = settings.readWhileStreaming
+        }
+    }
+
     // ── Connection settings ──
 
     val connectionSettings: Flow<ConnectionSettings> = context.dataStore.data.map { prefs ->
@@ -582,6 +602,11 @@ enum class VibrationPattern(val storageValue: String) {
 fun String.toVibrationPattern(): VibrationPattern = VibrationPattern.entries
     .firstOrNull { it.storageValue == this }
     ?: VibrationPattern.None
+
+data class VoiceSettings(
+    val enabled: Boolean = false,
+    val readWhileStreaming: Boolean = true
+)
 
 data class ConnectionSettings(
     val autoReconnect: Boolean = true,

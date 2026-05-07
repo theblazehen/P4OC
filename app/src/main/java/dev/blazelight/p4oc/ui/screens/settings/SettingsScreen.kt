@@ -41,6 +41,7 @@ fun SettingsScreen(
     onDisconnect: () -> Unit,
     onProviderConfig: () -> Unit = {},
     onVisualSettings: () -> Unit = {},
+    onVoiceSettings: () -> Unit = {},
     onAgentsConfig: () -> Unit = {},
     onSkills: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
@@ -125,6 +126,15 @@ fun SettingsScreen(
                 onClick = onVisualSettings,
                 showChevron = true,
                 testTag = "settings_visual_item"
+            )
+
+            SettingsItem(
+                icon = Icons.Default.RecordVoiceOver,
+                title = stringResource(R.string.settings_voice),
+                subtitle = stringResource(R.string.settings_voice_desc),
+                onClick = onVoiceSettings,
+                showChevron = true,
+                testTag = "settings_voice_item"
             )
 
             SettingsItem(

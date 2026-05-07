@@ -393,6 +393,9 @@ fun TabNavHost(
                 onProviderConfig = {
                     navController.navigate(Screen.ProviderConfig.route)
                 },
+                onVoiceSettings = {
+                    navController.navigate(Screen.VoiceSettings.route)
+                },
                 onVisualSettings = {
                     navController.navigate(Screen.VisualSettings.route)
                 },
@@ -442,6 +445,13 @@ fun TabNavHost(
         composable(Screen.Skills.route) { backStackEntry ->
             TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
             SkillsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.VoiceSettings.route) { backStackEntry ->
+            TouchWorkspaceViewModel(navController, workspaceRoute, tabId, workspace, generation, backStackEntry.destination.route)
+            dev.blazelight.p4oc.ui.screens.settings.VoiceSettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

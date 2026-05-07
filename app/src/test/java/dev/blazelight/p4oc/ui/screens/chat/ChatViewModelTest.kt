@@ -6,6 +6,7 @@ import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.core.haptic.HapticFeedback
 import dev.blazelight.p4oc.core.log.AppLog
+import dev.blazelight.p4oc.core.voice.VoiceManager
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.Connection
@@ -125,6 +126,7 @@ class ChatViewModelTest {
         every { settingsDataStore.favoriteModels } returns flowOf(emptySet())
         every { settingsDataStore.recentModels } returns flowOf(emptyList())
         every { settingsDataStore.visualSettings } returns flowOf(VisualSettings())
+        every { settingsDataStore.voiceSettings } returns flowOf(dev.blazelight.p4oc.core.datastore.VoiceSettings())
         every { settingsDataStore.notificationSettings } returns flowOf(NotificationSettings())
 
         hapticFeedback = mockk(relaxed = true)
@@ -349,6 +351,8 @@ class ChatViewModelTest {
     }
 
     private fun TestScope.createViewModel(): ChatViewModel {
+        val voiceManagerMock = mockk<VoiceManager>(relaxed = true)
+        io.mockk.every { voiceManagerMock.voiceState } returns kotlinx.coroutines.flow.MutableStateFlow(dev.blazelight.p4oc.core.voice.VoiceState())
         val vm = ChatViewModel(
             savedStateHandle = SavedStateHandle(mapOf(Screen.Chat.ARG_SESSION_ID to "session-1")),
             workspaceClient = workspaceClient,
@@ -356,6 +360,7 @@ class ChatViewModelTest {
             connectionManager = connectionManager,
             settingsDataStore = settingsDataStore,
             hapticFeedback = hapticFeedback,
+            voiceManager = voiceManagerMock
         )
         advanceUntilIdle()
         return vm
