@@ -17,7 +17,17 @@ internal class OfishFileRepository(
 ) : FileRepository {
     override suspend fun listFiles(path: String): FileOperationResult<FileList> = delegate.listFiles(path)
 
-    override suspend fun readFile(path: String): FileOperationResult<FileContent> = delegate.readFile(path)
+    override suspend fun readFile(path: String): FileOperationResult<FileContent> {
+        val result = delegate.readFile(path)
+        if (result !is FileOperationResult.Ok) return result
+
+        val capabilities = mutationClient.mutationCapabilities()
+        if (capabilities !is OfishProbeResult.Available) return result
+
+        val hashCommand = capabilities.capabilities.hashCommand ?: return result
+        val hash = OfishBaselineHasher.hash(result.data, hashCommand) ?: return result
+        return FileOperationResult.Ok(result.data.copy(hash = hash))
+    }
 
     override suspend fun searchSymbols(query: String): FileOperationResult<List<Symbol>> = delegate.searchSymbols(query)
 

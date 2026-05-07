@@ -155,6 +155,8 @@ class WorkspaceFileRepository internal constructor(
         content = content,
         diff = diff,
         mimeType = mimeType,
+        hash = null,
+        encoding = encoding,
     )
 
     private companion object {

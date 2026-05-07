@@ -40,13 +40,14 @@ class FilesViewModelEditTest {
 
     @Test
     fun loadFileContent_initialisesEditBaseline() = runTest {
-        val repo = FakeRepo(content = "hello\nworld")
+        val repo = FakeRepo(content = "hello\nworld", hash = "baseline")
         val vm = FilesViewModel(repo)
         vm.loadFileContent("a.txt")
         val edit = vm.editState.value
         assertEquals("a.txt", edit.path)
         assertEquals("hello\nworld", edit.originalContent)
         assertEquals("hello\nworld", edit.currentContent)
+        assertEquals("baseline", edit.baselineHash)
         assertFalse(edit.isDirty)
     }
 
@@ -64,7 +65,7 @@ class FilesViewModelEditTest {
 
     @Test
     fun confirmSave_okClearsDirtyAndUpdatesOriginalAndReadView() = runTest {
-        val repo = FakeRepo(content = "v1")
+        val repo = FakeRepo(content = "v1", hash = "baseline")
         val vm = FilesViewModel(repo)
         vm.loadFileContent("p")
         vm.onEditorTextChange("v2")
@@ -79,13 +80,12 @@ class FilesViewModelEditTest {
         assertEquals("v2", repo.writes.first().content)
         // Read-mode buffer must reflect the saved content too.
         assertEquals("v2", vm.uiState.value.fileContent)
-        // No hash plumbed today => null.
-        assertNull(repo.writes.first().expectedHash)
+        assertEquals("baseline", repo.writes.first().expectedHash)
     }
 
     @Test
     fun overwriteAnyway_sendsNullExpectedHashEvenIfBaselinePresent() = runTest {
-        val repo = FakeRepo(content = "v1")
+        val repo = FakeRepo(content = "v1", hash = "baseline")
         val vm = FilesViewModel(repo)
         vm.loadFileContent("p")
         vm.onEditorTextChange("v2")
@@ -134,6 +134,7 @@ class FilesViewModelEditTest {
 
     private class FakeRepo(
         val content: String,
+        val hash: String? = null,
         val writeResult: FileOperationResult<FileWriteResult> =
             FileOperationResult.Ok(FileWriteResult("p", hash = null)),
     ) : FileRepository {
@@ -143,7 +144,7 @@ class FilesViewModelEditTest {
             FileOperationResult.Ok(FileList(path, emptyList()))
 
         override suspend fun readFile(path: String): FileOperationResult<FileContent> =
-            FileOperationResult.Ok(FileContent(content = content))
+            FileOperationResult.Ok(FileContent(content = content, hash = hash))
 
         override suspend fun searchSymbols(query: String): FileOperationResult<List<Symbol>> =
             FileOperationResult.Ok(emptyList())

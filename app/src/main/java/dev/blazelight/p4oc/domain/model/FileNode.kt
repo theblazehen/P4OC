@@ -19,7 +19,9 @@ data class FileContent(
     val type: String = "text",
     val content: String,
     val diff: String? = null,
-    val mimeType: String? = null
+    val mimeType: String? = null,
+    val hash: String? = null,
+    val encoding: String? = null,
 )
 
 @Serializable

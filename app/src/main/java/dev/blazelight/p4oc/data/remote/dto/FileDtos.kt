@@ -23,7 +23,8 @@ data class FileContentDto(
     val diff: String? = null,
     val patch: PatchDto? = null,
     val encoding: String? = null, // "base64"
-    val mimeType: String? = null
+    val mimeType: String? = null,
+    val hash: String? = null,
 )
 
 @Serializable

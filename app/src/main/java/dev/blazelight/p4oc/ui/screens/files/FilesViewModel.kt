@@ -119,8 +119,7 @@ class FilesViewModel constructor(
                             currentContent = result.data.content,
                             isDirty = false,
                             contentGeneration = it.contentGeneration + 1,
-                            // No hash in the read DTO today; documented in FileEditState.baselineHash.
-                            baselineHash = null,
+                            baselineHash = result.data.hash,
                         )
                     }
                 }
