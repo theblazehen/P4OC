@@ -11,6 +11,7 @@ import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolve
 import org.eclipse.tm4e.core.registry.IThemeSource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import dev.blazelight.p4oc.ui.components.code.OpenCodeScopeColors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
@@ -110,8 +111,12 @@ internal object SoraTextMateBootstrap {
     }
 
     private fun buildThemeJson(name: String, t: OpenCodeTheme): String {
-        // Minimal TextMate theme: editor chrome via "colors", token rules via "tokenColors".
-        // Scope names match common TextMate grammars.
+        // Minimal TextMate theme: editor chrome via "colors"; token rules via
+        // "tokenColors" generated from the shared [OpenCodeScopeColors.rules]
+        // so view-mode AnnotatedString and editor highlighting stay aligned.
+        val tokenRules = OpenCodeScopeColors.rules.joinToString(separator = ",\n    ") { rule ->
+            """{ "scope": ["${rule.scopePrefix}"], "settings": { "foreground": "${hex(rule.color(t))}" } }"""
+        }
         return """
 {
   "name": "$name",
@@ -128,15 +133,7 @@ internal object SoraTextMateBootstrap {
     "editorWhitespace.foreground": "${hex(t.borderSubtle)}"
   },
   "tokenColors": [
-    { "scope": ["comment", "punctuation.definition.comment"], "settings": { "foreground": "${hex(t.syntaxComment)}" } },
-    { "scope": ["keyword", "storage", "storage.type", "storage.modifier"], "settings": { "foreground": "${hex(t.syntaxKeyword)}" } },
-    { "scope": ["entity.name.function", "support.function", "meta.function-call"], "settings": { "foreground": "${hex(t.syntaxFunction)}" } },
-    { "scope": ["variable", "variable.other", "variable.parameter"], "settings": { "foreground": "${hex(t.syntaxVariable)}" } },
-    { "scope": ["string", "string.quoted"], "settings": { "foreground": "${hex(t.syntaxString)}" } },
-    { "scope": ["constant.numeric", "constant.language"], "settings": { "foreground": "${hex(t.syntaxNumber)}" } },
-    { "scope": ["entity.name.type", "entity.name.class", "support.type", "support.class"], "settings": { "foreground": "${hex(t.syntaxType)}" } },
-    { "scope": ["keyword.operator"], "settings": { "foreground": "${hex(t.syntaxOperator)}" } },
-    { "scope": ["punctuation"], "settings": { "foreground": "${hex(t.syntaxPunctuation)}" } }
+    $tokenRules
   ]
 }
         """.trimIndent()

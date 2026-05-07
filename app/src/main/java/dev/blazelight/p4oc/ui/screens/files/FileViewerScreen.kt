@@ -23,10 +23,11 @@ import dev.blazelight.p4oc.ui.components.TuiOutlinedButton
 import dev.blazelight.p4oc.ui.components.TuiTextButton
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.chat.InlineDiffViewer
-import dev.blazelight.p4oc.ui.components.code.Language
 import dev.blazelight.p4oc.ui.components.code.SyntaxHighlightedCode
 import dev.blazelight.p4oc.ui.diff.UnifiedDiffBuilder
 import dev.blazelight.p4oc.ui.screens.files.editor.SoraCodeEditorView
+import dev.blazelight.p4oc.ui.screens.files.editor.SoraLanguageRegistry
+import dev.blazelight.p4oc.ui.screens.files.editor.displayLabelForScope
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
@@ -54,7 +55,9 @@ fun FileViewerScreen(
     }
 
     val filename = path.substringAfterLast("/")
-    val language = remember(filename) { Language.fromFilename(filename) }
+    val languageLabel = remember(filename) {
+        displayLabelForScope(SoraLanguageRegistry.scopeFor(filename))
+    }
     val theme = LocalOpenCodeTheme.current
 
     val isDirty = editState.isDirty && editMode
@@ -82,7 +85,7 @@ fun FileViewerScreen(
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (language != Language.UNKNOWN) language.name.lowercase() else "plain text",
+                            text = languageLabel,
                             style = MaterialTheme.typography.labelSmall,
                             color = theme.textMuted
                         )

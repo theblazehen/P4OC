@@ -83,6 +83,10 @@ android {
             excludes += setOf("**/libtermux.so")
         }
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

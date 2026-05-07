@@ -60,3 +60,22 @@ internal object SoraLanguageRegistry {
         return byExtension[ext]
     }
 }
+
+/**
+ * Human-readable label for [scope], used as the file-viewer subtitle. Returns
+ * `"plain text"` for null/unknown scopes; only scopes we actually ship are
+ * mapped here.
+ */
+internal fun displayLabelForScope(scope: String?): String = when (scope) {
+    "source.kotlin" -> "kotlin"
+    "source.json" -> "json"
+    "source.python" -> "python"
+    "source.ts" -> "typescript"
+    "source.yaml" -> "yaml"
+    "source.toml" -> "toml"
+    "source.shell" -> "shell"
+    "source.env" -> "env"
+    "text.xml" -> "xml"
+    "text.html.markdown" -> "markdown"
+    else -> "plain text"
+}
