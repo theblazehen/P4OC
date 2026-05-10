@@ -79,7 +79,8 @@ internal class OfishCommandBuilder {
             append(
                 """
             if [ ! -e "${'$'}P" ]; then printf '### 404 missing\n'; exit 0; fi
-            rm -rf -- "${'$'}P" || { printf '### 500 failed reason=rm\n'; exit 0; }
+            if [ -d "${'$'}P" ]; then printf '### 412 precondition reason=directory\n'; exit 0; fi
+            rm -f -- "${'$'}P" || { printf '### 500 failed reason=rm\n'; exit 0; }
             printf '### 204 deleted\n'
             exit 0
                 """.trimIndent()

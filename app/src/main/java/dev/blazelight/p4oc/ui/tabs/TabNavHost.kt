@@ -210,7 +210,8 @@ fun TabNavHost(
                             tabManager.updateTabWorkspace(tabId, directory)
                         }
                     },
-                    autoCreateSession = pendingSessionCreate?.directory == workspaceOwner.workspace.directory && pendingSessionCreate != null,
+                    autoCreateSession = pendingSessionCreate != null &&
+                        pendingSessionCreate?.directory == workspaceOwner.workspace.directory,
                     autoCreateSessionTitle = pendingSessionCreate?.title,
                     autoCreateSessionDirectory = pendingSessionCreate?.directory,
                     onAutoCreateSessionConsumed = { pendingSessionCreate = null }
@@ -282,7 +283,8 @@ fun TabNavHost(
                             tabManager.updateTabWorkspace(tabId, directory)
                         }
                     },
-                    autoCreateSession = pendingSessionCreate?.directory == workspaceOwner.workspace.directory && pendingSessionCreate != null,
+                    autoCreateSession = pendingSessionCreate != null &&
+                        pendingSessionCreate?.directory == workspaceOwner.workspace.directory,
                     autoCreateSessionTitle = pendingSessionCreate?.title,
                     autoCreateSessionDirectory = pendingSessionCreate?.directory,
                     onAutoCreateSessionConsumed = { pendingSessionCreate = null },

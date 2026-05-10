@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.screens.files.editor
 
+import dev.blazelight.p4oc.core.filetype.FileTypeClassifier
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -56,18 +57,7 @@ class SoraLanguagesManifestDriftTest {
     @Test
     fun `every mapped scope is present in the shipped grammar manifest`() {
         val manifestScopes = loadManifestScopes()
-        // Reflectively read the private mapping tables so the test catches
-        // additions without us having to expose the maps.
-        val klass = SoraLanguageRegistry::class.java
-        val mappedScopes = listOf("byBasename", "byExtension")
-            .flatMap { fieldName ->
-                val field = klass.getDeclaredField(fieldName).apply { isAccessible = true }
-                @Suppress("UNCHECKED_CAST")
-                (field.get(SoraLanguageRegistry) as Map<String, String>).values
-            }
-            .toMutableSet()
-        // `.env` family is hard-coded in scopeFor(); fold it in explicitly.
-        mappedScopes.add("source.env")
+        val mappedScopes = FileTypeClassifier.mappedTextMateScopes()
 
         val missing = mappedScopes - manifestScopes
         assertTrue(

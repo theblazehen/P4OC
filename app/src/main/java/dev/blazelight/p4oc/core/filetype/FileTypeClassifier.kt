@@ -124,18 +124,20 @@ object FileTypeClassifier {
     )
 
     fun classify(filename: String): FileTypeMetadata {
-        if (filename.isEmpty()) return unknown
         val name = filename.substringAfterLast('/').substringAfterLast('\\')
-        if (name.isEmpty()) return unknown
-        if (name == ".env" || name.startsWith(".env.")) return FileTypeMetadata(FileTypeCategory.Env, "source.env")
-
-        byBasename[name]?.let { return it }
-
         val dot = name.lastIndexOf('.')
-        if (dot <= 0 || dot == name.length - 1) return unknown
-        val extension = name.substring(dot + 1).lowercase()
-        return byExtension[extension] ?: unknown
+        return when {
+            name.isEmpty() -> unknown
+            name == ".env" || name.startsWith(".env.") -> FileTypeMetadata(FileTypeCategory.Env, "source.env")
+            byBasename.containsKey(name) -> byBasename.getValue(name)
+            dot <= 0 || dot == name.length - 1 -> unknown
+            else -> byExtension[name.substring(dot + 1).lowercase()] ?: unknown
+        }
     }
+
+    fun mappedTextMateScopes(): Set<String> = (byBasename.values + byExtension.values)
+        .mapNotNull { it.textMateScope }
+        .toSet() + "source.env"
 
     private val unknown = FileTypeMetadata(FileTypeCategory.Unknown)
 }

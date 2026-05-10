@@ -79,11 +79,12 @@ class OfishCommandBuilderTest {
     }
 
     @Test
-    fun `delete contains marker and recursive removal`() {
+    fun `delete contains marker and rejects directories`() {
         val script = builder.delete("dir/file.txt").decodedScript()
 
         assertTrue(script.contains("#OFISH_DELETE"))
-        assertTrue(script.contains("rm -rf -- \"\$P\""))
+        assertTrue(script.contains("if [ -d \"\$P\" ]; then printf '### 412 precondition reason=directory"))
+        assertTrue(script.contains("rm -f -- \"\$P\""))
         assertTrue(script.contains("### 404 missing"))
     }
 
