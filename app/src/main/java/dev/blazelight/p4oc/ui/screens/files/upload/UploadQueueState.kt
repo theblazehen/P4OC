@@ -12,6 +12,7 @@ data class UploadQueueState(
     val currentIndex: Int = 0,
     val isActive: Boolean = false,
     val cancelled: Boolean = false,
+    val notice: String? = null,
 ) {
     val total: Int get() = items.size
     val isEmpty: Boolean get() = items.isEmpty()
@@ -29,8 +30,10 @@ data class UploadItem(
     val destinationPath: String,
     val mimeType: String,
     val bytesTotal: Long,
+    val bytesUploaded: Long = 0L,
     val phase: UploadPhase = UploadPhase.Pending,
     val attempts: Int = 0,
+    val probeFailure: String? = null,
 )
 
 sealed interface UploadPhase {

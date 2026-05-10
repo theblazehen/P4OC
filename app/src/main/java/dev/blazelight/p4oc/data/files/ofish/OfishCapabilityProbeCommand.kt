@@ -1,7 +1,7 @@
 package dev.blazelight.p4oc.data.files.ofish
 
 internal object OfishCapabilityProbeCommand {
-    fun build(): String =
+    fun build(): String = OfishShellWrapper.wrap(
         """
         printf '#OFISH_HELLO\n'
         missing=""
@@ -48,5 +48,6 @@ internal object OfishCapabilityProbeCommand {
         else
           printf '### 200 ok\n'
         fi
-        """.trimIndent()
+        """.trimIndent(),
+    )
 }

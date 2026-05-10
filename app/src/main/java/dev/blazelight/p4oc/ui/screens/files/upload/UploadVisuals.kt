@@ -64,12 +64,13 @@ fun sanitizeUploadName(rawName: String?, fallbackTimestamp: Long): String {
         .trim()
         .trimStart('.')
     if (cleaned.isBlank()) return "upload-$fallbackTimestamp.bin"
-    return cleaned.take(MAX_NAME_LEN)
+    val withoutTransientSuffix = cleaned.removeSuffix(".part").ifBlank { cleaned }
+    return withoutTransientSuffix.take(MAX_NAME_LEN)
 }
 
 /** Join the explorer's current path with a sanitized name. */
-fun joinDestinationPath(currentPath: String, sanitizedName: String): String {
-    val base = currentPath.trim().trim('/')
+fun joinDestinationPath(currentPath: String?, sanitizedName: String): String {
+    val base = currentPath.orEmpty().trim().trim('/')
     return if (base.isEmpty()) sanitizedName else "$base/$sanitizedName"
 }
 

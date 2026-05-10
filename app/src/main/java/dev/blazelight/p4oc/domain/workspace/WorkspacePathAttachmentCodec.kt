@@ -1,23 +1,16 @@
 package dev.blazelight.p4oc.domain.workspace
 
-import java.net.URLDecoder
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-fun WorkspacePath.Relative.toAttachmentUrl(): String = path.value.encodePathSegments()
+fun WorkspacePath.Relative.toAttachmentUrl(): String = "file:///${path.value.encodePathSegments()}"
 
 object WorkspacePathAttachmentCodec {
     fun parseFromServer(value: String): WorkspacePath.Relative = WorkspacePath.Relative(
         RelativePath(value.asServerPathValue().decodePathSegments()),
     )
-
-    fun parseSymbolUri(uri: String): WorkspacePath.Relative = parseFromServer(uri)
-}
-
-object WorkspacePathParser {
-    fun parseFromServer(value: String): WorkspacePath.Relative =
-        WorkspacePathAttachmentCodec.parseFromServer(value)
 }
 
 private fun String.encodePathSegments(): String = split("/")
@@ -33,7 +26,7 @@ private fun String.decodePathSegments(): String = split("/")
 private fun String.asServerPathValue(): String {
     if (!startsWith("file://", ignoreCase = true)) return this
 
-    val uri = URI(this)
+    val uri = runCatching { URI(this) }.getOrNull() ?: return this
     val rawAuthority = uri.rawAuthority?.let { "$it/" }.orEmpty()
     val rawPath = uri.rawPath?.removePrefix("/").orEmpty()
     val rawQuery = uri.rawQuery?.let { "?$it" }.orEmpty()

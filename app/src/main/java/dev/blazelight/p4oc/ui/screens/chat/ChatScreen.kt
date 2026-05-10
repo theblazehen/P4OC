@@ -1,13 +1,13 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,12 +16,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
@@ -29,7 +26,6 @@ import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
-import dev.blazelight.p4oc.ui.components.chat.AbortSummaryCard
 import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
 import dev.blazelight.p4oc.ui.components.chat.JumpToBottomButton
@@ -46,6 +42,9 @@ import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.components.TuiSnackbar
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
+import dev.blazelight.p4oc.ui.screens.files.upload.ContentResolverUploadSource
+import dev.blazelight.p4oc.ui.screens.files.upload.UploadProgressSheet
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -84,6 +83,18 @@ fun ChatScreen(
     val pickerCurrentPath by viewModel.filePickerManager.pickerCurrentPath.collectAsStateWithLifecycle()
     val isPickerLoading by viewModel.filePickerManager.isPickerLoading.collectAsStateWithLifecycle()
     val pickerError by viewModel.filePickerManager.pickerError.collectAsStateWithLifecycle()
+    val uploadState by viewModel.filePickerManager.uploadState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val uploadSource = remember(context) {
+        ContentResolverUploadSource(context.applicationContext.contentResolver)
+    }
+    val uploadLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (!uris.isNullOrEmpty()) {
+            viewModel.filePickerManager.uploadAndAttach(uploadSource, uris.map { it.toString() })
+        }
+    }
     
     // Notify parent when session is loaded
     LaunchedEffect(uiState.session) {
@@ -312,16 +323,6 @@ fun ChatScreen(
                         }
                     }
 
-                    // Abort summary card (shows after user hits Stop)
-                    uiState.abortSummary?.let { summary ->
-                        item(key = "abort_summary_${summary.abortedAt}") {
-                            AbortSummaryCard(
-                                summary = summary,
-                                modifier = Modifier.padding(vertical = Spacing.xs)
-                            )
-                        }
-                    }
-                    
                     // All messages - stable keys ensure only changed items recompose
                     items(
                         items = messageBlocks.asReversed(),
@@ -412,6 +413,7 @@ fun ChatScreen(
             isLoading = isPickerLoading,
             error = pickerError,
             selectedFiles = attachedFiles,
+            onUploadClick = { uploadLauncher.launch(arrayOf("*/*")) },
             onNavigateTo = { path -> viewModel.filePickerManager.loadPickerFiles(path.ifBlank { "." }) },
             onNavigateUp = {
                 val parent = pickerCurrentPath.substringBeforeLast("/", "")
@@ -421,6 +423,15 @@ fun ChatScreen(
             onFileDeselected = { viewModel.filePickerManager.detachFile(it) },
             onConfirm = { showFilePicker = false },
             onDismiss = { showFilePicker = false }
+        )
+    }
+
+    if (!uploadState.isEmpty) {
+        UploadProgressSheet(
+            state = uploadState,
+            onCancel = { viewModel.filePickerManager.cancelUploads() },
+            onDismiss = { viewModel.filePickerManager.dismissUploadResult() },
+            onRetryFailed = { viewModel.filePickerManager.retryFailedUploads() },
         )
     }
 
@@ -532,7 +543,7 @@ private fun ChatTopBar(
 
 /**
  * Compact connection dot for the title subtitle row — just a colored text glyph.
- * No 40dp bounding box, no dropdown. Tap the main ConnectionIndicator for details.
+ * No bounding box or dropdown.
  */
 @Composable
 private fun ConnectionDot(state: ConnectionState) {
@@ -551,54 +562,6 @@ private fun ConnectionDot(state: ConnectionState) {
     )
 }
 
-@Composable
-private fun ConnectionIndicator(state: ConnectionState) {
-    val theme = LocalOpenCodeTheme.current
-    var showDetail by remember { mutableStateOf(false) }
-
-    val (color, description) = when (state) {
-        ConnectionState.Connected -> theme.success to stringResource(R.string.connection_status_connected)
-        ConnectionState.Connecting -> theme.warning to stringResource(R.string.connection_status_connecting)
-        ConnectionState.Disconnected -> theme.textMuted to stringResource(R.string.connection_status_disconnected)
-        is ConnectionState.Error -> theme.error to sanitizeErrorMessage(state.message)
-    }
-
-    Box(
-        modifier = Modifier.size(Sizing.iconButtonMd),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.Circle,
-            contentDescription = description,
-            tint = color,
-            modifier = Modifier
-                .size(Sizing.iconXxs)
-                .clickable(role = Role.Button) { showDetail = !showDetail }
-        )
-        DropdownMenu(
-            expanded = showDetail,
-            onDismissRequest = { showDetail = false }
-        ) {
-            Text(
-                text = description,
-                modifier = Modifier.padding(Spacing.md),
-                style = MaterialTheme.typography.bodySmall,
-                color = theme.text
-            )
-        }
-    }
-}
-
-@Composable
-private fun sanitizeErrorMessage(raw: String?): String = when {
-    raw == null -> stringResource(R.string.connection_error_generic)
-    raw.contains("stream closed", ignoreCase = true) -> stringResource(R.string.connection_error_stream_closed)
-    raw.contains("timeout", ignoreCase = true) -> stringResource(R.string.connection_error_timeout)
-    raw.contains("refused", ignoreCase = true) -> stringResource(R.string.connection_error_refused)
-    raw.contains("reset", ignoreCase = true) -> stringResource(R.string.connection_error_reset)
-    raw.contains("unreachable", ignoreCase = true) -> stringResource(R.string.connection_error_refused)
-    else -> stringResource(R.string.connection_error_generic)
-}
 
 @Composable
 private fun EmptyChatView(modifier: Modifier = Modifier) {

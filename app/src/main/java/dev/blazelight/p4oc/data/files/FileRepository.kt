@@ -63,6 +63,7 @@ data class FileUploadRequest(
     val path: String,
     val bytes: ByteArray,
     val expectedHash: String? = null,
+    val onBytesUploaded: (suspend (Long) -> Unit)? = null,
 )
 
 data class FileUploadResult(

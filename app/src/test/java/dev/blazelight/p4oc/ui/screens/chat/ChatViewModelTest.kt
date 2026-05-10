@@ -59,6 +59,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
+import retrofit2.Response
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelTest {
@@ -332,7 +333,7 @@ class ChatViewModelTest {
     fun abortSession_clearsStreamingFlags_andBusyState() = runTest {
         val vm = createViewModel()
 
-        coEvery { api.abortSession(any(), any()) } returns true
+        coEvery { api.abortSession(any(), any()) } returns Response.success(Unit)
         emitEvent(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m1", sessionId = "session-1", createdAt = 1)))
         emitEvent(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "Hi"), delta = null))
         emitEvent(OpenCodeEvent.MessagePartUpdated(textPart(id = "p1", messageId = "m1", sessionId = "session-1", text = "ignored"), delta = "!"))
@@ -346,6 +347,36 @@ class ChatViewModelTest {
         assertFalse(text.isStreaming)
         assertFalse(vm.uiState.value.isBusy)
         assertFalse(vm.uiState.value.isSending)
+    }
+
+    @Test
+    fun abortSession_sanitizesUnexpectedJsonErrors() = runTest {
+        val vm = createViewModel()
+
+        coEvery { api.abortSession(any(), any()) } throws RuntimeException("{\"error\":\"boom\"}")
+
+        vm.abortSession()
+        flushMessages()
+
+        assertEquals("Failed to stop run: Unable to stop run", vm.uiState.value.error)
+    }
+
+    @Test
+    fun sessionError_messageAborted_doesNotShowSnackbarError() = runTest {
+        val vm = createViewModel()
+
+        emitEvent(
+            OpenCodeEvent.SessionError(
+                sessionID = "session-1",
+                error = dev.blazelight.p4oc.domain.model.MessageError(
+                    name = "MessageAbortedError",
+                    message = "Aborted",
+                ),
+            ),
+        )
+        flushMessages()
+
+        assertNull(vm.uiState.value.error)
     }
 
     private fun TestScope.createViewModel(): ChatViewModel {

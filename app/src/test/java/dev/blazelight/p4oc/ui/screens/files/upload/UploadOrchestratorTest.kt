@@ -164,7 +164,7 @@ class UploadOrchestratorTest {
         // 4 calls so far: a ok, b * 3 fail
         assertEquals(4, repo.uploadCalls.size)
 
-        orchestrator.retryFailed("")
+        orchestrator.retryFailed()
 
         assertEquals(5, repo.uploadCalls.size)
         val items = orchestrator.state.value.items

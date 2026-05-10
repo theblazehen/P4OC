@@ -57,6 +57,67 @@ export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 - Add meaningful `contentDescription` to functional icons (not decorative ones)
 - Add `Modifier.testTag(...)` to key interactive elements for UI testing
 - Package: `dev.blazelight.p4oc`
+- Debug builds use package/application id suffix `.debug`; account for this when using adb, deep links, app inspection, or external test tooling.
+
+## Ticket Quality
+
+When creating or updating `tk` tickets, include enough context for another agent to implement the work without rediscovering the conversation.
+
+- Do not write "first scope", "phase 1", or partial-delivery language unless the ticket is explicitly a spike or the user asks for staged delivery.
+- Describe the complete user-facing behavior in the ticket; implementation can still be incremental internally.
+- Include the problem, evidence/repro, UX constraints, expected behavior, acceptance criteria, and verification notes.
+- Include workspace-scoping requirements when touching sessions, files, commands, terminals, or project state.
+- Mention failure states and human-readable error handling; do not allow raw protocol/JSON payloads to surface in UI.
+
+Suggested ticket shape:
+
+```markdown
+Problem:
+Evidence:
+UX Constraint:
+Expected Behavior:
+Acceptance Criteria:
+Verification:
+```
+
+## Agent-Space UI Rule
+
+The app's core value is the agent/chat/code workspace. UI chrome must be heavily justified because it reduces agent and file viewing space on phones.
+
+- Prefer contextual, transient, collapsible, or overflow UI over persistent bars and badges.
+- Put row-specific actions in long-press or overflow menus.
+- Put creation actions in list headers, overflow menus, and empty states; do not add floating/persistent controls unless the workflow is frequent enough to justify the space.
+- Slash/autocomplete popups are justified only while typing and must not cover the typed command or cursor.
+- Workspace/project identity should be visible enough to prevent wrong-directory mistakes, but avoid full persistent chips in cramped chat headers unless a compact treatment proves usable.
+- Branch and secondary metadata should live in overflow or compact text when space is constrained.
+
+## Status Dot Semantics
+
+Use one consistent status language across tabs, sessions, sub-agents, chat, files, and settings help. Prefer centralized mappings over scattered raw `Text("●")` glyphs.
+
+| State | Visual |
+|-------|--------|
+| Connected / idle | muted or success dot, no motion |
+| Running / busy | accent/primary dot or spinner, pulse allowed |
+| Awaiting user input | warning dot/badge, pulse allowed |
+| Retrying / reconnecting | warning or error refresh/spinner, depending severity |
+| Error | error color, no fake progress |
+| Background / cold | muted/subtle dot, no motion |
+| Dirty / unsaved | warning/accent marker near the edited file title |
+
+- Do not show fake percentages for agent or sub-agent work.
+- Prefer real run state with a spinner, pulse, or concise text.
+- Functional status indicators need content descriptions.
+- Add or maintain a status legend in Settings -> Help when dot semantics change.
+
+## In-App Editing Constraint
+
+Do not rely on intenting out to other apps for core editing workflows. External editors break the app's tabbed workspace model and make conflict/workspace scoping harder to reason about.
+
+- Keep file viewing and editing tabbed inside P4OC by default.
+- Do not add a sidecar requirement for core file operations; use the existing opencode/OFISH path unless a future spec explicitly changes this.
+- Android app virtualization/Parallel Space-style embedding is not an acceptable default architecture for editor integration.
+- If external editor interop is explored, treat it as optional import/export, not the primary workflow.
 
 ## Workspace Cutover Forbidden Patterns
 

@@ -40,13 +40,12 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
-import dev.blazelight.p4oc.domain.workspace.WorkspacePathParser
+import dev.blazelight.p4oc.domain.workspace.WorkspacePathAttachmentCodec
 import dev.blazelight.p4oc.ui.screens.files.upload.ContentResolverUploadSource
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadProgressSheet
 import dev.blazelight.p4oc.ui.theme.Sizing
@@ -56,8 +55,10 @@ import dev.blazelight.p4oc.ui.theme.Spacing
 @Composable
 fun FileExplorerScreen(
     viewModel: FilesViewModel,
+    workspaceDirectory: String?,
     onFileClick: (String) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onSwitchWorkspace: () -> Unit = {},
 ) {
     val theme = LocalOpenCodeTheme.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -143,13 +144,25 @@ fun FileExplorerScreen(
                                 )
                             )
                         } else {
-                            Text(
-                                text = uiState.currentPath.substringAfterLast('/').ifBlank { "Files" },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = theme.text,
-                                style = MaterialTheme.typography.titleMedium
-                            )
+                            Column {
+                                Text(
+                                    text = uiState.currentPath.substringAfterLast('/').ifBlank { "Files" },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = theme.text,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                val workspaceLabel = workspaceDirectory?.trimEnd('/')?.substringAfterLast('/')?.ifBlank { workspaceDirectory }
+                                    ?: stringResource(R.string.files_workspace_global)
+                                Text(
+                                    text = workspaceLabel,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = theme.textMuted,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.clickable(role = Role.Button, onClick = onSwitchWorkspace)
+                                )
+                            }
                         }
                     },
                     actions = {
@@ -223,6 +236,22 @@ fun FileExplorerScreen(
                             color = theme.textMuted
                         )
                     }
+                } else if (uiState.symbolError != null) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
+                        Text(
+                            text = "!",
+                            style = MaterialTheme.typography.displayMedium,
+                            color = theme.error
+                        )
+                        Text(
+                            text = stringResource(R.string.files_symbol_search_failed, uiState.symbolError.orEmpty()),
+                            color = theme.error
+                        )
+                    }
                 } else if (symbolResults.isEmpty()) {
                     Column(
                         modifier = Modifier.align(Alignment.Center),
@@ -249,7 +278,7 @@ fun FileExplorerScreen(
                             SymbolResultItem(
                                 symbol = symbol,
                                 onClick = {
-                                    onFileClick(WorkspacePathParser.parseFromServer(symbol.uri).value)
+                                    onFileClick(WorkspacePathAttachmentCodec.parseFromServer(symbol.uri).value)
                                 }
                             )
                         }
@@ -272,7 +301,7 @@ fun FileExplorerScreen(
                                 color = theme.textMuted
                             )
                             Text(
-                                text = if (searchQuery.isNotBlank()) "-- no matching files --" else "-- empty folder --",
+                                text = if (searchQuery.isNotBlank()) stringResource(R.string.files_no_matching_files) else stringResource(R.string.files_empty_folder),
                                 color = theme.textMuted
                             )
                         }

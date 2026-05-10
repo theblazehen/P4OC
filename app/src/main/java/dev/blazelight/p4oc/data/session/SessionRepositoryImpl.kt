@@ -50,6 +50,8 @@ class SessionRepositoryImpl(
         val workspaceKey: String,
     )
 
+    val workspace = client.workspace
+
     private val reducer = SessionReducer(client.workspace)
     private val hydrateBuffer = HydrationEventBuffer()
     private val job = SupervisorJob()

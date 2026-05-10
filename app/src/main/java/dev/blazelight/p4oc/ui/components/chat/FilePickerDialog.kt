@@ -10,14 +10,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -25,7 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.blazelight.p4oc.R
@@ -38,7 +36,8 @@ import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 
 data class SelectedFile(
     val path: String,
-    val name: String
+    val name: String,
+    val mimeType: String? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +52,7 @@ fun FilePickerDialog(
     onNavigateUp: () -> Unit,
     onFileSelected: (FileNode) -> Unit,
     onFileDeselected: (String) -> Unit,
+    onUploadClick: () -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -82,7 +82,6 @@ fun FilePickerDialog(
             color = theme.background
         ) {
             Column {
-                // TUI Header: [ Attach Files ]
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -123,8 +122,20 @@ fun FilePickerDialog(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = theme.accent,
                                     fontFamily = FontFamily.Monospace
-                                )
+                                    )
                             }
+                            Text(
+                                text = "[Upload]",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = theme.accent,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier
+                                    .testTag("file_picker_upload")
+                                    .clickable(
+                                        role = Role.Button,
+                                        onClick = onUploadClick,
+                                    )
+                            )
                             Text(
                                 text = if (selectedFiles.isNotEmpty()) "[${stringResource(R.string.attach)}]" else "",
                                 style = MaterialTheme.typography.labelMedium,
@@ -140,7 +151,6 @@ fun FilePickerDialog(
                     }
                 }
 
-                // Search field with TUI style
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -313,7 +323,6 @@ private fun PickerBreadcrumb(
         horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Root indicator: ~
         Text(
             text = "~",
             style = MaterialTheme.typography.labelMedium,
@@ -411,7 +420,13 @@ private fun PickerFileItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
-        // Selection/folder indicator
+        Icon(
+            imageVector = icon,
+            contentDescription = stringResource(R.string.cd_file_icon),
+            tint = iconColor,
+            modifier = Modifier.size(Sizing.iconXs)
+        )
+
         Text(
             text = when {
                 isSelected && !file.isDirectory -> "✓"
@@ -427,7 +442,6 @@ private fun PickerFileItem(
             style = MaterialTheme.typography.bodyMedium
         )
         
-        // File name
         Text(
             text = file.name + if (file.isDirectory) "/" else "",
             style = MaterialTheme.typography.bodyMedium,
@@ -439,7 +453,6 @@ private fun PickerFileItem(
             overflow = TextOverflow.Ellipsis
         )
         
-        // Trailing indicator
         if (file.isDirectory) {
             Text(
                 text = "→",
@@ -464,11 +477,11 @@ private fun getPickerFileIcon(file: FileNode): Pair<ImageVector, Color> {
         "kt", "java", "py", "js", "ts", "tsx", "jsx", "c", "cpp", "h", "rs", "go", "rb", "php", "swift", "m" ->
             Icons.Default.Code to SemanticColors.Status.success
         "json", "yaml", "yml", "xml", "toml", "ini", "conf", "config", "properties" ->
-            Icons.Default.Settings to SemanticColors.MimeType.archive
+            Icons.Default.Settings to SemanticColors.MimeType.data
         "md", "txt", "rst", "doc", "docx", "pdf" ->
             Icons.Default.Description to SemanticColors.Reason.info
         "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp" ->
-            Icons.Default.Image to SemanticColors.MimeType.video
+            Icons.Default.Image to SemanticColors.MimeType.image
         else -> Icons.AutoMirrored.Filled.InsertDriveFile to theme.textMuted
     }
 }

@@ -123,7 +123,11 @@ internal class OfishMutationClient(
 
         var finished = false
         try {
-            val chunkBytes = uploadChunkBytes.get(capabilities)
+            val chunkBytes = try {
+                uploadChunkBytes.get(capabilities)
+            } catch (error: OfishUploadChunkProbeUnavailableException) {
+                return FileOperationResult.Failed(error.message ?: "OFISH upload chunk probe failed", error)
+            }
             require(chunkBytes > 0) { "upload chunk size must be greater than zero" }
             var offset = 0
             while (offset < request.bytes.size) {
@@ -134,6 +138,7 @@ internal class OfishMutationClient(
                     else -> return chunkStatus.toUploadResult(path)
                 }
                 offset = end
+                request.onBytesUploaded?.invoke(offset.toLong())
             }
 
             val finishStatus = execute(sessionId, commandBuilder.uploadFinish(path, uploadToken, request.expectedHash, capabilities))

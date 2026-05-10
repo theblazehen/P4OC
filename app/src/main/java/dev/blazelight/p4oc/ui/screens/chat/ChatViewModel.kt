@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
 import dev.blazelight.p4oc.core.log.AppLog
+import android.webkit.MimeTypeMap
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,8 +29,6 @@ import dev.blazelight.p4oc.domain.session.SessionId
 import dev.blazelight.p4oc.domain.workspace.RelativePath
 import dev.blazelight.p4oc.domain.workspace.WorkspacePath
 import dev.blazelight.p4oc.domain.workspace.toAttachmentUrl
-import dev.blazelight.p4oc.ui.components.chat.AbortSummary
-import dev.blazelight.p4oc.ui.components.chat.InterruptedTool
 import dev.blazelight.p4oc.ui.components.chat.SelectedFile
 import dev.blazelight.p4oc.ui.navigation.Screen
 import kotlinx.coroutines.flow.*
@@ -275,11 +274,16 @@ class ChatViewModel constructor(
             is OpenCodeEvent.SessionError -> {
                 if (event.sessionID == sessionId) {
                     AppLog.e(TAG, "Session error: ${event.error?.message}")
+                    if (event.error?.isAborted() == true) {
+                        sessionRepository.clearStreamingFlags(SessionId(sessionId))
+                        _uiState.update { it.copy(isBusy = false, isSending = false, error = null) }
+                        return
+                    }
                     _uiState.update {
                         it.copy(
                             isBusy = false,
                             isSending = false,
-                            error = event.error?.message ?: "An error occurred"
+                            error = event.error?.toHumanMessage() ?: "An error occurred"
                         )
                     }
                 }
@@ -322,7 +326,7 @@ class ChatViewModel constructor(
 
         val selectedAgent = modelAgentManager.selectedAgent.value
         val selectedModel = modelAgentManager.selectedModel.value
-        _uiState.update { it.copy(inputText = "", isSending = true, abortSummary = null) }
+        _uiState.update { it.copy(inputText = "", isSending = true) }
         filePickerManager.clearAttachedFiles()
 
         viewModelScope.launch {
@@ -432,10 +436,18 @@ class ChatViewModel constructor(
             parts.add(PartInputDto(
                 type = "file",
                 filename = file.name,
-                url = WorkspacePath.Relative(RelativePath(file.path)).toAttachmentUrl()
+                mime = file.mimeType ?: mimeTypeForFilename(file.name),
+                url = WorkspacePath.Relative(RelativePath(file.path))
+                    .toAttachmentUrl()
             ))
         }
         return parts
+    }
+
+    private fun mimeTypeForFilename(filename: String): String {
+        val extension = filename.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+            ?: "application/octet-stream"
     }
 
     // --- Permission / question responses ---
@@ -562,50 +574,29 @@ class ChatViewModel constructor(
 
     fun abortSession() {
         viewModelScope.launch {
-            // Snapshot state BEFORE clearing flags
-            val summary = buildAbortSummary()
-
             when (val result = safeApiCall { workspaceClient.abortSession(sessionId) }) {
                 is ApiResult.Success -> {
                     sessionRepository.clearStreamingFlags(SessionId(sessionId))
-                    _uiState.update { it.copy(isBusy = false, isSending = false, abortSummary = summary) }
+                    _uiState.update { it.copy(isBusy = false, isSending = false) }
                 }
-                is ApiResult.Error -> _uiState.update { it.copy(error = "Failed to abort session: ${result.message}") }
+                is ApiResult.Error -> _uiState.update {
+                    it.copy(error = "Failed to stop run: ${result.message.toHumanAbortError()}")
+                }
             }
         }
     }
 
-    private suspend fun buildAbortSummary(): AbortSummary {
-        val snapshot = messages.value
-
-        val runningTools = snapshot
-            .flatMap { it.parts }
-            .filterIsInstance<Part.Tool>()
-            .filter { it.state is ToolState.Running }
-            .map { tool ->
-                val running = tool.state as ToolState.Running
-                InterruptedTool(
-                    toolName = tool.toolName,
-                    context = running.title?.take(40)
-                )
-            }
-
-        val wasStreaming = snapshot
-            .flatMap { it.parts }
-            .any { it is Part.Text && it.isStreaming }
-
-        val lastAssistant = snapshot
-            .map { it.message }
-            .filterIsInstance<Message.Assistant>()
-            .lastOrNull()
-
-        return AbortSummary(
-            interruptedTools = runningTools,
-            wasTextStreaming = wasStreaming,
-            tokens = lastAssistant?.tokens,
-            cost = lastAssistant?.cost
-        )
+    private fun String.toHumanAbortError(): String {
+        val trimmed = trim()
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) return "Unable to stop run"
+        return trimmed.ifBlank { "Unable to stop run" }
     }
+
+    private fun dev.blazelight.p4oc.domain.model.MessageError.isAborted(): Boolean =
+        name == "MessageAbortedError" || message.equals("Aborted", ignoreCase = true)
+
+    private fun dev.blazelight.p4oc.domain.model.MessageError.toHumanMessage(): String =
+        message?.toHumanAbortError() ?: "An error occurred"
 }
 
 /**
@@ -623,8 +614,7 @@ data class ChatUiState(
     val isLoadingCommands: Boolean = false,
     val todos: List<Todo> = emptyList(),
     val isLoadingTodos: Boolean = false,
-    val queuedMessages: List<QueuedMessage> = emptyList(),
-    val abortSummary: AbortSummary? = null
+    val queuedMessages: List<QueuedMessage> = emptyList()
 )
 
 data class QueuedMessage(

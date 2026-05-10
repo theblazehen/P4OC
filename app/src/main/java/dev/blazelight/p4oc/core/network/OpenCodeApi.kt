@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.core.network
 
 import dev.blazelight.p4oc.data.remote.dto.*
+import retrofit2.Response
 import retrofit2.http.*
 
 interface OpenCodeApi {
@@ -65,7 +66,7 @@ interface OpenCodeApi {
     suspend fun abortSession(
         @Path("id") id: String,
         @Query("directory") directory: String?
-    ): Boolean
+    ): Response<Unit>
 
     @POST("session/{id}/fork")
     suspend fun forkSession(

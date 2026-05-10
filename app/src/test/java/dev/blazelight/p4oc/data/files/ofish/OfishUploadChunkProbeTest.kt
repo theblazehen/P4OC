@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class OfishUploadChunkProbeTest {
@@ -42,14 +43,14 @@ class OfishUploadChunkProbeTest {
     }
 
     @Test
-    fun `halves until success`() = runTest {
-        val client = FakeOfishWorkspaceClient(results = ArrayDeque(listOf(false, false, true)))
+    fun `tries minimum when default probe fails`() = runTest {
+        val client = FakeOfishWorkspaceClient(results = ArrayDeque(listOf(false, true)))
         val probe = probe(client)
 
         val result = probe.findSupportedChunkBytes(capabilities, startBytes = 1024 * 1024, minBytes = 256 * 1024)
 
         assertEquals(256 * 1024, result)
-        assertEquals(listOf(1024 * 1024, 512 * 1024, 256 * 1024), client.probedBytes)
+        assertEquals(listOf(1024 * 1024, 256 * 1024), client.probedBytes)
     }
 
     @Test
@@ -64,14 +65,18 @@ class OfishUploadChunkProbeTest {
     }
 
     @Test
-    fun `stops at minimum and returns minimum when all probes fail`() = runTest {
-        val client = FakeOfishWorkspaceClient(results = ArrayDeque(listOf(false, false, false)))
+    fun `fails explicitly when default and minimum probes fail`() = runTest {
+        val client = FakeOfishWorkspaceClient(results = ArrayDeque(listOf(false, false)))
         val probe = probe(client)
 
-        val result = probe.findSupportedChunkBytes(capabilities, startBytes = 256 * 1024, minBytes = 64 * 1024)
+        try {
+            probe.findSupportedChunkBytes(capabilities, startBytes = 256 * 1024, minBytes = 64 * 1024)
+            fail("Expected OfishUploadChunkProbeUnavailableException")
+        } catch (_: OfishUploadChunkProbeUnavailableException) {
+            // Expected.
+        }
 
-        assertEquals(64 * 1024, result)
-        assertEquals(listOf(256 * 1024, 128 * 1024, 64 * 1024), client.probedBytes)
+        assertEquals(listOf(256 * 1024, 64 * 1024), client.probedBytes)
     }
 
     @Test
@@ -89,14 +94,28 @@ class OfishUploadChunkProbeTest {
         assertEquals(listOf(256 * 1024, 128 * 1024), client.probedBytes)
     }
 
+    @Test
+    fun `probe script uses fixed payload delimiter`() {
+        val script = OfishUploadChunkProbeCommandBuilder(
+            payloadBytes = { size -> ByteArray(size) { 7 } },
+        ).probe(128, capabilities).decodedScript()
+
+        assertTrue(script.contains("<<'__OFISH_PAYLOAD__'"))
+    }
+
     private fun probe(client: FakeOfishWorkspaceClient): OfishUploadChunkProbe = OfishUploadChunkProbe(
         client = client,
         sessionFactory = OfishSessionFactory(client),
         commandBuilder = OfishUploadChunkProbeCommandBuilder(
             payloadBytes = { size -> ByteArray(size) { 7 } },
-            delimiterId = { "probe_test" },
         ),
     )
+
+    private fun String.decodedScript(): String {
+        val encoded = Regex("printf %s '?([A-Za-z0-9+/=]+)'? ").find(this)?.groupValues?.get(1)
+            ?: error("missing wrapped script")
+        return String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+    }
 
     private class FakeOfishWorkspaceClient(
         private val results: ArrayDeque<Boolean>,
@@ -124,7 +143,10 @@ class OfishUploadChunkProbeTest {
         override suspend fun deleteSession(id: String): Boolean = true
 
         override suspend fun executeShellCommand(sessionId: String, request: ShellCommandRequest): MessageWrapperDto {
-            probedBytes += Regex("bytes=(\\d+)").find(request.command)?.groupValues?.get(1)?.toInt()
+            val encoded = Regex("printf %s '?([A-Za-z0-9+/=]+)'? ").find(request.command)?.groupValues?.get(1)
+                ?: error("probe command did not include encoded script")
+            val script = String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+            probedBytes += Regex("bytes=(\\d+)").find(script)?.groupValues?.get(1)?.toInt()
                 ?: error("probe command did not include bytes marker")
             val ok = results.removeFirstOrNull() ?: false
             return message(if (ok) "### 200 ok" else "### 500 failed reason=test")
@@ -151,5 +173,6 @@ class OfishUploadChunkProbeTest {
                 ),
             ),
         )
+
     }
 }

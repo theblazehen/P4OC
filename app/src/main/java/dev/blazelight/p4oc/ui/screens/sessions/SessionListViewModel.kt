@@ -66,10 +66,14 @@ class SessionListViewModel constructor(
         }
     }
 
-    fun createSession(title: String?) {
+    fun createSession(title: String?, directory: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                if (directory != null && directory != sessionRepository.workspace.directory) {
+                    _uiState.update { it.copy(isLoading = false, error = "Switch to $directory before creating a session") }
+                    return@launch
+                }
                 val created = sessionRepository.createSession(title)
                 _uiState.update {
                     it.copy(

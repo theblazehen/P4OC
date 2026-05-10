@@ -32,14 +32,20 @@ class UploadOrchestrator(
     private val _state = MutableStateFlow(UploadQueueState())
     val state: StateFlow<UploadQueueState> = _state.asStateFlow()
 
-    data class Plan(val sourceId: String, val displayName: String?, val sizeBytes: Long, val mimeType: String?)
+    data class Plan(
+        val sourceId: String,
+        val displayName: String?,
+        val sizeBytes: Long,
+        val mimeType: String?,
+        val probeFailure: String? = null,
+    )
 
     /**
      * Run the batch. Returns when finished or cancelled. Suspends per item;
      * caller controls the scope/dispatcher. Safe to cancel via the calling
      * coroutine.
      */
-    suspend fun run(currentPath: String, plans: List<Plan>): UploadQueueState {
+    suspend fun run(currentPath: String?, plans: List<Plan>): UploadQueueState {
         val items = plans.map { plan ->
             val sanitized = sanitizeUploadName(plan.displayName, now())
             UploadItem(
@@ -48,6 +54,7 @@ class UploadOrchestrator(
                 destinationPath = joinDestinationPath(currentPath, sanitized),
                 mimeType = plan.mimeType ?: DEFAULT_MIME,
                 bytesTotal = plan.sizeBytes.coerceAtLeast(0L),
+                probeFailure = plan.probeFailure,
             )
         }
         _state.value = UploadQueueState(items = items, currentIndex = 0, isActive = items.isNotEmpty())
@@ -66,8 +73,7 @@ class UploadOrchestrator(
      * already-completed entries in the queue so the UI keeps showing
      * successful uploads.
      */
-    @Suppress("UNUSED_PARAMETER")
-    suspend fun retryFailed(currentPath: String) {
+    suspend fun retryFailed() {
         val snapshot = _state.value
         val failedIndices = snapshot.items.mapIndexedNotNull { i, item ->
             if (item.phase is UploadPhase.Failed) i else null
@@ -87,8 +93,6 @@ class UploadOrchestrator(
         }
         mutate { it.copy(isActive = false) }
     }
-
-    fun reset() { _state.value = UploadQueueState() }
 
     /**
      * Mark the queue cancelled and convert any in-flight item (Reading /
@@ -135,15 +139,24 @@ class UploadOrchestrator(
             return
         }
 
-        updateItem(index) { it.copy(phase = UploadPhase.Uploading, bytesTotal = bytes.size.toLong()) }
+        updateItem(index) { it.copy(phase = UploadPhase.Uploading, bytesTotal = bytes.size.toLong(), bytesUploaded = 0L) }
 
         var lastFailure: String? = null
         for (attempt in 1..maxAttempts) {
             updateItem(index) { it.copy(attempts = attempt) }
-            val request = FileUploadRequest(path = item.destinationPath, bytes = bytes, expectedHash = null)
+            val request = FileUploadRequest(
+                path = item.destinationPath,
+                bytes = bytes,
+                expectedHash = null,
+                onBytesUploaded = { uploaded ->
+                    updateItem(index) { current ->
+                        current.copy(bytesUploaded = uploaded.coerceIn(0L, current.bytesTotal))
+                    }
+                },
+            )
             when (val result = fileRepository.uploadFile(request)) {
                 is FileOperationResult.Ok -> {
-                    updateItem(index) { it.copy(phase = UploadPhase.Done) }
+                    updateItem(index) { it.copy(phase = UploadPhase.Done, bytesUploaded = it.bytesTotal) }
                     return
                 }
                 is FileOperationResult.Conflict -> {

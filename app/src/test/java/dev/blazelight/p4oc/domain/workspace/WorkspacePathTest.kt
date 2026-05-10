@@ -29,12 +29,26 @@ class WorkspacePathTest {
     }
 
     @Test
+    fun `relative attachment url uses empty-host file scheme for prompt parts`() {
+        val path = WorkspacePath.Relative(RelativePath("src/My File.kt"))
+
+        assertEquals("file:///src/My%20File.kt", path.toAttachmentUrl())
+    }
+
+    @Test
+    fun `relative attachment url round trip returns original path`() {
+        val path = WorkspacePath.Relative(RelativePath("src/nested/My File.kt"))
+
+        assertEquals(path, WorkspacePathAttachmentCodec.parseFromServer(path.toAttachmentUrl()))
+    }
+
+    @Test
     fun `server symbol uri parses encoded path query and fragment characters`() {
         val uri = "file://src/My%20File%3F%23.kt"
 
         assertEquals(
             WorkspacePath.Relative(RelativePath("src/My File?#.kt")),
-            WorkspacePathParser.parseFromServer(uri),
+            WorkspacePathAttachmentCodec.parseFromServer(uri),
         )
     }
 
@@ -44,7 +58,7 @@ class WorkspacePathTest {
 
         assertEquals(
             WorkspacePath.Relative(RelativePath("src/My File.kt?symbol?query#heading#one")),
-            WorkspacePathParser.parseFromServer(uri),
+            WorkspacePathAttachmentCodec.parseFromServer(uri),
         )
     }
 

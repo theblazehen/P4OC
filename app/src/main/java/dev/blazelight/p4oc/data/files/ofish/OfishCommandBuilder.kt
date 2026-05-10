@@ -1,11 +1,8 @@
 package dev.blazelight.p4oc.data.files.ofish
 
-import java.security.SecureRandom
 import java.util.Base64
 
-internal class OfishCommandBuilder(
-    private val delimiterId: () -> String = { randomDelimiterId() },
-) {
+internal class OfishCommandBuilder {
     /**
      * Builds a small ephemeral-session command that hashes a path on disk
      * using the same `hash_file` shell helper used by the mutation commands,
@@ -13,7 +10,7 @@ internal class OfishCommandBuilder(
      * would compare against. Emits `### 200 ok hash=<hex>` on success or
      * `### 404 missing` if the file does not exist.
      */
-    fun hash(path: String, capabilities: OfishCapabilities): String = buildString {
+    fun hash(path: String, capabilities: OfishCapabilities): String = wrap(buildString {
         appendLine("printf '#OFISH_HASH\\n'")
         appendLine("P=${shellSingleQuote(path)}")
         appendHashFunction(requireHashCommand(capabilities))
@@ -25,17 +22,17 @@ internal class OfishCommandBuilder(
             exit 0
             """.trimIndent()
         )
-    }
+    })
 
     fun write(
         path: String,
         content: String,
         expectedHash: String?,
         capabilities: OfishCapabilities,
-    ): String = buildString {
+    ): String = wrap(buildString {
         val parent = parentDirectory(path)
         val payload = base64(content.toByteArray(Charsets.UTF_8))
-        val delimiter = payloadDelimiter()
+        val delimiter = PAYLOAD_DELIMITER
         appendCommonHeader(marker = "#OFISH_WRITE", path = path, parent = parent, expectedHash = expectedHash)
         appendHashFunction(requireHashCommand(capabilities))
         appendExpectedHashGuard()
@@ -69,9 +66,9 @@ internal class OfishCommandBuilder(
             exit 0
             """.trimIndent()
         )
-    }
+    })
 
-    fun delete(path: String): String = buildString {
+    fun delete(path: String): String = wrap(buildString {
         appendLine("printf '#OFISH_DELETE\\n'")
         appendLine("P=${shellSingleQuote(path)}")
         append(
@@ -83,13 +80,13 @@ internal class OfishCommandBuilder(
             exit 0
             """.trimIndent()
         )
-    }
+    })
 
     fun uploadInit(
         path: String,
         expectedHash: String?,
         capabilities: OfishCapabilities,
-    ): String = buildString {
+    ): String = wrap(buildString {
         val parent = parentDirectory(path)
         appendCommonHeader(marker = "#OFISH_UPLOAD_INIT", path = path, parent = parent, expectedHash = expectedHash)
         appendHashFunction(requireHashCommand(capabilities))
@@ -102,19 +99,20 @@ internal class OfishCommandBuilder(
             exit 0
             """.trimIndent()
         )
-    }
+    })
 
     fun uploadChunk(
         uploadToken: String,
         bytes: ByteArray,
         capabilities: OfishCapabilities,
-    ): String = buildString {
+    ): String = wrap(buildString {
         val payload = base64(bytes)
-        val delimiter = payloadDelimiter()
+        val delimiter = PAYLOAD_DELIMITER
         appendLine("printf '#OFISH_UPLOAD_CHUNK\\n'")
         appendLine("TMP=${shellSingleQuote(uploadToken)}")
         append(
             """
+            if [ ! -f "${'$'}TMP" ]; then printf '### 412 precondition reason=missing_tmp\n'; exit 0; fi
             base64 ${base64DecodeFlag(capabilities)} >> "${'$'}TMP" <<'$delimiter'
             """.trimIndent()
         )
@@ -130,14 +128,14 @@ internal class OfishCommandBuilder(
             exit 0
             """.trimIndent()
         )
-    }
+    })
 
     fun uploadFinish(
         path: String,
         uploadToken: String,
         expectedHash: String?,
         capabilities: OfishCapabilities,
-    ): String = buildString {
+    ): String = wrap(buildString {
         appendCommonHeader(marker = "#OFISH_UPLOAD_FINISH", path = path, parent = parentDirectory(path), expectedHash = expectedHash)
         appendLine("TMP=${shellSingleQuote(uploadToken)}")
         appendHashFunction(requireHashCommand(capabilities))
@@ -151,9 +149,9 @@ internal class OfishCommandBuilder(
             exit 0
             """.trimIndent()
         )
-    }
+    })
 
-    fun uploadAbort(uploadToken: String): String = buildString {
+    fun uploadAbort(uploadToken: String): String = wrap(buildString {
         appendLine("printf '#OFISH_UPLOAD_ABORT\\n'")
         appendLine("TMP=${shellSingleQuote(uploadToken)}")
         append(
@@ -163,7 +161,9 @@ internal class OfishCommandBuilder(
             exit 0
             """.trimIndent()
         )
-    }
+    })
+
+    private fun wrap(script: String): String = OfishShellWrapper.wrap(script)
 
     private fun StringBuilder.appendCommonHeader(
         marker: String,
@@ -221,21 +221,12 @@ internal class OfishCommandBuilder(
         else -> throw IllegalArgumentException("Unsupported base64 decode flag: $flag")
     }
 
-    private fun payloadDelimiter(): String = "__OFISH_PAYLOAD_${delimiterId()}__"
-
     private fun base64(bytes: ByteArray): String = Base64.getEncoder().encodeToString(bytes)
 
     internal companion object {
-        private val RANDOM = SecureRandom()
-
-        fun shellSingleQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+        const val PAYLOAD_DELIMITER = "__OFISH_PAYLOAD__"
+        fun shellSingleQuote(value: String): String = value.shellSingleQuoted()
 
         fun parentDirectory(path: String): String = path.substringBeforeLast('/', missingDelimiterValue = ".").ifBlank { "." }
-
-        private fun randomDelimiterId(): String {
-            val bytes = ByteArray(4)
-            RANDOM.nextBytes(bytes)
-            return bytes.joinToString(separator = "") { byte -> "%02x".format(byte) }
-        }
     }
 }

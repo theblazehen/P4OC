@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -97,6 +98,15 @@ fun TabNavHost(
     }
     val generation = connection?.generation ?: error("Connected server is missing generation")
     val workspaceRoute = remember(tabId, workspaceRevision) { workspaceGraphRoute(tabId, workspaceRevision) }
+    var pendingRoute by remember(tabId) { mutableStateOf<String?>(null) }
+    var pendingCreateSessionDirectory by remember(tabId) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(workspaceRevision, pendingRoute, pendingCreateSessionDirectory) {
+        pendingRoute?.let { route ->
+            pendingRoute = null
+            navController.navigate(route)
+        }
+    }
 
     // Double-back-to-close when at the root of any tab.
     // Dedicated tabs (terminal, files, chat): closes the tab.
@@ -169,14 +179,23 @@ fun TabNavHost(
                         // Focus existing tab
                         tabManager.focusTab(existingTab.id)
                     } else {
-                        // Navigate within this tab
-                        tabManager.updateTabWorkspace(tabId, directory)
-                        navController.navigate(Screen.Chat.createRoute(sessionId))
+                        val chatRoute = Screen.Chat.createRoute(sessionId)
+                        if (directory != workspace.directory) {
+                            pendingRoute = chatRoute
+                            tabManager.updateTabWorkspace(tabId, directory)
+                        } else {
+                            navController.navigate(chatRoute)
+                        }
                     }
                 },
                 onNewSession = { sessionId, directory ->
-                    tabManager.updateTabWorkspace(tabId, directory)
-                    navController.navigate(Screen.Chat.createRoute(sessionId))
+                    val chatRoute = Screen.Chat.createRoute(sessionId)
+                    if (directory != workspace.directory) {
+                        pendingRoute = chatRoute
+                        tabManager.updateTabWorkspace(tabId, directory)
+                    } else {
+                        navController.navigate(chatRoute)
+                    }
                 },
                 onSettings = {
                     navController.navigate(Screen.Settings.route)
@@ -212,13 +231,23 @@ fun TabNavHost(
                     if (existingTab != null && existingTab.id != tabId) {
                         tabManager.focusTab(existingTab.id)
                     } else {
-                        tabManager.updateTabWorkspace(tabId, directory)
-                        navController.navigate(Screen.Chat.createRoute(sessionId))
+                        val chatRoute = Screen.Chat.createRoute(sessionId)
+                        if (directory != workspace.directory) {
+                            pendingRoute = chatRoute
+                            tabManager.updateTabWorkspace(tabId, directory)
+                        } else {
+                            navController.navigate(chatRoute)
+                        }
                     }
                 },
                 onNewSession = { sessionId, directory ->
-                    tabManager.updateTabWorkspace(tabId, directory)
-                    navController.navigate(Screen.Chat.createRoute(sessionId))
+                    val chatRoute = Screen.Chat.createRoute(sessionId)
+                    if (directory != workspace.directory) {
+                        pendingRoute = chatRoute
+                        tabManager.updateTabWorkspace(tabId, directory)
+                    } else {
+                        navController.navigate(chatRoute)
+                    }
                 },
                 onSettings = {
                     navController.navigate(Screen.Settings.route)
@@ -232,6 +261,17 @@ fun TabNavHost(
                 onViewChanges = { sessionId ->
                     navController.navigate(Screen.SessionDiff.createRoute(sessionId))
                 },
+                onCreateSessionInProject = { directory ->
+                    if (directory != workspace.directory) {
+                        pendingRoute = Screen.SessionsFiltered.createRoute(projectId)
+                        pendingCreateSessionDirectory = directory
+                        tabManager.updateTabWorkspace(tabId, directory)
+                    } else {
+                        pendingCreateSessionDirectory = directory
+                    }
+                },
+                autoCreateSession = pendingCreateSessionDirectory == workspace.directory,
+                onAutoCreateSessionConsumed = { pendingCreateSessionDirectory = null },
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -278,7 +318,7 @@ fun TabNavHost(
                             focus = true,
                         )
                     } else {
-                        // Same tab (legacy behavior)
+                        // Reuse this tab when sub-agent tab splitting is disabled.
                         navController.navigate(Screen.Chat.createRoute(subSessionId))
                     }
                 },
@@ -299,8 +339,13 @@ fun TabNavHost(
                     navController.popBackStack()
                 },
                 onProjectClick = { projectId, worktree ->
-                    tabManager.updateTabWorkspace(tabId, worktree)
-                    navController.navigate(Screen.SessionsFiltered.createRoute(projectId))
+                    val filteredRoute = Screen.SessionsFiltered.createRoute(projectId)
+                    if (worktree != workspace.directory) {
+                        pendingRoute = filteredRoute
+                        tabManager.updateTabWorkspace(tabId, worktree)
+                    } else {
+                        navController.navigate(filteredRoute)
+                    }
                 }
             )
         }
@@ -328,10 +373,18 @@ fun TabNavHost(
                 viewModel = remember(workspaceViewModel) {
                     FilesViewModel(FileRepositoryFactory.create(workspaceViewModel.workspaceClient))
                 },
+                workspaceDirectory = workspace.directory,
                 onFileClick = { path ->
                     navController.navigate(Screen.FileViewer.createRoute(path))
                 },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = {
+                    if (!navController.popBackStack()) {
+                        onCloseTab()
+                    }
+                },
+                onSwitchWorkspace = {
+                    navController.navigate(Screen.Projects.route)
+                }
             )
         }
 
@@ -349,7 +402,11 @@ fun TabNavHost(
                 viewModel = remember(workspaceViewModel) {
                     FilesViewModel(FileRepositoryFactory.create(workspaceViewModel.workspaceClient))
                 },
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = {
+                    if (!navController.popBackStack()) {
+                        onCloseTab()
+                    }
+                }
             )
         }
 

@@ -2,6 +2,7 @@
 package dev.blazelight.p4oc.ui.tabs
 
 import dev.blazelight.p4oc.core.log.AppLog
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -18,6 +19,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -31,8 +34,12 @@ import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.core.datastore.ConnectionSettings
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.domain.server.ServerRef
+import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiTextButton
 import dev.blazelight.p4oc.ui.navigation.Screen
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
+import dev.blazelight.p4oc.ui.theme.Spacing
+import dev.blazelight.p4oc.ui.theme.TuiShapes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -66,6 +73,7 @@ fun MainTabScreen(
     var wasEverConnected by remember { mutableStateOf(false) }
     var reconnectAttempted by remember { mutableStateOf(false) }
     var restoreError by remember { mutableStateOf<String?>(null) }
+    var showFilesTabPrompt by remember { mutableStateOf(false) }
 
     // Foreground resume: lightweight SSE reconnect without isConnected guard.
     // When the app returns from background, the SSE connection is likely dead.
@@ -187,7 +195,11 @@ fun MainTabScreen(
     val tabIcons = remember { mutableStateMapOf<String, ImageVector>() }
     tabs.forEach { tab ->
         if (tab.id !in tabTitles) {
-            tabTitles[tab.id] = getTitleForRoute(tab.startRoute, tab.sessionTitle)
+            tabTitles[tab.id] = getTitleForRoute(
+                route = tab.startRoute,
+                sessionTitle = tab.sessionTitle,
+                workspaceDirectory = tab.workspaceDirectory,
+            )
             tabIcons[tab.id] = getIconForRoute(tab.startRoute)
         }
     }
@@ -242,6 +254,11 @@ fun MainTabScreen(
 
     // Snackbar for tab warning
     val snackbarHostState = remember { SnackbarHostState() }
+
+    fun requestFilesTab() {
+        showFilesTabPrompt = true
+    }
+
     LaunchedEffect(showTabWarning) {
         if (showTabWarning) {
             snackbarHostState.showSnackbar(
@@ -332,11 +349,7 @@ fun MainTabScreen(
                             },
                             onClick = {
                                 newTabMenuExpanded = false
-                                tabManager.createTab(
-                                    startRoute = Screen.Files.route,
-                                    workspaceDirectory = activeWorkspaceDirectory,
-                                    focus = true,
-                                )
+                                requestFilesTab()
                             },
                             modifier = Modifier.testTag("tab_bar_add_menu_files")
                         )
@@ -426,7 +439,11 @@ fun MainTabScreen(
                             // Only update when route is resolved — avoids overwriting
                             // seeded values with "Tab" during initial null-route composition
                             if (route != null) {
-                                tabTitles[tab.id] = getTitleForRoute(route, tab.sessionTitle)
+                                tabTitles[tab.id] = getTitleForRoute(
+                                    route = route,
+                                    sessionTitle = tab.sessionTitle,
+                                    workspaceDirectory = tab.workspaceDirectory,
+                                )
                                 tabIcons[tab.id] = getIconForRoute(route)
                             }
                             // Track PTY ID if on a terminal route
@@ -446,11 +463,7 @@ fun MainTabScreen(
                             onCloseTab = { closeTab(tab.id) },
                             startRoute = tab.startRoute,
                             onNewFilesTab = {
-                                tabManager.createTab(
-                                    startRoute = Screen.Files.route,
-                                    workspaceDirectory = tab.workspaceDirectory,
-                                    focus = true,
-                                )
+                                requestFilesTab()
                             },
                             onNewTerminalTab = {
                                 coroutineScope.launch {
@@ -485,6 +498,110 @@ fun MainTabScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (showFilesTabPrompt) {
+        val openWorkspaceDirectories = tabs
+            .mapNotNull { it.workspaceDirectory }
+            .distinct()
+        fun openFilesTab(directory: String?) {
+            tabManager.createTab(
+                startRoute = Screen.Files.route,
+                workspaceDirectory = directory,
+                focus = true,
+            )
+            showFilesTabPrompt = false
+        }
+
+        TuiAlertDialog(
+            onDismissRequest = { showFilesTabPrompt = false },
+            title = "Select Files workspace",
+            confirmButton = {
+                TuiTextButton(onClick = { showFilesTabPrompt = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            Text("Open a Files tab for:")
+            FilesWorkspaceOption(
+                title = "Global files",
+                subtitle = "No project context",
+                marker = "◆",
+                onClick = { openFilesTab(null) },
+            )
+            openWorkspaceDirectories.forEach { directory ->
+                FilesWorkspaceOption(
+                    title = directory.substringAfterLast('/').ifBlank { directory },
+                    subtitle = directory,
+                    marker = "◇",
+                    onClick = { openFilesTab(directory) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilesWorkspaceOption(
+    title: String,
+    subtitle: String,
+    marker: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val theme = LocalOpenCodeTheme.current
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick),
+        color = theme.backgroundElement,
+        shape = TuiShapes.small,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = ">",
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.accent.copy(alpha = 0.3f),
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = marker,
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.textMuted,
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.textMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = "→",
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.accent,
+            )
         }
     }
 }

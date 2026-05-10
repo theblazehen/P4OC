@@ -1,11 +1,17 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
+import android.webkit.MimeTypeMap
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.core.log.AppLog
+import dev.blazelight.p4oc.data.files.FileRepository
+import dev.blazelight.p4oc.data.files.FileRepositoryFactory
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.ui.components.chat.SelectedFile
+import dev.blazelight.p4oc.ui.screens.files.upload.UploadCoordinator
+import dev.blazelight.p4oc.ui.screens.files.upload.UploadQueueState
+import dev.blazelight.p4oc.ui.screens.files.upload.UploadSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +24,8 @@ import kotlinx.coroutines.launch
  */
 class FilePickerManager(
     private val workspaceClient: WorkspaceClient,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val fileRepository: FileRepository = FileRepositoryFactory.create(workspaceClient),
 ) {
     private companion object {
         const val TAG = "FilePickerManager"
@@ -38,6 +45,29 @@ class FilePickerManager(
 
     private val _attachedFiles = MutableStateFlow<List<SelectedFile>>(emptyList())
     val attachedFiles: StateFlow<List<SelectedFile>> = _attachedFiles.asStateFlow()
+
+    private val uploadCoordinator = UploadCoordinator(
+        scope = scope,
+        repositoryFactory = { fileRepository },
+        destinationPath = { _pickerCurrentPath.value.ifBlank { null } },
+        onComplete = { uploadedFiles ->
+            if (uploadedFiles.isNotEmpty()) {
+                loadPickerFiles(_pickerCurrentPath.value.ifBlank { null })
+                _attachedFiles.update { current ->
+                    uploadedFiles.fold(current) { acc, item ->
+                        if (acc.none { it.path == item.destinationPath }) {
+                            acc + SelectedFile(
+                                path = item.destinationPath,
+                                name = item.displayName,
+                                mimeType = item.mimeType,
+                            )
+                        } else acc
+                    }
+                }
+            }
+        },
+    )
+    val uploadState: StateFlow<UploadQueueState> = uploadCoordinator.state
 
     fun loadPickerFiles(path: String? = null) {
         scope.launch {
@@ -70,7 +100,7 @@ class FilePickerManager(
     }
 
     fun attachFile(file: FileNode) {
-        val selected = SelectedFile(path = file.path, name = file.name)
+        val selected = SelectedFile(path = file.path, name = file.name, mimeType = mimeTypeForFilename(file.name))
         _attachedFiles.update { current ->
             if (current.none { it.path == file.path }) {
                 current + selected
@@ -88,10 +118,35 @@ class FilePickerManager(
         _attachedFiles.value = emptyList()
     }
 
+    fun uploadAndAttach(source: UploadSource, sourceIds: List<String>) {
+        uploadCoordinator.upload(source, sourceIds)
+    }
+
+    fun cancelUploads() {
+        uploadCoordinator.cancel()
+    }
+
+    fun retryFailedUploads() {
+        uploadCoordinator.retryFailed()
+    }
+
+    fun dismissUploadResult() {
+        uploadCoordinator.dismiss()
+    }
+
     /**
      * Restore attached files after a failed send — puts them back in the list.
      */
     fun restoreAttachedFiles(files: List<SelectedFile>) {
-        _attachedFiles.value = files
+        _attachedFiles.update { current ->
+            files.fold(current) { acc, file ->
+                if (acc.none { it.path == file.path }) acc + file else acc
+            }
+        }
+    }
+
+    private fun mimeTypeForFilename(filename: String): String? {
+        val extension = filename.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
     }
 }

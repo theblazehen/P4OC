@@ -25,7 +25,7 @@ class OfishCommandProcessTest {
         hasAwk = true,
         hasMktemp = true,
     )
-    private val builder = OfishCommandBuilder(delimiterId = { "process_test" })
+    private val builder = OfishCommandBuilder()
 
     @Test
     fun `write creates parent directory and file`() {
@@ -89,13 +89,23 @@ class OfishCommandProcessTest {
         val root = temporaryFolder.newFolder()
         val command = OfishUploadChunkProbeCommandBuilder(
             payloadBytes = { size -> ByteArray(size) { index -> index.toByte() } },
-            delimiterId = { "process_test" },
         ).probe(128, capabilities)
 
         val output = runShell(command, root)
 
         assertTrue(OfishMutationParser.parse(output) is OfishMutationStatus.Ok)
         assertTrue(root.listFiles()?.none { it.name.startsWith(".ofish.chunk-probe.") } ?: true)
+    }
+
+    @Test
+    fun `capability probe command runs under zsh invoking sh wrapper`() {
+        assumeShellAvailable()
+        assumeZshAvailable()
+        val root = temporaryFolder.newFolder()
+
+        val output = runShell(OfishCapabilityProbeCommand.build(), root, shell = "/bin/zsh")
+
+        assertTrue(output, OfishCapabilityParser.parse(output) is OfishProbeResult.Available)
     }
 
     @Test
@@ -109,7 +119,7 @@ class OfishCommandProcessTest {
         val token = (init as OfishMutationStatus.Ok).uploadToken ?: error("missing token")
 
         bytes.toList().chunked(4).forEach { chunk ->
-            val status = OfishMutationParser.parse(builder.uploadChunk(token, chunk.map { it.toByte() }.toByteArray(), capabilities).runIn(root))
+            val status = OfishMutationParser.parse(builder.uploadChunk(token, chunk.toByteArray(), capabilities).runIn(root))
             assertTrue(status is OfishMutationStatus.Ok)
         }
 
@@ -121,8 +131,8 @@ class OfishCommandProcessTest {
 
     private fun String.runIn(root: File): String = runShell(this, root)
 
-    private fun runShell(command: String, cwd: File): String {
-        val process = ProcessBuilder("/bin/sh", "-c", command)
+    private fun runShell(command: String, cwd: File, shell: String = "/bin/sh"): String {
+        val process = ProcessBuilder(shell, "-c", command)
             .directory(cwd)
             .redirectErrorStream(true)
             .start()
@@ -134,6 +144,10 @@ class OfishCommandProcessTest {
     private fun assumeShellAvailable() {
         assumeTrue(File("/bin/sh").exists())
         assumeTrue(ProcessBuilder("/bin/sh", "-c", "command -v sha256sum >/dev/null 2>&1").start().waitFor() == 0)
+    }
+
+    private fun assumeZshAvailable() {
+        assumeTrue(File("/bin/zsh").exists())
     }
 
     private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")

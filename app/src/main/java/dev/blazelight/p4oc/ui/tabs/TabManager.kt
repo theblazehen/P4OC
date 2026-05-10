@@ -194,7 +194,7 @@ class TabManager {
                 ?: persisted.startRoute.takeIf { it.isNotBlank() }
                 ?: Screen.Sessions.route
             TabInstance(
-                state = TabState.withId(
+                state = TabState(
                     id = persisted.id,
                     sessionId = persisted.sessionId,
                     sessionTitle = persisted.sessionTitle,

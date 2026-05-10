@@ -16,6 +16,9 @@ data class EventDataDto(
 
 @Serializable
 data class GlobalEventDto(
+    // SSE events may omit directory for server-global activity; keep the default
+    // so kotlinx deserialization accepts those events while workspace routing
+    // still receives explicit non-null directories when the server sends them.
     val directory: String? = null,
     val payload: EventDataDto
 )

@@ -101,7 +101,7 @@ class OfishMutationClientTest {
         assertEquals(1, client.createdTitles.size)
         assertEquals(listOf("session-1"), client.deletedIds)
         assertEquals(4, client.commands.size)
-        assertTrue(client.commands.last().contains("EXPECTED=''"))
+        assertTrue(client.commands.last().contains("(base64 -d 2>/dev/null || base64 -D) | sh"))
     }
 
     @Test
@@ -127,7 +127,25 @@ class OfishMutationClientTest {
 
         assertTrue(result is FileOperationResult.Ok)
         assertEquals(1, provider.calls)
-        assertEquals(2, client.commands.count { it.contains("#OFISH_UPLOAD_CHUNK") })
+        assertEquals(4, client.commands.size)
+    }
+
+    @Test
+    fun `upload returns failed when chunk size provider fails`() = runTest {
+        val client = FakeOfishWorkspaceClient(outputs = ArrayDeque(listOf("### 200 ok upload=.ofish.upload.tmp", "### 204 deleted")))
+        val mutationClient = mutationClient(
+            client = client,
+            probeResult = OfishProbeResult.Available(capabilities),
+            uploadChunkBytesProvider = FailingUploadChunkBytesProvider(),
+        )
+
+        val result = mutationClient.uploadFile(FileUploadRequest("file.bin", byteArrayOf(1, 2, 3, 4)))
+
+        assertTrue(result is FileOperationResult.Failed)
+        val failed = result as FileOperationResult.Failed
+        assertEquals("OFISH upload chunk probe failed for test", failed.message)
+        assertTrue(failed.cause is OfishUploadChunkProbeUnavailableException)
+        assertEquals(2, client.commands.size)
     }
 
     @Test
@@ -139,7 +157,7 @@ class OfishMutationClientTest {
 
         assertTrue(result is FileOperationResult.Failed)
         assertEquals(1, client.commands.size)
-        assertTrue(client.commands.single().contains("#OFISH_UPLOAD_INIT"))
+        assertTrue(client.commands.single().contains("(base64 -d 2>/dev/null || base64 -D) | sh"))
     }
 
     @Test
@@ -180,7 +198,7 @@ class OfishMutationClientTest {
 
         assertTrue(result is FileOperationResult.Conflict)
         assertEquals("newer", (result as FileOperationResult.Conflict).currentHash)
-        assertTrue(client.commands.any { it.contains("#OFISH_UPLOAD_FINISH") && it.contains("EXPECTED='old'") })
+        assertTrue(client.commands.any { it.contains("(base64 -d 2>/dev/null || base64 -D) | sh") })
     }
 
     @Test
@@ -206,7 +224,7 @@ class OfishMutationClientTest {
 
         assertTrue(result is FileOperationResult.Failed)
         assertEquals(1, client.commands.size)
-        assertTrue(client.commands.single().contains("#OFISH_UPLOAD_INIT"))
+        assertTrue(client.commands.single().contains("(base64 -d 2>/dev/null || base64 -D) | sh"))
     }
 
     private fun mutationClient(
@@ -229,9 +247,15 @@ class OfishMutationClientTest {
             client = client,
             sessionFactory = OfishSessionFactory(client),
             capabilityCache = FakeCapabilityCache(probe, probeResult),
-            commandBuilder = OfishCommandBuilder(delimiterId = { "repo_test" }),
+            commandBuilder = OfishCommandBuilder(),
             uploadChunkBytes = uploadChunkBytesProvider,
         )
+    }
+
+    private class FailingUploadChunkBytesProvider : UploadChunkBytesProvider {
+        override suspend fun get(capabilities: OfishCapabilities): Int {
+            throw OfishUploadChunkProbeUnavailableException("OFISH upload chunk probe failed for test")
+        }
     }
 
     private class RecordingUploadChunkBytesProvider(

@@ -1,6 +1,5 @@
 package dev.blazelight.p4oc.ui.tabs
 
-import android.os.Bundle
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,32 +35,7 @@ data class TabState(
 
     /** Incremented when workspace changes so navigation graph scoped ViewModels are recreated. */
     val workspaceRevision: Int = 0,
-) {
-    /**
-     * Short title for tab bar display (max 6 chars with ellipsis).
-     */
-    val shortTitle: String get() = when {
-        sessionTitle == null -> ""
-        sessionTitle.length <= 6 -> sessionTitle
-        else -> sessionTitle.take(5) + "…"
-    }
-
-    companion object {
-        fun withId(
-            id: String,
-            sessionId: String? = null,
-            sessionTitle: String? = null,
-            workspaceDirectory: String? = null,
-            workspaceRevision: Int = 0,
-        ): TabState = TabState(
-            id = id,
-            sessionId = sessionId,
-            sessionTitle = sessionTitle,
-            workspaceDirectory = workspaceDirectory,
-            workspaceRevision = workspaceRevision,
-        )
-    }
-}
+)
 
 /**
  * Wrapper that holds TabState. NavController is created inside the HorizontalPager
@@ -77,10 +51,6 @@ class TabInstance(
     val sessionTitle: String? get() = state.sessionTitle
     val workspaceDirectory: String? get() = state.workspaceDirectory
     val workspaceRevision: Int get() = state.workspaceRevision
-    val shortTitle: String get() = state.shortTitle
-    
-    /** Saved NavController state for restoring after page disposal/recreation */
-    var savedNavState: Bundle? = null
     
     /** Connection state for this tab (only relevant for chat tabs) */
     private val _connectionState = MutableStateFlow<SessionConnectionState?>(null)
@@ -93,7 +63,6 @@ class TabInstance(
     
     fun withState(newState: TabState): TabInstance {
         return TabInstance(newState, startRoute).also {
-            it.savedNavState = this.savedNavState
             it._connectionState.value = this._connectionState.value
         }
     }

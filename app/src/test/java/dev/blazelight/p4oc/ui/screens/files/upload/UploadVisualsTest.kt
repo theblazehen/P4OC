@@ -54,6 +54,7 @@ class UploadVisualsTest {
     @Test fun `sanitizeUploadName strips separators and control chars`() {
         assertEquals("evil_payload.bin", sanitizeUploadName("evil/payload.bin", 0L))
         assertEquals("a_b_c.txt", sanitizeUploadName("a/b\\c.txt", 0L))
+        assertEquals("app-whatsapp-debug.apk", sanitizeUploadName("app-whatsapp-debug.apk.part", 0L))
         // Leading dots dropped — no hidden files via picker
         assertEquals("env", sanitizeUploadName("..env", 0L))
         // Empty falls back to timestamped placeholder

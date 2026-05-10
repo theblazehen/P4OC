@@ -26,13 +26,15 @@ import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.workspace.Workspace
+import java.io.IOException
 
 class WorkspaceClient(
     override val workspace: Workspace,
     val generation: ServerGeneration,
-    apiProvider: ActiveServerApiProvider,
+    private val apiProvider: ActiveServerApiProvider,
 ) : SessionWorkspaceClient {
-    private val api: OpenCodeApi = apiProvider.apiFor(workspace.server, generation)
+    private val api: OpenCodeApi
+        get() = apiProvider.apiFor(workspace.server, generation)
     private val directory: String? = workspace.directory
 
     override suspend fun listProjects(): List<ProjectDto> = api.listProjects()
@@ -59,7 +61,12 @@ class WorkspaceClient(
 
     override suspend fun getSessionStatuses(directory: String?): Map<String, SessionStatusDto> = api.getSessionStatuses(directory)
 
-    suspend fun abortSession(id: String): Boolean = api.abortSession(id, directory)
+    suspend fun abortSession(id: String): Boolean {
+        val response = api.abortSession(id, directory)
+        if (response.isSuccessful) return true
+
+        throw IOException("Unable to stop run (${response.code()})")
+    }
 
     suspend fun getSessionTodos(id: String): List<TodoDto> = api.getSessionTodos(id, directory)
 

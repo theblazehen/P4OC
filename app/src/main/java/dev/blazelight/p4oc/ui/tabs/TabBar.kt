@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.domain.model.SessionStateColors
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -58,7 +57,7 @@ fun TabBar(
     Surface(
         modifier = modifier.fillMaxWidth().testTag("tab_bar"),
         color = theme.background,
-        tonalElevation = 0.dp
+        tonalElevation = Spacing.none
     ) {
         Row(
             modifier = Modifier
@@ -179,8 +178,8 @@ private fun TabIndicator(
                             imageVector = Icons.Default.PriorityHigh,
                             contentDescription = "Needs attention",
                             modifier = Modifier
-                                .size(5.dp) // Tiny badge dot, no token
-                                .offset(x = 3.dp, y = (-3).dp),
+                                .size(Spacing.sm)
+                                .offset(x = Spacing.xs, y = -Spacing.xs),
                             tint = theme.warning
                         )
                     }
@@ -209,8 +208,7 @@ private fun TabIndicator(
                 modifier = Modifier.widthIn(max = Sizing.panelWidthSm)
             )
             
-            // Close button
-            // Close button - only show on active tab
+            // Close button only shows on the active tab.
             if (isActive) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -244,18 +242,32 @@ fun getIconForRoute(route: String?): ImageVector {
 /**
  * Helper to get appropriate title for a screen route.
  */
-fun getTitleForRoute(route: String?, sessionTitle: String? = null): String {
+fun getTitleForRoute(
+    route: String?,
+    sessionTitle: String? = null,
+    workspaceDirectory: String? = null,
+): String {
     return when {
         route == null -> "Tab"
-        route == "sessions" -> "Sessions"
-        route.startsWith("sessions?") -> "Sessions"
-        route.startsWith("chat/") -> sessionTitle ?: "Chat"
-        route == "files" -> "Files"
-        route.startsWith("files/") -> "File"
-        route.startsWith("terminal/") -> sessionTitle ?: "Terminal"
+        route == "sessions" -> withWorkspaceSuffix("Sessions", workspaceDirectory)
+        route.startsWith("sessions?") -> withWorkspaceSuffix("Sessions", workspaceDirectory)
+        route.startsWith("chat/") -> withWorkspaceSuffix(sessionTitle ?: "Chat", workspaceDirectory)
+        route == "files" -> workspaceBaseName(workspaceDirectory) ?: "Files"
+        route.startsWith("files/") -> workspaceBaseName(workspaceDirectory) ?: "File"
+        route.startsWith("terminal/") -> withWorkspaceSuffix(sessionTitle ?: "Terminal", workspaceDirectory)
         route == "settings" -> "Settings"
         route.startsWith("settings/") -> "Settings"
         route == "projects" -> "Projects"
         else -> "Tab"
     }
 }
+
+private fun withWorkspaceSuffix(title: String, workspaceDirectory: String?): String {
+    val workspace = workspaceBaseName(workspaceDirectory) ?: return title
+    return "$title · $workspace"
+}
+
+private fun workspaceBaseName(workspaceDirectory: String?): String? = workspaceDirectory
+    ?.trimEnd('/')
+    ?.substringAfterLast('/')
+    ?.ifBlank { workspaceDirectory }

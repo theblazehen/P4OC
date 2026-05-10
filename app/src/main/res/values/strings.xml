@@ -140,6 +140,7 @@
     <string name="sessions_quick_global_desc">No project context</string>
     <string name="sessions_quick_custom">New with custom directory</string>
     <string name="sessions_quick_custom_desc">Specify a directory on the server</string>
+    <string name="sessions_create_in_project">Create session in %1$s</string>
     
     <!-- Chat Screen -->
     <string name="chat_empty_title">Start a conversation</string>
@@ -184,8 +185,12 @@
     
     <!-- File Explorer Screen -->
     <string name="files_search_placeholder">Search files…</string>
+    <string name="files_workspace_global">Global workspace</string>
     <string name="files_copy_path">Copy Path</string>
     <string name="files_copy_name">Copy Name</string>
+    <string name="files_no_matching_files">-- no matching files --</string>
+    <string name="files_empty_folder">-- empty folder --</string>
+    <string name="files_symbol_search_failed">Symbol search failed: %1$s</string>
     
     <!-- Git Screen -->
     <string name="git_title">Git</string>

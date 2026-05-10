@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.*
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -158,7 +157,7 @@ private fun AssistantMessage(
     Column(
         modifier = Modifier
             .fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(1.dp)  // 1.dp = minimal spacing, no token for this
+        verticalArrangement = Arrangement.spacedBy(Spacing.hairline)
     ) {
         // Render part groups in order
         partGroups.forEach { group ->
@@ -222,6 +221,34 @@ private fun AssistantMessage(
                 }
             }
         }
+
+        (messageWithParts.message as? Message.Assistant)?.error?.let { error ->
+            AssistantError(error)
+        }
+    }
+}
+
+@Composable
+private fun AssistantError(error: MessageError) {
+    val theme = LocalOpenCodeTheme.current
+    val message = when {
+        error.name == "MessageAbortedError" -> "Run aborted"
+        !error.message.isNullOrBlank() -> error.message
+        else -> "Run failed"
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+            .background(theme.error.copy(alpha = 0.1f))
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = theme.error
+        )
     }
 }
 

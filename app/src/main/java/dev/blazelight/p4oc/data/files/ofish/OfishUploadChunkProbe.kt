@@ -4,7 +4,6 @@ import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.data.remote.dto.ShellCommandRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.security.SecureRandom
 import java.util.Base64
 
 internal open class CachedOfishUploadChunkBytes(
@@ -49,14 +48,12 @@ internal class OfishUploadChunkProbe(
         require(minBytes > 0) { "minBytes must be greater than zero" }
         require(startBytes >= minBytes) { "startBytes must be greater than or equal to minBytes" }
 
-        var candidate = startBytes
-        while (candidate >= minBytes) {
-            if (probe(candidate, capabilities)) return candidate
-            if (candidate == minBytes) break
-            candidate = maxOf(candidate / 2, minBytes)
-        }
+        if (probe(startBytes, capabilities)) return startBytes
+        if (startBytes != minBytes && probe(minBytes, capabilities)) return minBytes
 
-        return minBytes
+        throw OfishUploadChunkProbeUnavailableException(
+            "OFISH upload chunk probe failed for ${startBytes}B and ${minBytes}B",
+        )
     }
 
     private suspend fun probe(bytes: Int, capabilities: OfishCapabilities): Boolean = runCatching {
@@ -83,19 +80,20 @@ internal class OfishUploadChunkProbe(
     }
 }
 
+internal class OfishUploadChunkProbeUnavailableException(message: String) : Exception(message)
+
 internal class OfishUploadChunkProbeCommandBuilder(
     private val payloadBytes: (Int) -> ByteArray = { size -> deterministicPayload(size) },
-    private val delimiterId: () -> String = { randomDelimiterId() },
 ) {
     fun probe(bytes: Int, capabilities: OfishCapabilities): String {
         require(bytes > 0) { "bytes must be greater than zero" }
         val bytesPayload = payloadBytes(bytes)
         val payload = Base64.getEncoder().encodeToString(bytesPayload)
         val expectedHash = bytesPayload.digestHex(capabilities.hashCommand)
-        val delimiter = "__OFISH_CHUNK_PROBE_${delimiterId()}__"
+        val delimiter = OfishCommandBuilder.PAYLOAD_DELIMITER
         val decodeFlag = base64DecodeFlag(capabilities)
         val hashCommand = hashCommand(capabilities)
-        return buildString {
+        val script = buildString {
             appendLine("printf '#OFISH_UPLOAD_CHUNK_PROBE\\n'")
             append(
                 """
@@ -132,6 +130,7 @@ internal class OfishUploadChunkProbeCommandBuilder(
                 """.trimIndent(),
             )
         }
+        return OfishShellWrapper.wrap(script)
     }
 
     private fun base64DecodeFlag(capabilities: OfishCapabilities): String = when (val flag = capabilities.base64DecodeFlag) {
@@ -146,15 +145,7 @@ internal class OfishUploadChunkProbeCommandBuilder(
     }
 
     private companion object {
-        private val RANDOM = SecureRandom()
-
         fun deterministicPayload(size: Int): ByteArray = ByteArray(size) { index -> ((index * 31) and 0xff).toByte() }
-
-        fun randomDelimiterId(): String {
-            val bytes = ByteArray(4)
-            RANDOM.nextBytes(bytes)
-            return bytes.joinToString(separator = "") { byte -> "%02x".format(byte) }
-        }
     }
 }
 

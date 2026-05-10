@@ -155,7 +155,7 @@ class OfishFileRepositoryTest {
             client = client,
             sessionFactory = OfishSessionFactory(client),
             capabilityCache = FakeCapabilityCache(probe, probeResult),
-            commandBuilder = OfishCommandBuilder(delimiterId = { "repo_test" }),
+            commandBuilder = OfishCommandBuilder(),
         )
     }
 
@@ -211,8 +211,10 @@ class OfishFileRepositoryTest {
         override suspend fun deleteSession(id: String): Boolean = true
 
         override suspend fun executeShellCommand(sessionId: String, request: ShellCommandRequest): MessageWrapperDto {
-            val responseText = if (request.command.contains("#OFISH_HASH")) {
-                val path = hashFor.keys.firstOrNull { request.command.contains("P='$it'") }
+            val encoded = Regex("printf %s '?([A-Za-z0-9+/=]+)'? ").find(request.command)?.groupValues?.get(1)
+            val script = encoded?.let { String(java.util.Base64.getDecoder().decode(it), Charsets.UTF_8) }.orEmpty()
+            val responseText = if (script.contains("#OFISH_HASH")) {
+                val path = hashFor.keys.firstOrNull { script.contains(it) }
                 if (path != null) "### 200 ok hash=${hashFor.getValue(path)}" else "### 200 ok"
             } else {
                 "### 200 ok"

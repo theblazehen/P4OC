@@ -220,6 +220,28 @@ class EventMapperTest {
         assertEquals(1700000000L, retry.next)
     }
 
+    @Test
+    fun `maps session_error message field without raw json`() {
+        val properties = buildJsonObject {
+            put("sessionID", "sess-1")
+            putJsonObject("error") {
+                put("name", "MessageAbortedError")
+                putJsonObject("data") {
+                    put("message", "Aborted")
+                }
+            }
+        }
+        val dto = EventDataDto(type = "session.error", properties = properties)
+
+        val event = eventMapper.mapToEvent(dto)
+
+        assertNotNull(event)
+        assertTrue(event is OpenCodeEvent.SessionError)
+        val error = (event as OpenCodeEvent.SessionError).error
+        assertEquals("MessageAbortedError", error?.name)
+        assertEquals("Aborted", error?.message)
+    }
+
     // ── Unknown type ────────────────────────────────────────────────────────
 
     @Test

@@ -7,3 +7,5 @@ import dev.blazelight.p4oc.domain.server.ServerRef
 fun interface ActiveServerApiProvider {
     fun apiFor(serverRef: ServerRef, generation: ServerGeneration): OpenCodeApi
 }
+
+class StaleWorkspaceClientException(message: String) : IllegalStateException(message)

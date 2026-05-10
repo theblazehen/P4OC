@@ -12,6 +12,7 @@ import dev.blazelight.p4oc.core.notification.NotificationHelper
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
+import dev.blazelight.p4oc.data.server.StaleWorkspaceClientException
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.workspace.Workspace
@@ -75,14 +76,18 @@ val networkModule = module {
         val connectionManager: ConnectionManager = get()
         ActiveServerApiProvider { serverRef, generation ->
             val activeBaseUrl = connectionManager.currentBaseUrl
-                ?: throw IllegalStateException("No active server for workspace ${serverRef.endpointKey} generation=${generation.value}")
+                ?: throw StaleWorkspaceClientException("No active server for workspace ${serverRef.endpointKey} generation=${generation.value}")
             val activeServerRef = ServerRef.fromEndpoint(activeBaseUrl)
-            check(activeServerRef == serverRef) {
-                "Workspace server ${serverRef.endpointKey} does not match active server ${activeServerRef.endpointKey}"
+            if (activeServerRef != serverRef) {
+                throw StaleWorkspaceClientException(
+                    "Workspace server ${serverRef.endpointKey} does not match active server ${activeServerRef.endpointKey}",
+                )
             }
             val activeGeneration = connectionManager.currentGeneration
-            check(activeGeneration == generation) {
-                "Workspace generation ${generation.value} does not match active generation ${activeGeneration?.value ?: "<none>"}"
+            if (activeGeneration != generation) {
+                throw StaleWorkspaceClientException(
+                    "Workspace generation ${generation.value} does not match active generation ${activeGeneration?.value ?: "<none>"}",
+                )
             }
             connectionManager.requireApi()
         }

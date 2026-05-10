@@ -64,7 +64,7 @@ fun UploadProgressSheet(
 
             val current = state.current
             if (state.isActive && current != null) {
-                val sent = if (current.phase is UploadPhase.Done) current.bytesTotal else 0L
+                val sent = current.bytesUploaded
                 Text(
                     text = stringResource(
                         R.string.upload_sheet_progress,
@@ -81,7 +81,15 @@ fun UploadProgressSheet(
                     overflow = TextOverflow.Ellipsis,
                 )
                 LinearProgressIndicator(
-                    progress = { ((state.currentIndex).toFloat() / state.total.coerceAtLeast(1)) },
+                    progress = {
+                        val totalFiles = state.total.coerceAtLeast(1)
+                        val itemProgress = if (current.bytesTotal > 0L) {
+                            current.bytesUploaded.toFloat() / current.bytesTotal
+                        } else {
+                            0f
+                        }
+                        ((state.currentIndex + itemProgress) / totalFiles).coerceIn(0f, 1f)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.md),
@@ -97,6 +105,15 @@ fun UploadProgressSheet(
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = theme.textMuted,
+                    modifier = Modifier.padding(horizontal = Spacing.md),
+                )
+            }
+
+            state.notice?.let { notice ->
+                Text(
+                    text = notice,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.warning,
                     modifier = Modifier.padding(horizontal = Spacing.md),
                 )
             }
@@ -166,6 +183,7 @@ private fun UploadItemRow(item: UploadItem) {
         UploadPhase.Done -> stringResource(R.string.upload_phase_done) to theme.success
         is UploadPhase.Failed -> (phase.message.ifBlank { stringResource(R.string.upload_phase_failed) }) to theme.error
     }
+    val probeFailure = item.probeFailure
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -179,7 +197,7 @@ private fun UploadItemRow(item: UploadItem) {
             color = theme.textMuted,
         )
         Text(
-            text = item.displayName,
+            text = if (probeFailure == null) item.displayName else "${item.displayName} · probe failed: $probeFailure",
             style = MaterialTheme.typography.bodyMedium,
             color = theme.text,
             modifier = Modifier.weight(1f),
@@ -192,7 +210,11 @@ private fun UploadItemRow(item: UploadItem) {
             color = theme.textMuted,
         )
         Text(
-            text = formatFileSize(item.bytesTotal),
+            text = if (item.phase is UploadPhase.Uploading) {
+                "${formatFileSize(item.bytesUploaded)}/${formatFileSize(item.bytesTotal)}"
+            } else {
+                formatFileSize(item.bytesTotal)
+            },
             style = MaterialTheme.typography.labelSmall,
             color = theme.textMuted,
         )

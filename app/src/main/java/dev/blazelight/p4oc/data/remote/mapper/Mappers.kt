@@ -610,7 +610,13 @@ class EventMapper constructor(
                 val props = json.decodeFromJsonElement<SessionErrorPropertiesDto>(dto.properties)
                 OpenCodeEvent.SessionError(
                     sessionID = props.sessionID,
-                    error = props.error?.let { MessageError(it.name, it.data?.toString()) }
+                    error = props.error?.let { error ->
+                        MessageError(
+                            name = error.name,
+                            message = (error.data?.get("message") as? JsonPrimitive)?.contentOrNull,
+                            responseBody = (error.data?.get("responseBody") as? JsonPrimitive)?.contentOrNull,
+                        )
+                    }
                 )
             }
             "session.compacted" -> {

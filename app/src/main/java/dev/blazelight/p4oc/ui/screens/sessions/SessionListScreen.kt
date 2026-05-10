@@ -69,6 +69,9 @@ fun SessionListScreen(
     onProjects: () -> Unit = {},
     onProjectClick: (projectId: String) -> Unit = {},
     onViewChanges: (sessionId: String) -> Unit = {},
+    onCreateSessionInProject: (directory: String) -> Unit = {},
+    autoCreateSession: Boolean = false,
+    onAutoCreateSessionConsumed: () -> Unit = {},
     onNavigateBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -86,10 +89,16 @@ fun SessionListScreen(
         }
     }
     
-    val projectName = remember(uiState.projects, filterProjectId) {
-        if (filterProjectId != null) {
-            uiState.projects.find { it.id == filterProjectId }?.name
-        } else null
+    val filteredProject = remember(uiState.projects, filterProjectId) {
+        filterProjectId?.let { id -> uiState.projects.find { it.id == id } }
+    }
+    val projectName = filteredProject?.name
+
+    LaunchedEffect(autoCreateSession, filteredProject?.worktree) {
+        if (autoCreateSession && filteredProject != null) {
+            onAutoCreateSessionConsumed()
+            viewModel.createSession(title = null, directory = filteredProject.worktree)
+        }
     }
 
     LaunchedEffect(uiState.newSessionId, uiState.newSessionDirectory) {
@@ -202,12 +211,25 @@ fun SessionListScreen(
                         }
                     } else if (displayedSessions.isEmpty()) {
                         item(key = "empty_hint") {
-                            Text(
-                                text = stringResource(R.string.sessions_empty_title),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = theme.textMuted,
-                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.lg)
-                            )
+                            Column(
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.sessions_empty_title),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = theme.textMuted,
+                                )
+                                filteredProject?.let { project ->
+                                    QuickActionCard(
+                                        icon = "◆",
+                                        title = stringResource(R.string.sessions_create_in_project, project.name),
+                                        subtitle = project.worktree,
+                                        onClick = { onCreateSessionInProject(project.worktree) },
+                                        modifier = Modifier.testTag("create_session_in_project")
+                                    )
+                                }
+                            }
                         }
                     } else {
                         items(
@@ -272,8 +294,8 @@ fun SessionListScreen(
                 showNewSessionDialog = false
                 showNewSessionCustomDir = false
             },
-            onCreate = { title, _ ->
-                viewModel.createSession(title)
+            onCreate = { title, directory ->
+                viewModel.createSession(title, directory)
                 showNewSessionDialog = false
                 showNewSessionCustomDir = false
             }
