@@ -53,7 +53,10 @@ class ServerViewModel constructor(
             _uiState.update {
                 it.copy(
                     isConnecting = true,
-                    remoteUrl = lastConfig.url
+                    remoteUrl = lastConfig.url,
+                    username = lastConfig.username ?: ServerUrl.DEFAULT_USERNAME,
+                    password = password ?: "",
+                    allowInsecure = lastConfig.allowInsecure
                 )
             }
 

@@ -45,7 +45,12 @@ object ServerUrl {
 
         val host = parsed.host.substringBefore('%').lowercase()
         val formattedHost = if (':' in host) "[$host]" else host
-        val port = if (hasExplicitPort(sanitizedCandidate)) parsed.port else DEFAULT_PORT
+        val port = when {
+            hasExplicitPort(sanitizedCandidate) -> parsed.port
+            trimmed.contains("://") && scheme == "https" -> 443
+            trimmed.contains("://") -> 80
+            else -> DEFAULT_PORT
+        }
         val path = parsed.encodedPath
             .takeUnless { it == "/" }
             ?.trimEnd('/')

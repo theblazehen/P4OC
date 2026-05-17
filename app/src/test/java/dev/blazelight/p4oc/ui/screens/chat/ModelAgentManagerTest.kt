@@ -7,6 +7,7 @@ import dev.blazelight.p4oc.core.network.OpenCodeApi
 import dev.blazelight.p4oc.data.remote.dto.AgentDto
 import dev.blazelight.p4oc.data.remote.dto.ModelDto
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
+import dev.blazelight.p4oc.data.remote.dto.ModelRefDto
 import dev.blazelight.p4oc.data.remote.dto.ProviderDto
 import dev.blazelight.p4oc.data.remote.dto.ProvidersResponseDto
 import io.mockk.coEvery
@@ -53,8 +54,9 @@ class ModelAgentManagerTest {
     private fun makeAgent(
         name: String,
         mode: String? = "primary",
-        hidden: Boolean? = null
-    ) = AgentDto(name = name, description = "desc", mode = mode, hidden = hidden)
+        hidden: Boolean? = null,
+        model: ModelRefDto? = null
+    ) = AgentDto(name = name, description = "desc", mode = mode, hidden = hidden, model = model)
 
     private fun makeModel(id: String, providerId: String) = ModelDto(
         id = id,
@@ -113,6 +115,84 @@ class ModelAgentManagerTest {
         advanceUntilIdle()
 
         assertEquals("code", manager.selectedAgent.value)
+    }
+
+    @Test
+    fun `loadAgents selects configured model for default agent`() = runTest {
+        val agents = listOf(
+            makeAgent(
+                "build",
+                mode = "primary",
+                model = ModelRefDto(providerID = "anthropic", modelID = "claude-3")
+            )
+        )
+        coEvery { api.getAgents() } returns agents
+
+        val manager = ModelAgentManager(connectionManager, settingsDataStore, this)
+        manager.loadAgents()
+        advanceUntilIdle()
+
+        assertEquals(ModelInput(providerID = "anthropic", modelID = "claude-3"), manager.selectedModel.value)
+    }
+
+    @Test
+    fun `selectAgent selects configured model`() = runTest {
+        val agents = listOf(
+            makeAgent(
+                "code",
+                mode = "primary",
+                model = ModelRefDto(providerID = "openai", modelID = "gpt-4")
+            ),
+            makeAgent(
+                "build",
+                mode = "primary",
+                model = ModelRefDto(providerID = "anthropic", modelID = "claude-3")
+            )
+        )
+        coEvery { api.getAgents() } returns agents
+
+        val manager = ModelAgentManager(connectionManager, settingsDataStore, this)
+        manager.loadAgents()
+        advanceUntilIdle()
+
+        manager.selectAgent("code")
+
+        assertEquals(ModelInput(providerID = "openai", modelID = "gpt-4"), manager.selectedModel.value)
+    }
+
+    @Test
+    fun `loadAgents agent model is not overwritten by loadModels default`() = runTest {
+        val agents = listOf(
+            makeAgent(
+                "build",
+                mode = "primary",
+                model = ModelRefDto(providerID = "anthropic", modelID = "claude-3")
+            )
+        )
+        val providersResponse = ProvidersResponseDto(
+            all = listOf(
+                ProviderDto(
+                    id = "openai",
+                    name = "OpenAI",
+                    source = "env",
+                    models = mapOf(
+                        "gpt-4" to makeModel("gpt-4", "openai")
+                    )
+                )
+            ),
+            default = mapOf("openai" to "gpt-4"),
+            connected = listOf("openai")
+        )
+        coEvery { api.getAgents() } returns agents
+        coEvery { api.getProviders() } returns providersResponse
+
+        val manager = ModelAgentManager(connectionManager, settingsDataStore, this)
+        manager.loadAgents()
+        advanceUntilIdle()
+        manager.loadModels()
+        advanceUntilIdle()
+
+        assertEquals(ModelInput(providerID = "anthropic", modelID = "claude-3"), manager.selectedModel.value)
     }
 
     @Test

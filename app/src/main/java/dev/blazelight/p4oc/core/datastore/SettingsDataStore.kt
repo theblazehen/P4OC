@@ -62,6 +62,7 @@ class SettingsDataStore constructor(
         // Model favorites and recents
         private val KEY_FAVORITE_MODELS = stringSetPreferencesKey("favorite_models")
         private val KEY_RECENT_MODELS = stringPreferencesKey("recent_models")
+        private val KEY_SESSION_AGENTS = stringPreferencesKey("session_agents")
         private const val MAX_RECENT_MODELS = 10
 
         // Notification settings keys
@@ -479,6 +480,22 @@ class SettingsDataStore constructor(
             existing.remove(key)
             existing.add(0, key)
             prefs[KEY_RECENT_MODELS] = "[" + existing.take(MAX_RECENT_MODELS).joinToString(",") { "\"$it\"" } + "]"
+        }
+    }
+
+    suspend fun getSelectedAgentForSession(sessionId: String): String? {
+        val stored = context.dataStore.data.first()[KEY_SESSION_AGENTS] ?: return null
+        return runCatching {
+            json.decodeFromString<Map<String, String>>(stored)[sessionId]
+        }.getOrNull()
+    }
+
+    suspend fun setSelectedAgentForSession(sessionId: String, agentName: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEY_SESSION_AGENTS]?.let { stored ->
+                runCatching { json.decodeFromString<Map<String, String>>(stored) }.getOrDefault(emptyMap())
+            }.orEmpty()
+            prefs[KEY_SESSION_AGENTS] = json.encodeToString(current + (sessionId to agentName))
         }
     }
 

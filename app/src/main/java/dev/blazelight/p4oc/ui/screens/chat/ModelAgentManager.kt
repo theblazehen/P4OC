@@ -22,7 +22,8 @@ import kotlinx.coroutines.launch
 class ModelAgentManager(
     private val connectionManager: ConnectionManager,
     private val settingsDataStore: SettingsDataStore,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val sessionId: String? = null
 ) {
     private val _availableAgents = MutableStateFlow<List<AgentDto>>(emptyList())
     val availableAgents: StateFlow<List<AgentDto>> = _availableAgents.asStateFlow()
@@ -35,6 +36,7 @@ class ModelAgentManager(
 
     private val _selectedModel = MutableStateFlow<ModelInput?>(null)
     val selectedModel: StateFlow<ModelInput?> = _selectedModel.asStateFlow()
+    private var selectedModelFromAgent = false
 
     val favoriteModels: StateFlow<Set<ModelInput>> = settingsDataStore.favoriteModels
         .stateIn(scope, SharingStarted.Eagerly, emptySet())
@@ -57,8 +59,12 @@ class ModelAgentManager(
                     }
                     AppLog.d(TAG, "loadAgents: ${primaryAgents.size} primary agents: ${primaryAgents.map { it.name }}")
                     _availableAgents.value = primaryAgents
-                    _selectedAgent.value = primaryAgents.find { it.name == "build" }?.name
-                        ?: primaryAgents.firstOrNull()?.name
+                    val persistedAgent = sessionId?.let { settingsDataStore.getSelectedAgentForSession(it) }
+                    val selectedAgent = persistedAgent?.let { agentName ->
+                        primaryAgents.find { it.name == agentName }
+                    } ?: primaryAgents.find { it.name == "build" }
+                        ?: primaryAgents.firstOrNull()
+                    selectedAgent?.name?.let { selectAgent(it, persist = false) }
                 }
                 is ApiResult.Error -> {
                     AppLog.e(TAG, "loadAgents failed: ${result.message}")
@@ -68,7 +74,24 @@ class ModelAgentManager(
     }
 
     fun selectAgent(agentName: String) {
+        selectAgent(agentName, persist = true)
+    }
+
+    private fun selectAgent(agentName: String, persist: Boolean) {
         _selectedAgent.value = agentName
+        if (persist) {
+            sessionId?.let { currentSessionId ->
+                scope.launch {
+                    settingsDataStore.setSelectedAgentForSession(currentSessionId, agentName)
+                }
+            }
+        }
+        val agentModel = _availableAgents.value.find { it.name == agentName }?.model ?: return
+        _selectedModel.value = ModelInput(
+            providerID = agentModel.providerID,
+            modelID = agentModel.modelID
+        )
+        selectedModelFromAgent = true
     }
 
     fun loadModels() {
@@ -97,7 +120,9 @@ class ModelAgentManager(
                         defaultModel
                     }
                     _availableModels.value = models
-                    _selectedModel.value = selectedModel
+                    if (!selectedModelFromAgent) {
+                        _selectedModel.value = selectedModel
+                    }
                 }
                 is ApiResult.Error -> {}
             }
@@ -106,6 +131,7 @@ class ModelAgentManager(
 
     fun selectModel(model: ModelInput) {
         _selectedModel.value = model
+        selectedModelFromAgent = false
         scope.launch {
             settingsDataStore.addRecentModel(model)
         }

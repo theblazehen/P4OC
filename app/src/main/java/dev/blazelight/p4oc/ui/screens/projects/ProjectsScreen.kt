@@ -1,16 +1,29 @@
 package dev.blazelight.p4oc.ui.screens.projects
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -22,7 +35,6 @@ import dev.blazelight.p4oc.ui.components.TuiButton
 import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
-import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -44,19 +56,7 @@ fun ProjectsScreen(
         topBar = {
             TuiTopBar(
                 title = stringResource(R.string.projects_title),
-                onNavigateBack = onNavigateBack,
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.loadProjects() },
-                        modifier = Modifier.size(Sizing.iconButtonMd)
-                    ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.refresh),
-                            modifier = Modifier.size(Sizing.iconAction)
-                        )
-                    }
-                }
+                onNavigateBack = onNavigateBack
             )
         }
     ) { padding ->
@@ -99,26 +99,7 @@ fun ProjectsScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
-                    ) {
-                        Text(
-                            text = "◇",
-                            style = MaterialTheme.typography.displayMedium,
-                            color = theme.textMuted
-                        )
-                        Text(
-                            text = stringResource(R.string.projects_no_projects),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = theme.text
-                        )
-                        Text(
-                            text = stringResource(R.string.projects_appear_here),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = theme.textMuted
-                        )
-                    }
+                    EmptyProjectsMessage(staleProjectCount = uiState.staleProjectCount)
                 }
             }
             else -> {
@@ -130,7 +111,7 @@ fun ProjectsScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
                     items(uiState.projects, key = { it.id }) { project ->
-                        ProjectCard(
+                        ProjectRow(
                             project = project,
                             onClick = {
                                 onProjectClick(project.id, project.worktree)
@@ -144,7 +125,37 @@ fun ProjectsScreen(
 }
 
 @Composable
-private fun ProjectCard(
+private fun EmptyProjectsMessage(staleProjectCount: Int) {
+    val theme = LocalOpenCodeTheme.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+    ) {
+        Text(
+            text = "◇",
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.textMuted
+        )
+        Text(
+            text = stringResource(R.string.projects_no_projects),
+            style = MaterialTheme.typography.titleMedium,
+            color = theme.text
+        )
+        Text(
+            text = if (staleProjectCount > 0) {
+                "$staleProjectCount stale project entries were hidden automatically."
+            } else {
+                stringResource(R.string.projects_appear_here)
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = theme.textMuted
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ProjectRow(
     project: ProjectDto,
     onClick: () -> Unit
 ) {
@@ -154,15 +165,18 @@ private fun ProjectCard(
     val createdDate = remember(project.time.created) {
         val instant = Instant.fromEpochMilliseconds(project.time.created)
         val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-        "${localDateTime.month.name.take(
-            3
-        ).lowercase().replaceFirstChar { it.uppercase() }} ${localDateTime.dayOfMonth.toString().padStart(2, '0')}"
+        "${localDateTime.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }} " +
+            localDateTime.dayOfMonth.toString().padStart(2, '0')
     }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick, role = Role.Button),
+            .combinedClickable(
+                onClick = onClick,
+                role = Role.Button
+            )
+            .testTag("project_card_${project.id}"),
         color = theme.backgroundElement,
         shape = RectangleShape
     ) {
@@ -176,36 +190,50 @@ private fun ProjectCard(
                 style = MaterialTheme.typography.titleLarge,
                 color = theme.accent
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = projectName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = theme.text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
-                ) {
-                    Text(
-                        text = projectPath,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = theme.textMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Text(
-                        text = createdDate,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = theme.textMuted
-                    )
-                }
-            }
+            ProjectDetails(
+                name = projectName,
+                path = projectPath,
+                createdDate = createdDate,
+                modifier = Modifier.weight(1f)
+            )
             Text(
                 text = "→",
                 style = MaterialTheme.typography.titleMedium,
+                color = theme.textMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProjectDetails(
+    name: String,
+    path: String,
+    createdDate: String,
+    modifier: Modifier = Modifier
+) {
+    val theme = LocalOpenCodeTheme.current
+    Column(modifier = modifier) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = theme.text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+            Text(
+                text = path,
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.textMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Text(
+                text = createdDate,
+                style = MaterialTheme.typography.bodySmall,
                 color = theme.textMuted
             )
         }

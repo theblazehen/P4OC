@@ -6,6 +6,9 @@ import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +17,7 @@ import kotlinx.coroutines.launch
 
 data class ProjectsUiState(
     val projects: List<ProjectDto> = emptyList(),
+    val staleProjectCount: Int = 0,
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -39,10 +43,13 @@ class ProjectsViewModel constructor(
             val result = safeApiCall { api.listProjects() }
             when (result) {
                 is ApiResult.Success -> {
+                    val projects = result.data.sortedByDescending { p -> p.time.created }
+                    val accessibleProjects = filterAccessibleProjects(projects)
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            projects = result.data.sortedByDescending { p -> p.time.created }
+                            projects = accessibleProjects,
+                            staleProjectCount = projects.size - accessibleProjects.size
                         )
                     }
                 }
@@ -50,6 +57,20 @@ class ProjectsViewModel constructor(
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
             }
+        }
+    }
+
+    private suspend fun filterAccessibleProjects(projects: List<ProjectDto>): List<ProjectDto> {
+        val api = connectionManager.getApi() ?: return projects
+        return coroutineScope {
+            projects.map { project ->
+                async {
+                    val isAccessible = safeApiCall {
+                        api.listFiles(path = project.worktree, directory = project.worktree)
+                    } is ApiResult.Success
+                    project.takeIf { isAccessible }
+                }
+            }.awaitAll().filterNotNull()
         }
     }
 }
