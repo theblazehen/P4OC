@@ -153,14 +153,21 @@ fun ChatInputBar(
         return true
     }
 
+    fun clearInput() {
+        inputFieldValue = TextFieldValue("")
+        onValueChange("")
+    }
+
     fun submitFromEnter(): Boolean = when {
         showSlashCommands -> selectActiveCommand()
         canSend -> {
             onSend()
+            clearInput()
             true
         }
         canQueue -> {
             onQueueMessage()
+            clearInput()
             true
         }
         else -> false
@@ -305,7 +312,13 @@ fun ChatInputBar(
                                         Key.Enter, Key.NumPadEnter -> {
                                             when {
                                                 showSlashCommands -> selectActiveCommand()
-                                                enterToSend -> submitFromEnter()
+                                                // When enter-to-send is on, always consume Enter so the
+                                                // TextField can't commit a trailing newline that
+                                                // re-populates the field after the message is sent.
+                                                enterToSend -> {
+                                                    submitFromEnter()
+                                                    true
+                                                }
                                                 else -> false
                                             }
                                         }
@@ -357,6 +370,7 @@ fun ChatInputBar(
                                 canQueue -> onQueueMessage()
                                 else -> return@IconButton
                             }
+                            clearInput()
                             focusRequester.requestFocus()
                         },
                         enabled = canSend || canQueue,
