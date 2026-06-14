@@ -20,16 +20,20 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +44,12 @@ import dev.snipme.highlights.Highlights
 import dev.snipme.highlights.model.ColorHighlight
 import dev.snipme.highlights.model.SyntaxLanguage
 import dev.snipme.highlights.model.SyntaxThemes
+
+/**
+ * Whether bare/markdown URLs in rendered text should be tappable links (opt-in, off by default).
+ * Provided by the chat screen from the user's "Tappable Links" chat setting.
+ */
+val LocalChatLinkify = compositionLocalOf { false }
 
 /**
  * Chat-oriented markdown renderer.
@@ -69,6 +79,8 @@ fun StreamingMarkdown(
         Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
     }
     val blocks = remember(text) { parseMarkdownBlocks(text) }
+    // Opt-in: only turn URLs into tappable links when the user enabled it (Settings → Chat).
+    val linkify = LocalChatLinkify.current
 
     SelectionContainer {
         Column(
@@ -78,16 +90,16 @@ fun StreamingMarkdown(
             blocks.forEach { block ->
                 key(block.key) {
                     when (block) {
-                        is MarkdownBlock.Paragraph -> MarkdownParagraph(block.lines.joinToString("\n"), colors)
+                        is MarkdownBlock.Paragraph -> MarkdownParagraph(block.lines.joinToString("\n"), colors, linkify)
                         is MarkdownBlock.Heading -> MarkdownText(
-                            text = inlineMarkdown(block.text, colors),
+                            text = inlineMarkdown(block.text, colors, linkify),
                             style = headingStyle(block.level),
                             colors = colors,
                         )
-                        is MarkdownBlock.ListBlock -> MarkdownList(block.items, colors)
-                        is MarkdownBlock.Quote -> MarkdownQuote(block.lines, colors)
+                        is MarkdownBlock.ListBlock -> MarkdownList(block.items, colors, linkify)
+                        is MarkdownBlock.Quote -> MarkdownQuote(block.lines, colors, linkify)
                         is MarkdownBlock.CodeFence -> CodeFenceBlock(block.code, block.language, highlighter, colors)
-                        is MarkdownBlock.Table -> MarkdownTableBlock(block.rows, colors)
+                        is MarkdownBlock.Table -> MarkdownTableBlock(block.rows, colors, linkify)
                         is MarkdownBlock.Rule -> HorizontalRule(colors)
                     }
                 }
@@ -97,9 +109,9 @@ fun StreamingMarkdown(
 }
 
 @Composable
-private fun MarkdownParagraph(text: String, colors: MarkdownRenderColors) {
+private fun MarkdownParagraph(text: String, colors: MarkdownRenderColors, linkify: Boolean) {
     MarkdownText(
-        text = inlineMarkdown(text.trim(), colors),
+        text = inlineMarkdown(text.trim(), colors, linkify),
         style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
         colors = colors,
     )
@@ -121,7 +133,7 @@ private fun MarkdownText(
 }
 
 @Composable
-private fun MarkdownList(items: List<MarkdownListItem>, colors: MarkdownRenderColors) {
+private fun MarkdownList(items: List<MarkdownListItem>, colors: MarkdownRenderColors, linkify: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
         items.forEach { item ->
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -131,7 +143,7 @@ private fun MarkdownList(items: List<MarkdownListItem>, colors: MarkdownRenderCo
                     color = colors.muted,
                 )
                 Text(
-                    text = inlineMarkdown(item.text, colors),
+                    text = inlineMarkdown(item.text, colors, linkify),
                     style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
                     color = colors.text,
                     modifier = Modifier.weight(1f),
@@ -142,7 +154,7 @@ private fun MarkdownList(items: List<MarkdownListItem>, colors: MarkdownRenderCo
 }
 
 @Composable
-private fun MarkdownQuote(lines: List<String>, colors: MarkdownRenderColors) {
+private fun MarkdownQuote(lines: List<String>, colors: MarkdownRenderColors, linkify: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -156,7 +168,7 @@ private fun MarkdownQuote(lines: List<String>, colors: MarkdownRenderColors) {
                 .padding(vertical = Spacing.xs)
         )
         Text(
-            text = inlineMarkdown(lines.joinToString("\n"), colors),
+            text = inlineMarkdown(lines.joinToString("\n"), colors, linkify),
             style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
             color = colors.muted,
             modifier = Modifier.weight(1f),
@@ -188,7 +200,7 @@ private fun CodeFenceBlock(
 }
 
 @Composable
-private fun MarkdownTableBlock(rows: List<List<String>>, colors: MarkdownRenderColors) {
+private fun MarkdownTableBlock(rows: List<List<String>>, colors: MarkdownRenderColors, linkify: Boolean) {
     val columnWidths = remember(rows) {
         val columnCount = rows.maxOfOrNull { it.size } ?: 0
         List(columnCount) { columnIndex ->
@@ -203,7 +215,7 @@ private fun MarkdownTableBlock(rows: List<List<String>>, colors: MarkdownRenderC
                     columnWidths.forEachIndexed { columnIndex, width ->
                         val cell = row.getOrNull(columnIndex).orEmpty()
                         Text(
-                            text = inlineMarkdown(cell, colors),
+                            text = inlineMarkdown(cell, colors, linkify),
                             style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
                             color = colors.text,
                             modifier = Modifier
@@ -298,7 +310,11 @@ private fun highlightCode(
     }
 }
 
-private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): AnnotatedString = buildAnnotatedString {
+private fun inlineMarkdown(
+    text: String,
+    colors: MarkdownRenderColors,
+    linkify: Boolean,
+): AnnotatedString = buildAnnotatedString {
     var index = 0
     while (index < text.length) {
         val codeStart = text.indexOf('`', index)
@@ -306,10 +322,10 @@ private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): Annotate
         val boldStart = text.indexOf("**", index)
         val next = listOf(codeStart, linkStart, boldStart).filter { it >= 0 }.minOrNull() ?: -1
         if (next == -1) {
-            append(text.substring(index))
+            appendInline(text.substring(index), colors, linkify)
             break
         }
-        if (next > index) append(text.substring(index, next))
+        if (next > index) appendInline(text.substring(index, next), colors, linkify)
         when (next) {
             codeStart -> {
                 val end = text.indexOf('`', codeStart + 1)
@@ -346,14 +362,59 @@ private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): Annotate
                     append(text.substring(linkStart, linkStart + 1))
                     index = linkStart + 1
                 } else {
-                    withStyle(SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)) {
-                        append(text.substring(linkStart + 1, close))
+                    val label = text.substring(linkStart + 1, close)
+                    val url = text.substring(openUrl + 1, closeUrl)
+                    if (linkify) {
+                        withLink(LinkAnnotation.Url(url, linkStyles(colors))) {
+                            append(label)
+                        }
+                    } else {
+                        withStyle(SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)) {
+                            append(label)
+                        }
                     }
                     index = closeUrl + 1
                 }
             }
         }
     }
+}
+
+/** Matches bare http(s) URLs. Stops at whitespace and bracket/paren delimiters. */
+private val URL_REGEX = Regex("""https?://[^\s<>()\[\]{}]+""")
+
+/** Trailing characters that are almost always sentence punctuation, not part of the URL. */
+private const val URL_TRAILING_TRIM = ".,;:!?\"'”’"
+
+private fun linkStyles(colors: MarkdownRenderColors) = TextLinkStyles(
+    style = SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline),
+)
+
+/**
+ * Append plain text. When [linkify] is on, bare http(s) URLs become tappable links: Compose
+ * opens [LinkAnnotation.Url] through the platform UriHandler (ACTION_VIEW), so a signed download
+ * link launches the browser and downloads the file — matching the web client. When off, the
+ * text is appended verbatim (original behavior).
+ */
+private fun AnnotatedString.Builder.appendInline(text: String, colors: MarkdownRenderColors, linkify: Boolean) {
+    if (text.isEmpty()) return
+    if (!linkify) {
+        append(text)
+        return
+    }
+    var cursor = 0
+    for (match in URL_REGEX.findAll(text)) {
+        val start = match.range.first
+        var end = match.range.last + 1
+        while (end > start && text[end - 1] in URL_TRAILING_TRIM) end--
+        if (start > cursor) append(text.substring(cursor, start))
+        val url = text.substring(start, end)
+        withLink(LinkAnnotation.Url(url, linkStyles(colors))) {
+            append(url)
+        }
+        cursor = end
+    }
+    if (cursor < text.length) append(text.substring(cursor))
 }
 
 @Composable

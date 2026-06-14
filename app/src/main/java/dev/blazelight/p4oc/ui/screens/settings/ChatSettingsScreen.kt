@@ -13,6 +13,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -22,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -64,37 +68,79 @@ fun ChatSettingsScreen(
                 .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
-                    contentDescription = null,
-                    modifier = Modifier.size(Sizing.iconMd),
-                    tint = theme.accent,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.chat_settings_enter_to_send),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = theme.text,
-                    )
-                    Text(
-                        text = stringResource(R.string.chat_settings_enter_to_send_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = theme.textMuted,
-                    )
-                }
-                TuiSwitch(
-                    checked = settings.enterToSend,
-                    onCheckedChange = { viewModel.toggleEnterToSend() },
-                )
-            }
+            ChatToggleRow(
+                icon = Icons.AutoMirrored.Filled.KeyboardReturn,
+                title = stringResource(R.string.chat_settings_enter_to_send),
+                description = stringResource(R.string.chat_settings_enter_to_send_desc),
+                checked = settings.enterToSend,
+                onCheckedChange = { viewModel.toggleEnterToSend() },
+            )
+
+            ChatToggleRow(
+                icon = Icons.Filled.VerticalAlignBottom,
+                title = stringResource(R.string.chat_settings_scroll_to_bottom),
+                description = stringResource(R.string.chat_settings_scroll_to_bottom_desc),
+                checked = settings.scrollToBottomOnOpen,
+                onCheckedChange = { viewModel.toggleScrollToBottomOnOpen() },
+            )
+
+            ChatToggleRow(
+                icon = Icons.Filled.Folder,
+                title = stringResource(R.string.chat_settings_remember_upload_dir),
+                description = stringResource(R.string.chat_settings_remember_upload_dir_desc),
+                checked = settings.rememberUploadDirectory,
+                onCheckedChange = { viewModel.toggleRememberUploadDirectory() },
+            )
+
+            ChatToggleRow(
+                icon = Icons.Filled.Link,
+                title = stringResource(R.string.chat_settings_linkify_urls),
+                description = stringResource(R.string.chat_settings_linkify_urls_desc),
+                checked = settings.linkifyUrls,
+                onCheckedChange = { viewModel.toggleLinkifyUrls() },
+            )
 
             Spacer(Modifier.height(Spacing.lg))
         }
+    }
+}
+
+@Composable
+private fun ChatToggleRow(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val theme = LocalOpenCodeTheme.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(Sizing.iconMd),
+            tint = theme.accent,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = theme.text,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.textMuted,
+            )
+        }
+        TuiSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }
 
@@ -112,8 +158,16 @@ class ChatSettingsViewModel constructor(
         }
     }
 
-    fun toggleEnterToSend() {
-        val updated = _settings.value.copy(enterToSend = !_settings.value.enterToSend)
+    fun toggleEnterToSend() = update { it.copy(enterToSend = !it.enterToSend) }
+
+    fun toggleScrollToBottomOnOpen() = update { it.copy(scrollToBottomOnOpen = !it.scrollToBottomOnOpen) }
+
+    fun toggleRememberUploadDirectory() = update { it.copy(rememberUploadDirectory = !it.rememberUploadDirectory) }
+
+    fun toggleLinkifyUrls() = update { it.copy(linkifyUrls = !it.linkifyUrls) }
+
+    private fun update(transform: (ChatSettings) -> ChatSettings) {
+        val updated = transform(_settings.value)
         _settings.value = updated
         viewModelScope.launch { settingsDataStore.updateChatSettings(updated) }
     }

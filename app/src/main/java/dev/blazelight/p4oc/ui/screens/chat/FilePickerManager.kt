@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
+import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.core.mime.FilenameMimeType
 import dev.blazelight.p4oc.core.network.ApiResult
@@ -14,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -24,6 +26,7 @@ class FilePickerManager(
     private val workspaceClient: WorkspaceClient,
     private val scope: CoroutineScope,
     private val uploadCoordinator: UploadCoordinator,
+    private val settingsDataStore: SettingsDataStore,
 ) {
     private companion object {
         const val TAG = "FilePickerManager"
@@ -46,10 +49,25 @@ class FilePickerManager(
 
     val uploadState: StateFlow<UploadQueueState> = uploadCoordinator.state
 
+    /**
+     * Load files for the picker.
+     *
+     * When [path] is null (the picker is being opened) and the "remember last folder" setting is
+     * on, the picker reopens at the folder the user last browsed to. When that folder no longer
+     * exists in the current workspace, it falls back to the workspace root. Any explicit [path]
+     * (navigation) is used as-is and persisted as the new "last folder".
+     */
     fun loadPickerFiles(path: String? = null) {
         scope.launch {
             _isPickerLoading.value = true
-            val effectivePath = path ?: "."
+            val remember = runCatching { settingsDataStore.chatSettings.first().rememberUploadDirectory }
+                .getOrDefault(true)
+            val effectivePath = when {
+                path != null -> path
+                remember -> runCatching { settingsDataStore.lastUploadDirectory.first() }
+                    .getOrNull()?.ifBlank { null } ?: "."
+                else -> "."
+            }
             val result = safeApiCall { workspaceClient.listFiles(effectivePath) }
             when (result) {
                 is ApiResult.Success -> {
@@ -64,13 +82,24 @@ class FilePickerManager(
                         )
                     }
                     _pickerFiles.value = files
-                    _pickerCurrentPath.value = if (effectivePath == ".") "" else effectivePath
+                    val resolved = if (effectivePath == ".") "" else effectivePath
+                    _pickerCurrentPath.value = resolved
                     _isPickerLoading.value = false
+                    if (remember) {
+                        runCatching { settingsDataStore.setLastUploadDirectory(resolved) }
+                    }
                 }
                 is ApiResult.Error -> {
                     AppLog.w(TAG, "Failed to load files for path=$effectivePath: ${result.message}")
-                    _pickerError.value = result.message
-                    _isPickerLoading.value = false
+                    // A remembered folder that no longer exists shouldn't trap the picker — fall
+                    // back to the workspace root once (path == null means we resolved a remembered dir).
+                    if (path == null && effectivePath != ".") {
+                        AppLog.w(TAG, "Remembered upload folder '$effectivePath' unavailable; falling back to root")
+                        loadPickerFiles(".")
+                    } else {
+                        _pickerError.value = result.message
+                        _isPickerLoading.value = false
+                    }
                 }
             }
         }

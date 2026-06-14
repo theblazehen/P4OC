@@ -62,7 +62,7 @@ class ChatViewModel constructor(
     // --- Sub-managers ---
     val dialogManager = DialogQueueManager(savedStateHandle, json, viewModelScope)
     val modelAgentManager = ModelAgentManager(connectionManager, settingsDataStore, viewModelScope, sessionId)
-    val filePickerManager = FilePickerManager(workspaceClient, viewModelScope, uploadCoordinator)
+    val filePickerManager = FilePickerManager(workspaceClient, viewModelScope, uploadCoordinator, settingsDataStore)
 
     // --- Core state ---
     private val _uiState = MutableStateFlow(ChatUiState())

@@ -35,6 +35,7 @@ import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
 import dev.blazelight.p4oc.ui.components.chat.JumpToBottomButton
+import dev.blazelight.p4oc.ui.components.chat.LocalChatLinkify
 import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
 import dev.blazelight.p4oc.ui.components.chat.QueuedMessagesStrip
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
@@ -47,6 +48,8 @@ import dev.blazelight.p4oc.ui.screens.files.upload.UploadProgressSheet
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -213,6 +216,29 @@ fun ChatScreen(
         }
     }
 
+    // On opening/resuming a session, jump all the way to the latest message. The streaming
+    // follow-tail effect above scrolls once on initial load, but the last message's height is
+    // measured lazily (markdown, code blocks, images), so a single scroll lands short of the
+    // true bottom. Re-apply the scroll until the content height stops growing.
+    LaunchedEffect(uiState.session?.id, chatSettings.scrollToBottomOnOpen) {
+        if (!chatSettings.scrollToBottomOnOpen) return@LaunchedEffect
+        // Wait until the initial load completes and the list has laid out items.
+        snapshotFlow {
+            Triple(messages.size, uiState.isLoading, listState.layoutInfo.totalItemsCount)
+        }.first { (count, loading, items) -> count > 0 && !loading && items > 0 }
+
+        var lastHeight = -1
+        repeat(12) {
+            if (!shouldFollowTail) return@LaunchedEffect // user grabbed the list; don't fight them
+            val target = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+            listState.scrollToItem(target, Int.MAX_VALUE)
+            val height = listState.layoutInfo.visibleItemsInfo.sumOf { it.size }
+            if (height == lastHeight) return@LaunchedEffect // settled
+            lastHeight = height
+            delay(32L)
+        }
+    }
+
     Scaffold(
         topBar = {
             ChatTopBar(
@@ -354,16 +380,18 @@ fun ChatScreen(
                             }
                         }
                     ) { block ->
-                        MessageBlockView(
-                            block = block,
-                            onToolApprove = { viewModel.respondToPermission(it, "once") },
-                            onToolDeny = { viewModel.respondToPermission(it, "reject") },
-                            onToolAlways = { viewModel.respondToPermission(it, "always") },
-                            onOpenSubSession = onOpenSubSession,
-                            defaultToolWidgetState = defaultToolWidgetState,
-                            pendingPermissionsByCallId = pendingPermissionsByCallId,
-                            onRevert = { messageId -> showRevertDialog = messageId }
-                        )
+                        CompositionLocalProvider(LocalChatLinkify provides chatSettings.linkifyUrls) {
+                            MessageBlockView(
+                                block = block,
+                                onToolApprove = { viewModel.respondToPermission(it, "once") },
+                                onToolDeny = { viewModel.respondToPermission(it, "reject") },
+                                onToolAlways = { viewModel.respondToPermission(it, "always") },
+                                onOpenSubSession = onOpenSubSession,
+                                defaultToolWidgetState = defaultToolWidgetState,
+                                pendingPermissionsByCallId = pendingPermissionsByCallId,
+                                onRevert = { messageId -> showRevertDialog = messageId }
+                            )
+                        }
                     }
 
                     pendingQuestion?.let { questionRequest ->
