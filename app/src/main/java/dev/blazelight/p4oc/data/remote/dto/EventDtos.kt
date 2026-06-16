@@ -69,6 +69,19 @@ data class PermissionRepliedPropertiesDto(
 )
 
 @Serializable
+data class QuestionRepliedPropertiesDto(
+    @SerialName("sessionID") val sessionID: String,
+    @SerialName("requestID") val requestID: String,
+    val answers: List<List<String>>
+)
+
+@Serializable
+data class QuestionRejectedPropertiesDto(
+    @SerialName("sessionID") val sessionID: String,
+    @SerialName("requestID") val requestID: String
+)
+
+@Serializable
 data class FileWatcherPropertiesDto(
     val file: String,
     val event: String // "add" | "change" | "unlink"

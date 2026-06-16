@@ -25,6 +25,12 @@ sealed class OpenCodeEvent {
     data class PermissionRequested(val permission: Permission) : OpenCodeEvent()
     data class PermissionReplied(val sessionID: String, val requestID: String, val reply: String) : OpenCodeEvent()
     data class QuestionAsked(val request: QuestionRequest) : OpenCodeEvent()
+    data class QuestionReplied(
+        val sessionID: String,
+        val requestID: String,
+        val answers: List<List<String>>,
+    ) : OpenCodeEvent()
+    data class QuestionRejected(val sessionID: String, val requestID: String) : OpenCodeEvent()
     data class TodoUpdated(val sessionID: String, val todos: List<Todo>) : OpenCodeEvent()
     data class CommandExecuted(
         val name: String,
