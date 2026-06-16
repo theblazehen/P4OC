@@ -371,7 +371,7 @@ fun ChatScreen(
                             InlineQuestionCard(
                                 questionRequestId = questionRequest.id,
                                 questionData = dev.blazelight.p4oc.domain.model.QuestionData(questionRequest.questions),
-                                onDismiss = viewModel::dismissQuestion,
+                                onDismiss = { viewModel.dismissQuestion(questionRequest.id) },
                                 onSubmit = { answers ->
                                     viewModel.respondToQuestion(questionRequest.id, answers)
                                 },

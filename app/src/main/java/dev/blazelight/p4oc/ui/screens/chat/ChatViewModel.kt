@@ -488,8 +488,23 @@ class ChatViewModel constructor(
         }
     }
 
-    fun dismissQuestion() {
-        sessionRepository.clearQuestion(SessionId(sessionId))
+    fun dismissQuestion(requestId: String) {
+        viewModelScope.launch {
+            // Reject the question server-side so the agent's pending request is
+            // resolved (otherwise it stays pending forever and the session never
+            // goes idle). The local modal is cleared optimistically; the matching
+            // question.rejected SSE event (handled in SessionRepositoryImpl) will
+            // also reconcile any other attached client.
+            when (val result = safeApiCall { workspaceClient.rejectQuestion(requestId) }) {
+                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId))
+                is ApiResult.Error -> {
+                    // A NotFound here means it was already resolved elsewhere — clear
+                    // locally anyway so the user is not stuck on a dead modal.
+                    sessionRepository.clearQuestion(SessionId(sessionId))
+                    AppLog.w(TAG, "rejectQuestion failed (clearing locally): ${result.message}")
+                }
+            }
+        }
     }
 
     // --- Commands & Todos ---

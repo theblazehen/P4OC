@@ -186,6 +186,12 @@ interface OpenCodeApi {
         @Query("directory") directory: String?
     ): Boolean
 
+    @POST("question/{requestId}/reject")
+    suspend fun rejectQuestion(
+        @Path("requestId") requestId: String,
+        @Query("directory") directory: String?
+    ): Boolean
+
     @GET("command")
     suspend fun listCommands(
         @Query("directory") directory: String?
