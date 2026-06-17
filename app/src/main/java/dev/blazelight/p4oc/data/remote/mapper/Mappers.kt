@@ -561,6 +561,30 @@ object StatusMapper {
 // Event Mapper
 // ============================================================================
 
+/**
+ * Map a QuestionRequestDto to a domain QuestionRequest.
+ * Used by EventMapper for question.asked events and by SessionRepositoryImpl
+ * for reconciliation of pending questions.
+ */
+fun mapQuestionRequestDtoToDomain(dto: QuestionRequestDto): QuestionRequest = QuestionRequest(
+    id = dto.id,
+    sessionID = dto.sessionID,
+    questions = dto.questions.map { q ->
+        Question(
+            header = q.header,
+            question = q.question,
+            options = q.options.map { o ->
+                QuestionOption(label = o.label, description = o.description)
+            },
+            multiple = q.multiple,
+            custom = q.custom
+        )
+    },
+    tool = dto.tool?.let {
+        QuestionToolRef(messageID = it.messageID, callID = it.callID)
+    }
+)
+
 class EventMapper constructor(
     private val json: Json,
     private val messageMapper: MessageMapper
@@ -660,26 +684,7 @@ class EventMapper constructor(
             }
             "question.asked" -> {
                 val questionDto = json.decodeFromJsonElement<QuestionRequestDto>(dto.properties)
-                OpenCodeEvent.QuestionAsked(
-                    QuestionRequest(
-                        id = questionDto.id,
-                        sessionID = questionDto.sessionID,
-                        questions = questionDto.questions.map { q ->
-                            Question(
-                                header = q.header,
-                                question = q.question,
-                                options = q.options.map { o ->
-                                    QuestionOption(label = o.label, description = o.description)
-                                },
-                                multiple = q.multiple,
-                                custom = q.custom
-                            )
-                        },
-                        tool = questionDto.tool?.let {
-                            QuestionToolRef(messageID = it.messageID, callID = it.callID)
-                        }
-                    )
-                )
+                OpenCodeEvent.QuestionAsked(mapQuestionRequestDtoToDomain(questionDto))
             }
             "question.replied" -> {
                 val props = json.decodeFromJsonElement<QuestionRepliedPropertiesDto>(dto.properties)

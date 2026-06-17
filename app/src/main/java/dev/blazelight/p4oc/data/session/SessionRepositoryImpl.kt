@@ -4,10 +4,12 @@ import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.data.files.ofish.OfishSessionNames
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
+import dev.blazelight.p4oc.data.remote.dto.QuestionRequestDto
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.data.remote.mapper.SessionMapper
+import dev.blazelight.p4oc.data.remote.mapper.mapQuestionRequestDtoToDomain
 import dev.blazelight.p4oc.data.workspace.SessionWorkspaceClient
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.model.Message
@@ -17,6 +19,8 @@ import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.SessionStatus
 import dev.blazelight.p4oc.domain.model.TokenUsage
+import dev.blazelight.p4oc.domain.model.ToolState
+import dev.blazelight.p4oc.domain.model.isQuestionTool
 import dev.blazelight.p4oc.domain.session.SessionId
 import dev.blazelight.p4oc.domain.session.WorkspaceSession
 import kotlinx.coroutines.CancellationException
@@ -30,6 +34,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +50,7 @@ class SessionRepositoryImpl(
     private val messageMapper: MessageMapper? = null,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val questionFetcher: (suspend () -> List<QuestionRequestDto>)? = null,
 ) : SessionRepository {
     data class CachedSnapshot(
         val snapshot: Snapshot,
@@ -71,6 +77,10 @@ class SessionRepositoryImpl(
     private val messageStates = mutableMapOf<String, MutableStateFlow<List<MessageWithParts>>>()
     private val sessionUiStates = mutableMapOf<String, MutableStateFlow<SessionUiState>>()
     private val childToParentSessionIds = mutableMapOf<String, String>()
+
+    // Question reconciliation dedup state
+    private val detectedQuestionToolCallIds = mutableSetOf<String>()
+    private val recentlyResolvedQuestionIds = mutableMapOf<String, Long>()
 
     fun peek(): CachedSnapshot? {
         val cached = lastSuccess ?: return null
@@ -224,12 +234,66 @@ class SessionRepositoryImpl(
         }
     }
 
+    private suspend fun fetchPendingQuestions(): List<QuestionRequestDto> =
+        questionFetcher?.invoke() ?: (client as? WorkspaceClient)?.listPendingQuestions() ?: emptyList()
+
+    /**
+     * Reconcile pending questions from the server.
+     * Called when a question tool part is detected or on reconnect.
+     * Fetches the list of pending questions from GET /question and sets
+     * pendingQuestion on owned sessions that don't already have one.
+     * Skips questions that were recently resolved (anti-resurrection).
+     */
+    private suspend fun reconcilePendingQuestions() {
+        AppLog.d(TAG, "reconcilePendingQuestions: fetching pending questions")
+        val questionsToCheck = runCatching { fetchPendingQuestions() }
+            .getOrElse { error ->
+                AppLog.w(TAG, "Failed to fetch pending questions: ${error.message}")
+                return
+            }
+        AppLog.d(TAG, "reconcilePendingQuestions: fetched ${questionsToCheck.size} pending question(s)")
+
+        // Expire stale entries from recentlyResolvedQuestionIds
+        val now = nowMs()
+        synchronized(recentlyResolvedQuestionIds) {
+            recentlyResolvedQuestionIds.entries.removeAll { (_, resolvedAtMs) ->
+                now - resolvedAtMs > RESOLVED_QUESTION_TTL_MS
+            }
+        }
+
+        for (questionDto in questionsToCheck) {
+            // Skip if this question was recently resolved
+            val isRecentlyResolved = synchronized(recentlyResolvedQuestionIds) {
+                recentlyResolvedQuestionIds.containsKey(questionDto.id)
+            }
+            if (isRecentlyResolved) continue
+
+            // Try to set pendingQuestion on the owned session
+            updateOwnedSession(questionDto.sessionID) { state ->
+                if (state.pendingQuestion == null && state.queuedQuestions.none { it.id == questionDto.id }) {
+                    state.copy(pendingQuestion = mapQuestionRequestDtoToDomain(questionDto))
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
     private fun hydrateAfterReconnect() {
         synchronized(this) {
             if (inFlight != null) return
             _state.value = RepoState.Hydrating(snapshot = state.value.snapshot, bufferedEvents = hydrateBuffer.size)
             inFlight = scope.async {
                 runCatching { hydrate(client.listProjects()) }
+            }
+        }
+        // Trigger question reconciliation after hydration (don't block event path)
+        scope.launch {
+            try {
+                inFlight?.await()
+                reconcilePendingQuestions()
+            } catch (e: Exception) {
+                AppLog.w(TAG, "Error during post-reconnect question reconciliation: ${e.message}")
             }
         }
     }
@@ -258,8 +322,23 @@ class SessionRepositoryImpl(
         }
     }
 
-    override fun clearQuestion(sessionId: SessionId) {
-        updateSession(sessionId.value) { state ->
+    override fun clearQuestion(sessionId: SessionId, requestId: String?) {
+        clearQuestionInternal(sessionId.value, requestId)
+    }
+
+    /**
+     * Internal implementation: clear the current pending question and promote the next queued question.
+     * If [requestId] is provided, record it as recently resolved for dedup.
+     */
+    private fun clearQuestionInternal(sessionId: String, requestId: String?) {
+        // Record the request ID if provided (for dismissQuestion path)
+        if (requestId != null) {
+            synchronized(recentlyResolvedQuestionIds) {
+                recentlyResolvedQuestionIds[requestId] = nowMs()
+            }
+        }
+
+        updateSession(sessionId) { state ->
             val nextQuestion = state.queuedQuestions.firstOrNull()
             state.copy(
                 pendingQuestion = nextQuestion,
@@ -275,8 +354,14 @@ class SessionRepositoryImpl(
      * promoted; if it is sitting in the queue, it is removed in place. Unknown
      * requestIDs are a no-op (idempotent — a resolution we never tracked, or one
      * already handled locally).
+     * Records the resolved ID for dedup to prevent re-surfacing within the TTL.
      */
     private fun resolveQuestion(eventSessionId: String, requestID: String) {
+        // Record this ID as recently resolved to prevent re-surfacing on reconcile
+        synchronized(recentlyResolvedQuestionIds) {
+            recentlyResolvedQuestionIds[requestID] = nowMs()
+        }
+
         updateOwnedSession(eventSessionId) { state ->
             when {
                 state.pendingQuestion?.id == requestID -> {
@@ -300,6 +385,16 @@ class SessionRepositoryImpl(
         val mapper = messageMapper ?: error("Message loading requires MessageMapper")
         val messages = workspaceClient.getMessages(sessionId.value, limit).map { dto -> mapper.mapWrapperToDomain(dto) }
         mergeLoadedMessages(sessionId.value, messages)
+        // A question tool part loaded via REST (state=running) means a question is
+        // pending that the live question.asked SSE event was missed for. Reconcile so
+        // the interactive card renders. (upsertPart only fires for live SSE updates,
+        // not REST history load, so this is the deterministic open-a-session trigger.)
+        val hasRunningQuestion = messages.any { mwp ->
+            mwp.parts.any { it is Part.Tool && it.isQuestionTool() && it.state is ToolState.Running }
+        }
+        if (hasRunningQuestion) {
+            reconcilePendingQuestions()
+        }
     }
 
     override fun sendMessageAsync(sessionId: SessionId, request: SendMessageRequest): Deferred<Result<Unit>> = scope.async {
@@ -328,6 +423,8 @@ class SessionRepositoryImpl(
         synchronized(messageStates) { messageStates.clear() }
         synchronized(sessionUiStates) { sessionUiStates.clear() }
         synchronized(childToParentSessionIds) { childToParentSessionIds.clear() }
+        synchronized(detectedQuestionToolCallIds) { detectedQuestionToolCallIds.clear() }
+        synchronized(recentlyResolvedQuestionIds) { recentlyResolvedQuestionIds.clear() }
     }
 
     suspend fun createSession(title: String?): WorkspaceSession {
@@ -577,6 +674,34 @@ class SessionRepositoryImpl(
     }
 
     private fun upsertPart(part: Part, delta: String?) {
+        // Handle question tool detection for reconciliation (Trigger 1)
+        if (part is Part.Tool && part.isQuestionTool()) {
+            when (part.state) {
+                is ToolState.Running -> {
+                    // Question tool is running - fetch pending questions to set card
+                    val isNewDetection = synchronized(detectedQuestionToolCallIds) {
+                        detectedQuestionToolCallIds.add(part.callID)
+                    }
+                    if (isNewDetection) {
+                        scope.launch {
+                            try {
+                                reconcilePendingQuestions()
+                            } catch (e: Exception) {
+                                AppLog.w(TAG, "Error reconciling questions on tool detection: ${e.message}")
+                            }
+                        }
+                    }
+                }
+                is ToolState.Completed, is ToolState.Error -> {
+                    // Tool finished - clean up from tracking set
+                    synchronized(detectedQuestionToolCallIds) {
+                        detectedQuestionToolCallIds.remove(part.callID)
+                    }
+                }
+                else -> Unit
+            }
+        }
+
         val state = messageState(part.sessionID)
         state.update { messages ->
             val existingMessage = messages.firstOrNull { it.message.id == part.messageID }
@@ -691,5 +816,6 @@ class SessionRepositoryImpl(
         const val FRESHNESS_MS = 30_000L
         const val MAX_CONCURRENT = 10
         const val TAG = "SessionRepository"
+        const val RESOLVED_QUESTION_TTL_MS = 30_000L
     }
 }
