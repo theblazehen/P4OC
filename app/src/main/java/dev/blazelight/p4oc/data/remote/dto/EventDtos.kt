@@ -11,7 +11,14 @@ import kotlinx.serialization.json.JsonObject
 @Serializable
 data class EventDataDto(
     val type: String,
-    val properties: JsonObject
+    // Some server events carry no `properties` — notably the v2 "sync" mirror
+    // (`{type:"sync", syncEvent:{…}}`) the daemon emits alongside every normal
+    // event. Default to empty so these parse instead of throwing
+    // MissingFieldException on the SSE read thread (the throw + stacktrace logging
+    // per sync event stalled live event delivery, leaving the UI frozen until a
+    // manual reattach). Unknown types like "sync" map to null in EventMapper and
+    // are skipped; the normal event copy carries the actual data.
+    val properties: JsonObject = JsonObject(emptyMap())
 )
 
 @Serializable
