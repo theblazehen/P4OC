@@ -26,6 +26,7 @@ interface OpenCodeApi {
     @GET("session")
     suspend fun listSessions(
         @Query("directory") directory: String?,
+        @Query("scope") scope: String? = null,
         @Query("roots") roots: Boolean? = null,
         @Query("start") start: Long? = null,
         @Query("search") search: String? = null,
