@@ -40,6 +40,9 @@ android {
         versionName = "0.12.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // AppAuth redirect scheme = application id; debug overrides below for the .debug suffix.
+        manifestPlaceholders["appAuthRedirectScheme"] = "dev.blazelight.p4oc"
     }
 
     buildTypes {
@@ -66,6 +69,7 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            manifestPlaceholders["appAuthRedirectScheme"] = "dev.blazelight.p4oc.debug"
         }
     }
 
@@ -140,6 +144,9 @@ dependencies {
 
     // Encrypted storage
     implementation(libs.security.crypto)
+
+    // OIDC / OAuth2 — Authorization Code + PKCE with token refresh
+    implementation(libs.appauth)
 
     // Dependency Injection - Koin (no codegen, works with AGP 9 + Kotlin 2.3)
     implementation(libs.koin.android)

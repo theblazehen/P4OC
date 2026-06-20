@@ -37,6 +37,16 @@ class CredentialStore(context: Context) {
         )
     }
 
+    private val keyActiveOidc = "active_oidc"
+    private fun serverOidcKey(url: String): String = "server_oidc:$url"
+
+    private fun putOrRemove(key: String, value: String?) {
+        prefs.edit().apply {
+            if (value != null) putString(key, value) else remove(key)
+            apply()
+        }
+    }
+
     // ── Active connection password ──────────────────────────────────────
 
     /**
@@ -98,6 +108,21 @@ class CredentialStore(context: Context) {
     fun removeServerPassword(serverUrl: String) {
         prefs.edit().remove(serverPasswordKey(serverUrl)).apply()
     }
+
+    // ── OIDC AuthState (OAuth2) ─────────────────────────────────────────
+    // Stores the serialized AppAuth state (access/refresh material + endpoints), encrypted at rest.
+
+    fun setActiveOidc(state: String?) = putOrRemove(keyActiveOidc, state)
+
+    fun getActiveOidc(): String? = prefs.getString(keyActiveOidc, null)
+
+    fun clearActiveOidc() = putOrRemove(keyActiveOidc, null)
+
+    fun setServerOidc(serverUrl: String, state: String?) = putOrRemove(serverOidcKey(serverUrl), state)
+
+    fun getServerOidc(serverUrl: String): String? = prefs.getString(serverOidcKey(serverUrl), null)
+
+    fun removeServerOidc(serverUrl: String) = putOrRemove(serverOidcKey(serverUrl), null)
 
     /**
      * Clear all stored credentials. Used for logout/clear-all scenarios.

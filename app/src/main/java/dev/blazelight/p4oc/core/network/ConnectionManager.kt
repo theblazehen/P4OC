@@ -3,6 +3,7 @@ package dev.blazelight.p4oc.core.network
 import dev.blazelight.p4oc.BuildConfig
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.log.AppLog
+import dev.blazelight.p4oc.core.security.OidcAuthManager
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import dev.blazelight.p4oc.domain.server.ScopedEvent
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import okhttp3.ConnectionPool
@@ -41,6 +43,7 @@ class ConnectionManager constructor(
     private val json: Json,
     private val eventMapper: EventMapper,
     private val settingsDataStore: SettingsDataStore,
+    private val oidcAuthManager: OidcAuthManager,
 ) {
     companion object {
         private const val TAG = "ConnectionManager"
@@ -48,6 +51,8 @@ class ConnectionManager constructor(
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // Off-main scope for blocking teardown (socket close / pool eviction) triggered from the UI thread.
+    private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var sseForwardingJob: Job? = null
     private var sseEscalationJob: Job? = null
     private var generationCounter: Long = 0L
@@ -117,24 +122,30 @@ class ConnectionManager constructor(
         }
 
     suspend fun connect(config: ServerConfig, password: String? = null): Result<List<ProjectDto>> {
-        AppLog.d(TAG, "Connecting to ${config.url}")
+        return withContext(Dispatchers.IO) {
+            AppLog.d(TAG, "Connecting to ${config.url}")
 
-        disconnect()
-        _connectionState.value = ConnectionState.Connecting
+            // Tear down any prior connection synchronously on this IO context. Closing sockets is
+            // blocking network I/O (NetworkOnMainThreadException if run on the main thread) and must
+            // finish before we rebuild on the shared pool — an async evict could race the new socket.
+            val previous = releaseConnectionState()
+            closeConnectionSockets(previous)
+            _connectionState.value = ConnectionState.Connecting
 
-        val configsToTry = connectionCandidates(config)
-        var lastError: Throwable? = null
-        configsToTry.forEachIndexed { index, candidate ->
-            if (index > 0) {
-                AppLog.d(TAG, "Retrying connection with fallback URL ${candidate.url}")
+            val configsToTry = connectionCandidates(config)
+            var lastError: Throwable? = null
+            configsToTry.forEachIndexed { index, candidate ->
+                if (index > 0) {
+                    AppLog.d(TAG, "Retrying connection with fallback URL ${candidate.url}")
+                }
+
+                val result = connectSingle(candidate, password)
+                if (result.isSuccess) return@withContext result
+                lastError = result.exceptionOrNull()
             }
 
-            val result = connectSingle(candidate, password)
-            if (result.isSuccess) return result
-            lastError = result.exceptionOrNull()
+            Result.failure(lastError ?: Exception("Connection failed"))
         }
-
-        return Result.failure(lastError ?: Exception("Connection failed"))
     }
 
     private suspend fun connectSingle(config: ServerConfig, password: String? = null): Result<List<ProjectDto>> {
@@ -248,15 +259,31 @@ class ConnectionManager constructor(
 
     fun disconnect() {
         AppLog.d(TAG, "Disconnecting")
+        val previous = releaseConnectionState()
+        _connectionState.value = ConnectionState.Disconnected
+        // Socket teardown is blocking network I/O; never run it on the caller's (often main) thread.
+        cleanupScope.launch { closeConnectionSockets(previous) }
+    }
+
+    /**
+     * Drop in-memory connection references and cancel the SSE jobs. Pure state mutation — safe on
+     * any thread. Returns the previous [Connection] so its sockets can be closed off the main thread.
+     */
+    private fun releaseConnectionState(): Connection? {
         sseForwardingJob?.cancel()
         sseForwardingJob = null
         sseEscalationJob?.cancel()
         sseEscalationJob = null
-        _connection.value?.disconnect()
-        sharedConnectionPool.evictAll()
+        val previous = _connection.value
         _connection.value = null
         _authOkHttpClient.value = null
-        _connectionState.value = ConnectionState.Disconnected
+        return previous
+    }
+
+    /** Close the previous connection's sockets and evict the shared pool. Blocking I/O — keep off the main thread. */
+    private fun closeConnectionSockets(previous: Connection?) {
+        previous?.disconnect()
+        sharedConnectionPool.evictAll()
     }
 
     private fun handleSseStateForReconnectOwner(connection: Connection, state: ConnectionState) {
@@ -304,8 +331,12 @@ class ConnectionManager constructor(
             .connectionPool(sharedConnectionPool)
             .dispatcher(sharedDispatcher)
 
-        if (config.username != null && password != null) {
-            builder.addInterceptor(createAuthInterceptor(config.username, password))
+        when (config.authMode) {
+            AuthMode.OIDC -> builder.addInterceptor(createBearerInterceptor(config.url))
+            AuthMode.BASIC ->
+                if (config.username != null && password != null) {
+                    builder.addInterceptor(createAuthInterceptor(config.username, password))
+                }
         }
 
         if (config.allowInsecure) {
@@ -354,6 +385,25 @@ class ConnectionManager constructor(
             val request = chain.request().newBuilder()
                 .header("Authorization", credentials)
                 .build()
+            chain.proceed(request)
+        }
+    }
+
+    /**
+     * OIDC interceptor. Fetches a fresh (auto-refreshed) access credential from [OidcAuthManager]
+     * per request, so REST, SSE and WebSocket clients (all derived from the base via newBuilder)
+     * stay authenticated across expiry — reconnects transparently pick up a refreshed credential.
+     */
+    private fun createBearerInterceptor(serverUrl: String): Interceptor {
+        return Interceptor { chain ->
+            val accessToken = oidcAuthManager.freshAccessTokenBlocking(serverUrl)
+            val request = if (accessToken != null) {
+                chain.request().newBuilder()
+                    .header("Authorization", "Bearer $accessToken")
+                    .build()
+            } else {
+                chain.request()
+            }
             chain.proceed(request)
         }
     }

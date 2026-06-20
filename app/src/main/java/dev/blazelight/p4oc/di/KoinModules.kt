@@ -8,6 +8,7 @@ import dev.blazelight.p4oc.core.network.PtyWebSocketClient
 import dev.blazelight.p4oc.core.notification.NotificationEventObserver
 import dev.blazelight.p4oc.core.notification.NotificationHelper
 import dev.blazelight.p4oc.core.security.CredentialStore
+import dev.blazelight.p4oc.core.security.OidcAuthManager
 import dev.blazelight.p4oc.data.files.FileRepository
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
@@ -54,6 +55,7 @@ val appModule = module {
 
     // Security - must be created before SettingsDataStore (used in migration)
     single { CredentialStore(androidContext()) }
+    single { OidcAuthManager(androidContext(), get()) }
 
     // Core services
     single { SettingsDataStore(androidContext(), get()) }
@@ -73,7 +75,7 @@ val networkModule = module {
     // Network
     single { MdnsDiscoveryManager(androidContext()) }
     factory { PtyWebSocketClient(get()) }
-    single { ConnectionManager(get(), get(), get()) }
+    single { ConnectionManager(get(), get(), get(), get()) }
     single<ActiveServerApiProvider> {
         val connectionManager: ConnectionManager = get()
         ActiveServerApiProvider { serverRef, generation ->

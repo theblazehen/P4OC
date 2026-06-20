@@ -42,6 +42,14 @@ class SettingsDataStore constructor(
         const val DEFAULT_THEME_NAME = "catppuccin"
         private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val KEY_RECENT_SERVERS = stringPreferencesKey("recent_servers")
+
+        // Server form draft — auto-saved as the user types so a crash/kill never loses an
+        // in-progress (not-yet-connected) config. Restored into the form on next launch.
+        private val KEY_DRAFT_URL = stringPreferencesKey("draft_server_url")
+        private val KEY_DRAFT_AUTH_MODE = stringPreferencesKey("draft_auth_mode")
+        private val KEY_DRAFT_OIDC_ISSUER = stringPreferencesKey("draft_oidc_issuer")
+        private val KEY_DRAFT_OIDC_CLIENT = stringPreferencesKey("draft_oidc_client")
+        private val KEY_DRAFT_ALLOW_INSECURE = booleanPreferencesKey("draft_allow_insecure")
         private val KEY_TAB_STATE = stringPreferencesKey("tab_state_v1")
 
         // Visual settings keys
@@ -294,6 +302,42 @@ class SettingsDataStore constructor(
             prefs.remove(KEY_ALLOW_INSECURE)
         }
         credentialStore.clearActivePassword()
+    }
+
+    /**
+     * Persist the server connection form draft (everything except credentials). Called as fields
+     * change so an unexpected process death never discards a config the user was still entering.
+     */
+    suspend fun saveServerDraft(
+        url: String,
+        authMode: dev.blazelight.p4oc.core.network.AuthMode,
+        oidcIssuer: String,
+        oidcClientId: String,
+        allowInsecure: Boolean,
+    ) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_DRAFT_URL] = url
+            prefs[KEY_DRAFT_AUTH_MODE] = authMode.name
+            prefs[KEY_DRAFT_OIDC_ISSUER] = oidcIssuer
+            prefs[KEY_DRAFT_OIDC_CLIENT] = oidcClientId
+            prefs[KEY_DRAFT_ALLOW_INSECURE] = allowInsecure
+        }
+    }
+
+    /** Read back the saved form draft, or null if none was ever stored. */
+    suspend fun getServerDraft(): ServerDraft? {
+        val prefs = context.dataStore.data.first()
+        val url = prefs[KEY_DRAFT_URL] ?: return null
+        val authMode = runCatching {
+            dev.blazelight.p4oc.core.network.AuthMode.valueOf(prefs[KEY_DRAFT_AUTH_MODE].orEmpty())
+        }.getOrDefault(dev.blazelight.p4oc.core.network.AuthMode.BASIC)
+        return ServerDraft(
+            url = url,
+            authMode = authMode,
+            oidcIssuer = prefs[KEY_DRAFT_OIDC_ISSUER].orEmpty(),
+            oidcClientId = prefs[KEY_DRAFT_OIDC_CLIENT].orEmpty(),
+            allowInsecure = prefs[KEY_DRAFT_ALLOW_INSECURE] ?: false,
+        )
     }
 
     val recentServers: Flow<List<RecentServer>> = context.dataStore.data.map { prefs ->
@@ -639,4 +683,13 @@ fun String.toVibrationPattern(): VibrationPattern = VibrationPattern.entries
 data class ConnectionSettings(
     val autoReconnect: Boolean = true,
     val reconnectTimeoutSeconds: Int = 45
+)
+
+/** Auto-saved server connection form draft (no credentials). */
+data class ServerDraft(
+    val url: String,
+    val authMode: dev.blazelight.p4oc.core.network.AuthMode,
+    val oidcIssuer: String,
+    val oidcClientId: String,
+    val allowInsecure: Boolean,
 )

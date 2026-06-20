@@ -1,10 +1,13 @@
 package dev.blazelight.p4oc.ui.screens.server
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.blazelight.p4oc.BuildConfig
 import dev.blazelight.p4oc.core.datastore.RecentServer
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.log.AppLog
+import dev.blazelight.p4oc.core.network.AuthMode
 import dev.blazelight.p4oc.core.network.ConnectionManager
 import dev.blazelight.p4oc.core.network.DiscoveredServer
 import dev.blazelight.p4oc.core.network.DiscoverySeed
@@ -13,6 +16,7 @@ import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
 import dev.blazelight.p4oc.core.network.ServerUrl
 import dev.blazelight.p4oc.core.security.CredentialStore
+import dev.blazelight.p4oc.core.security.OidcAuthManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,12 +30,14 @@ class ServerViewModel constructor(
     private val connectionManager: ConnectionManager,
     private val credentialStore: CredentialStore,
     private val mdnsDiscoveryManager: MdnsDiscoveryManager,
+    private val oidcAuthManager: OidcAuthManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUiState())
     val uiState: StateFlow<ServerUiState> = _uiState.asStateFlow()
 
     init {
+        loadServerDraft()
         loadRecentServers()
         collectDiscoveryFlows()
         tryAutoReconnect()
@@ -42,6 +48,40 @@ class ServerViewModel constructor(
             settingsDataStore.recentServers.collect { servers ->
                 _uiState.update { it.copy(recentServers = servers) }
             }
+        }
+    }
+
+    private fun loadServerDraft() {
+        viewModelScope.launch {
+            val draft = settingsDataStore.getServerDraft() ?: return@launch
+            // Restore only into a pristine form — never clobber what the user is already typing.
+            _uiState.update { current ->
+                if (current.remoteUrl.isNotBlank()) {
+                    current
+                } else {
+                    current.copy(
+                        remoteUrl = draft.url,
+                        authMode = draft.authMode,
+                        oidcIssuer = draft.oidcIssuer,
+                        oidcClientId = draft.oidcClientId,
+                        allowInsecure = draft.allowInsecure,
+                    )
+                }
+            }
+        }
+    }
+
+    /** Persist the current form as a draft so a crash/process death never loses an in-progress config. */
+    private fun persistDraft() {
+        val state = _uiState.value
+        viewModelScope.launch {
+            settingsDataStore.saveServerDraft(
+                url = state.remoteUrl,
+                authMode = state.authMode,
+                oidcIssuer = state.oidcIssuer,
+                oidcClientId = state.oidcClientId,
+                allowInsecure = state.allowInsecure,
+            )
         }
     }
 
@@ -83,6 +123,7 @@ class ServerViewModel constructor(
 
     fun setRemoteUrl(url: String) {
         _uiState.update { it.copy(remoteUrl = url, error = null) }
+        persistDraft()
     }
 
     fun setUsername(username: String) {
@@ -95,6 +136,59 @@ class ServerViewModel constructor(
 
     fun setAllowInsecure(allow: Boolean) {
         _uiState.update { it.copy(allowInsecure = allow) }
+        persistDraft()
+    }
+
+    fun setAuthMode(mode: AuthMode) {
+        _uiState.update { it.copy(authMode = mode, error = null) }
+        persistDraft()
+    }
+
+    fun setOidcIssuer(issuer: String) {
+        _uiState.update { it.copy(oidcIssuer = issuer) }
+        persistDraft()
+    }
+
+    fun setOidcClientId(clientId: String) {
+        _uiState.update { it.copy(oidcClientId = clientId) }
+        persistDraft()
+    }
+
+    /** Build the AppAuth login intent for the current OIDC settings; the UI launches it. */
+    suspend fun buildOidcLoginIntent(): Intent? {
+        val state = _uiState.value
+        if (state.oidcIssuer.isBlank() || state.oidcClientId.isBlank()) {
+            _uiState.update { it.copy(error = "Enter OIDC issuer and client id first") }
+            return null
+        }
+        return runCatching {
+            oidcAuthManager.buildLoginIntent(
+                issuer = state.oidcIssuer.trim(),
+                clientId = state.oidcClientId.trim(),
+                redirectUri = OidcAuthManager.redirectUri(BuildConfig.APPLICATION_ID),
+            )
+        }.onFailure { e ->
+            AppLog.e(TAG, "OIDC discovery failed", e)
+            _uiState.update { it.copy(error = "OIDC discovery failed: ${e.message}") }
+        }.getOrNull()
+    }
+
+    /** Handle the AppAuth redirect result: exchange code for tokens, mark logged in. */
+    fun completeOidcLogin(data: Intent) {
+        viewModelScope.launch {
+            val serverUrl = ServerUrl.normalizeConnectUrl(_uiState.value.remoteUrl)
+            if (serverUrl == null) {
+                _uiState.update { it.copy(error = "Enter a valid server URL before logging in") }
+                return@launch
+            }
+            oidcAuthManager.completeLogin(serverUrl, data).fold(
+                onSuccess = { _uiState.update { it.copy(oidcLoggedIn = true, error = null) } },
+                onFailure = { e ->
+                    AppLog.e(TAG, "OIDC login failed", e)
+                    _uiState.update { it.copy(oidcLoggedIn = false, error = "Login failed: ${e.message}") }
+                },
+            )
+        }
     }
 
     fun connectToRemote() {
@@ -123,9 +217,16 @@ class ServerViewModel constructor(
                 name = "Remote Server",
                 isLocal = false,
                 username = state.username.takeIf { it.isNotBlank() },
-                allowInsecure = state.allowInsecure
+                allowInsecure = state.allowInsecure,
+                authMode = state.authMode,
+                oidcIssuer = state.oidcIssuer.takeIf { it.isNotBlank() },
+                oidcClientId = state.oidcClientId.takeIf { it.isNotBlank() }
             )
-            val password = state.password.takeIf { it.isNotBlank() }
+            val password = if (state.authMode == AuthMode.BASIC) {
+                state.password.takeIf { it.isNotBlank() }
+            } else {
+                null
+            }
 
             val result = connectionManager.connect(config, password)
 
@@ -242,6 +343,10 @@ data class ServerUiState(
     val username: String = "opencode",
     val password: String = "",
     val allowInsecure: Boolean = false,
+    val authMode: AuthMode = AuthMode.BASIC,
+    val oidcIssuer: String = "",
+    val oidcClientId: String = "",
+    val oidcLoggedIn: Boolean = false,
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
     val error: String? = null,

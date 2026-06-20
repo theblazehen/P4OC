@@ -1,5 +1,7 @@
 package dev.blazelight.p4oc.ui.screens.server
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -29,12 +31,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.RecentServer
+import dev.blazelight.p4oc.core.network.AuthMode
 import dev.blazelight.p4oc.core.network.DiscoveredServer
 import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +51,18 @@ fun ServerScreen(
 ) {
     val theme = LocalOpenCodeTheme.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val scope = rememberCoroutineScope()
+    val oidcLoginLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        result.data?.let(viewModel::completeOidcLogin)
+    }
+    val onOidcLogin: () -> Unit = {
+        scope.launch {
+            viewModel.buildOidcLoginIntent()?.let(oidcLoginLauncher::launch)
+        }
+    }
 
     // Start/stop mDNS discovery with screen lifecycle
     DisposableEffect(Unit) {
@@ -137,6 +153,14 @@ fun ServerScreen(
                 onUsernameChange = viewModel::setUsername,
                 onPasswordChange = viewModel::setPassword,
                 onAllowInsecureChange = viewModel::setAllowInsecure,
+                authMode = uiState.authMode,
+                oidcIssuer = uiState.oidcIssuer,
+                oidcClientId = uiState.oidcClientId,
+                oidcLoggedIn = uiState.oidcLoggedIn,
+                onAuthModeChange = viewModel::setAuthMode,
+                onOidcIssuerChange = viewModel::setOidcIssuer,
+                onOidcClientIdChange = viewModel::setOidcClientId,
+                onOidcLogin = onOidcLogin,
                 onConnect = viewModel::connectToRemote
             )
 
@@ -181,6 +205,14 @@ private fun RemoteServerSection(
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onAllowInsecureChange: (Boolean) -> Unit,
+    authMode: AuthMode,
+    oidcIssuer: String,
+    oidcClientId: String,
+    oidcLoggedIn: Boolean,
+    onAuthModeChange: (AuthMode) -> Unit,
+    onOidcIssuerChange: (String) -> Unit,
+    onOidcClientIdChange: (String) -> Unit,
+    onOidcLogin: () -> Unit,
     onConnect: () -> Unit
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -225,45 +257,112 @@ private fun RemoteServerSection(
                 )
             )
 
-            OutlinedTextField(
-                value = username,
-                onValueChange = onUsernameChange,
-                label = { Text(stringResource(R.string.field_username), fontFamily = FontFamily.Monospace) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RectangleShape,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = theme.accent,
-                    unfocusedBorderColor = theme.border
-                )
-            )
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = onPasswordChange,
-                label = { Text(stringResource(R.string.field_password), fontFamily = FontFamily.Monospace) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = if (passwordVisible) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                shape = RectangleShape,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = theme.accent,
-                    unfocusedBorderColor = theme.border
-                ),
-                trailingIcon = {
+            // Authentication mode
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                listOf(AuthMode.BASIC to "BASIC", AuthMode.OIDC to "OIDC").forEach { (mode, label) ->
                     Text(
-                        text = if (passwordVisible) "◉" else "○",
-                        color = theme.textMuted,
+                        text = if (authMode == mode) "[$label]" else " $label ",
                         fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.clickable(role = Role.Button) { passwordVisible = !passwordVisible }
+                        color = if (authMode == mode) theme.accent else theme.textMuted,
+                        modifier = Modifier
+                            .clickable(role = Role.Tab) { onAuthModeChange(mode) }
+                            .testTag("auth_mode_$label")
                     )
                 }
-            )
+            }
+
+            if (authMode == AuthMode.BASIC) {
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = onUsernameChange,
+                    label = { Text(stringResource(R.string.field_username), fontFamily = FontFamily.Monospace) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RectangleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = theme.accent,
+                        unfocusedBorderColor = theme.border
+                    )
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    label = { Text(stringResource(R.string.field_password), fontFamily = FontFamily.Monospace) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (passwordVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    shape = RectangleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = theme.accent,
+                        unfocusedBorderColor = theme.border
+                    ),
+                    trailingIcon = {
+                        Text(
+                            text = if (passwordVisible) "◉" else "○",
+                            color = theme.textMuted,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.clickable(role = Role.Button) { passwordVisible = !passwordVisible }
+                        )
+                    }
+                )
+            } else {
+                OutlinedTextField(
+                    value = oidcIssuer,
+                    onValueChange = onOidcIssuerChange,
+                    label = { Text("OIDC issuer URL", fontFamily = FontFamily.Monospace) },
+                    placeholder = {
+                        Text("https://idp.example.com/realms/sol", fontFamily = FontFamily.Monospace)
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("oidc_issuer_input"),
+                    shape = RectangleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = theme.accent,
+                        unfocusedBorderColor = theme.border
+                    )
+                )
+
+                OutlinedTextField(
+                    value = oidcClientId,
+                    onValueChange = onOidcClientIdChange,
+                    label = { Text("OIDC client id", fontFamily = FontFamily.Monospace) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("oidc_client_input"),
+                    shape = RectangleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = theme.accent,
+                        unfocusedBorderColor = theme.border
+                    )
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button) { onOidcLogin() }
+                        .padding(vertical = Spacing.sm)
+                        .testTag("oidc_login_button"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    Text(
+                        text = if (oidcLoggedIn) "[✓]" else "[→]",
+                        fontFamily = FontFamily.Monospace,
+                        color = if (oidcLoggedIn) theme.success else theme.accent
+                    )
+                    Text(
+                        text = if (oidcLoggedIn) "Logged in — tap to re-login" else "Login with identity provider",
+                        fontFamily = FontFamily.Monospace,
+                        color = theme.text,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
 
             Row(
                 modifier = Modifier

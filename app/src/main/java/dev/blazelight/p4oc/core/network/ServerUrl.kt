@@ -47,6 +47,9 @@ object ServerUrl {
         val formattedHost = if (':' in host) "[$host]" else host
         val port = when {
             hasExplicitPort(sanitizedCandidate) -> parsed.port
+            // An explicit https:// without a port means a reverse-proxied server on the standard TLS
+            // port, not raw opencode on 4096. Bare host / http:// still default to opencode's port.
+            scheme == "https" -> 443
             else -> DEFAULT_PORT
         }
         val path = parsed.encodedPath

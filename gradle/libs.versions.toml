@@ -35,6 +35,8 @@ navigation = "2.9.7"
 okhttp = "5.3.2"
 retrofit = "3.0.0"
 security-crypto = "1.1.0-alpha06"
+# OIDC / OAuth2 (Authorization Code + PKCE + token refresh)
+appauth = "0.11.1"
 splashscreen = "1.2.0"
 # Sora Editor (LGPL-2.1 — used unmodified via public APIs)
 sora-editor = "0.23.6"
@@ -94,6 +96,7 @@ okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 retrofit-serialization = { module = "com.squareup.retrofit2:converter-kotlinx-serialization", version.ref = "retrofit" }
 security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+appauth = { module = "net.openid:appauth", version.ref = "appauth" }
 # Sora Editor
 sora-editor = { module = "io.github.Rosemoe.sora-editor:editor", version.ref = "sora-editor" }
 sora-editor-language-textmate = { module = "io.github.Rosemoe.sora-editor:language-textmate", version.ref = "sora-editor" }
