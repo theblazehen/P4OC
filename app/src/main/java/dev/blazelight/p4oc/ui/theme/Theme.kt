@@ -10,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -43,12 +44,26 @@ val TuiShapes = Shapes(
 fun PocketCodeTheme(
     themeName: String = "catppuccin",
     darkTheme: Boolean = isSystemInDarkTheme(),
+    oledBlack: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
 
-    val openCodeTheme = remember(context, themeName, darkTheme) {
+    val loadedTheme = remember(context, themeName, darkTheme) {
         ThemeLoader.loadBundledThemeCached(context, themeName, darkTheme)
+    }
+    // OLED/AMOLED: on dark themes, push every background surface to pure black so
+    // unlit pixels draw zero power. Foreground/accent tokens stay untouched.
+    val openCodeTheme = remember(loadedTheme, oledBlack) {
+        if (oledBlack && loadedTheme.isDark) {
+            loadedTheme.copy(
+                background = Color.Black,
+                backgroundPanel = Color.Black,
+                backgroundElement = Color.Black,
+            )
+        } else {
+            loadedTheme
+        }
     }
 
     val colorScheme = remember(openCodeTheme) {

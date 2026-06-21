@@ -38,6 +38,7 @@ class SettingsDataStore constructor(
         private val KEY_ALLOW_INSECURE = booleanPreferencesKey("allow_insecure_tls")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_THEME_NAME = stringPreferencesKey("theme_name")
+        private val KEY_OLED_BLACK = booleanPreferencesKey("oled_black")
 
         const val DEFAULT_THEME_NAME = "catppuccin"
         private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
@@ -138,6 +139,11 @@ class SettingsDataStore constructor(
         prefs[KEY_THEME_NAME] ?: DEFAULT_THEME_NAME
     }
 
+    /** AMOLED/OLED mode: forces pure-black backgrounds on dark themes to save power. */
+    val oledBlack: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_OLED_BLACK] ?: false
+    }
+
     val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_ONBOARDING_COMPLETED] ?: false
     }
@@ -183,6 +189,12 @@ class SettingsDataStore constructor(
     suspend fun setThemeName(name: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_THEME_NAME] = name
+        }
+    }
+
+    suspend fun setOledBlack(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_OLED_BLACK] = enabled
         }
     }
 

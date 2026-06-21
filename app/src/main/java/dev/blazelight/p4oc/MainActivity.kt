@@ -31,13 +31,14 @@ class MainActivity : ComponentActivity() {
             val themeName by settingsDataStore.themeName.collectAsStateWithLifecycle(
                 initialValue = SettingsDataStore.DEFAULT_THEME_NAME
             )
+            val oledBlack by settingsDataStore.oledBlack.collectAsStateWithLifecycle(initialValue = false)
             val darkTheme = when (themeMode) {
                 "dark" -> true
                 "light" -> false
                 else -> isSystemInDarkTheme()
             }
 
-            PocketCodeTheme(themeName = themeName, darkTheme = darkTheme) {
+            PocketCodeTheme(themeName = themeName, darkTheme = darkTheme, oledBlack = oledBlack) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = LocalOpenCodeTheme.current.background
