@@ -50,6 +50,12 @@ class SettingsDataStore constructor(
         private val KEY_DRAFT_OIDC_ISSUER = stringPreferencesKey("draft_oidc_issuer")
         private val KEY_DRAFT_OIDC_CLIENT = stringPreferencesKey("draft_oidc_client")
         private val KEY_DRAFT_ALLOW_INSECURE = booleanPreferencesKey("draft_allow_insecure")
+
+        // Last successful connection auth (for auto-reconnect) — persisted atomically with the URL
+        // so an OIDC server reconnects in OIDC mode (not as BASIC) on next launch.
+        private val KEY_LAST_AUTH_MODE = stringPreferencesKey("last_auth_mode")
+        private val KEY_LAST_OIDC_ISSUER = stringPreferencesKey("last_oidc_issuer")
+        private val KEY_LAST_OIDC_CLIENT = stringPreferencesKey("last_oidc_client")
         private val KEY_TAB_STATE = stringPreferencesKey("tab_state_v1")
 
         // Visual settings keys
@@ -262,6 +268,17 @@ class SettingsDataStore constructor(
                 prefs.remove(KEY_USERNAME)
             }
             prefs[KEY_ALLOW_INSECURE] = config.allowInsecure
+            prefs[KEY_LAST_AUTH_MODE] = config.authMode.name
+            if (config.oidcIssuer != null) {
+                prefs[KEY_LAST_OIDC_ISSUER] = config.oidcIssuer
+            } else {
+                prefs.remove(KEY_LAST_OIDC_ISSUER)
+            }
+            if (config.oidcClientId != null) {
+                prefs[KEY_LAST_OIDC_CLIENT] = config.oidcClientId
+            } else {
+                prefs.remove(KEY_LAST_OIDC_CLIENT)
+            }
             prefs[KEY_ONBOARDING_COMPLETED] = true
         }
         // Store password encrypted
@@ -282,12 +299,18 @@ class SettingsDataStore constructor(
     suspend fun getLastConnection(): Pair<dev.blazelight.p4oc.core.network.ServerConfig, String?>? {
         val prefs = context.dataStore.data.first()
         val url = prefs[KEY_SERVER_URL] ?: return null
+        val authMode = runCatching {
+            dev.blazelight.p4oc.core.network.AuthMode.valueOf(prefs[KEY_LAST_AUTH_MODE].orEmpty())
+        }.getOrDefault(dev.blazelight.p4oc.core.network.AuthMode.BASIC)
         val config = dev.blazelight.p4oc.core.network.ServerConfig(
             url = url,
             name = prefs[KEY_SERVER_NAME] ?: "",
             isLocal = prefs[KEY_IS_LOCAL_SERVER] ?: false,
             username = prefs[KEY_USERNAME],
-            allowInsecure = prefs[KEY_ALLOW_INSECURE] ?: false
+            allowInsecure = prefs[KEY_ALLOW_INSECURE] ?: false,
+            authMode = authMode,
+            oidcIssuer = prefs[KEY_LAST_OIDC_ISSUER]?.takeIf { it.isNotBlank() },
+            oidcClientId = prefs[KEY_LAST_OIDC_CLIENT]?.takeIf { it.isNotBlank() }
         )
         val password = credentialStore.getActivePassword()
         return Pair(config, password)
@@ -300,6 +323,9 @@ class SettingsDataStore constructor(
             prefs.remove(KEY_IS_LOCAL_SERVER)
             prefs.remove(KEY_USERNAME)
             prefs.remove(KEY_ALLOW_INSECURE)
+            prefs.remove(KEY_LAST_AUTH_MODE)
+            prefs.remove(KEY_LAST_OIDC_ISSUER)
+            prefs.remove(KEY_LAST_OIDC_CLIENT)
         }
         credentialStore.clearActivePassword()
     }
