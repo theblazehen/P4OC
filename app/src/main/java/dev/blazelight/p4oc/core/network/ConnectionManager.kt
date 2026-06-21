@@ -56,6 +56,10 @@ class ConnectionManager constructor(
     private var sseForwardingJob: Job? = null
     private var sseEscalationJob: Job? = null
     private var generationCounter: Long = 0L
+    // Set on app background; the next foreground forces an SSE reconnect because the socket is
+    // likely dead after a process freeze (lock/unlock) even when the state still reads Connected.
+    @Volatile
+    private var wasBackgrounded = false
     private val sharedConnectionPool = ConnectionPool(
         maxIdleConnections = 10,
         keepAliveDuration = 5,
@@ -249,12 +253,30 @@ class ConnectionManager constructor(
 
     fun onAppForegrounded() {
         val connection = _connection.value ?: return
+        val backgrounded = wasBackgrounded
+        wasBackgrounded = false
         val state = _connectionState.value
-        if (state is ConnectionState.Connected || state is ConnectionState.Connecting) return
+        // A connect/reconnect is already in flight — let it finish.
+        if (state is ConnectionState.Connecting) return
+        // After a real background→foreground gap the SSE socket may be HALF-OPEN: the device froze
+        // the process, the socket died without a FIN, no onError/onClosed fired, so the state still
+        // reads Connected. Don't trust it — force a fresh SSE reconnect. Skip only when Connected
+        // AND there was no background gap (initial composition / in-app navigation re-entry).
+        if (state is ConnectionState.Connected && !backgrounded) return
 
-        AppLog.d(TAG, "Foreground resume: SSE state is $state, refreshing SSE reconnect owner")
+        AppLog.d(TAG, "Foreground resume (state=$state, backgrounded=$backgrounded): forcing SSE reconnect")
         connection.eventSource.resetConsecutiveErrors()
         reconnectSse(reason = "app_foreground")
+    }
+
+    /**
+     * Mark that the app went to background. The next [onAppForegrounded] then forces an SSE
+     * reconnect even if the state still reads Connected, because a frozen process leaves the SSE
+     * socket half-open (dead but never erroring under readTimeout=0).
+     */
+    fun onAppBackgrounded() {
+        wasBackgrounded = true
+        AppLog.d(TAG, "App backgrounded; next foreground will force an SSE reconnect")
     }
 
     fun disconnect() {

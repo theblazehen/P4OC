@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.awaitCancellation
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
@@ -80,6 +81,13 @@ fun MainTabScreen(
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             connectionManager.onAppForegrounded()
+            // repeatOnLifecycle cancels this block when the app drops below STARTED (lock / app
+            // switch); the finally then records the background so the next STARTED forces a reconnect.
+            try {
+                awaitCancellation()
+            } finally {
+                connectionManager.onAppBackgrounded()
+            }
         }
     }
 
