@@ -3,10 +3,11 @@ package dev.blazelight.p4oc.ui.screens.chat
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -135,6 +136,13 @@ fun ChatScreen(
     var showFilePicker by remember { mutableStateOf(false) }
     var showRevertDialog by remember { mutableStateOf<String?>(null) }
 
+    // In-chat search: query + current hit, reset whenever the open session changes.
+    var showSearch by remember(uiState.session?.id) { mutableStateOf(false) }
+    var searchQuery by remember(uiState.session?.id) { mutableStateOf("") }
+    var currentMatchIndex by remember(uiState.session?.id) { mutableStateOf(0) }
+    val messageBlocks = remember(messages) { groupMessagesIntoBlocks(messages) }
+    val searchMatches = remember(messageBlocks, searchQuery) { findChatMatches(messageBlocks, searchQuery) }
+
     // Scroll UX state: follow new tail content only while the user remains pinned to bottom.
     var shouldFollowTail by remember(uiState.session?.id) { mutableStateOf(true) }
     var hasNewContentWhileAway by remember { mutableStateOf(false) }
@@ -160,9 +168,14 @@ fun ChatScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     BackHandler {
-        focusManager.clearFocus()
-        keyboardController?.hide()
-        onNavigateBack()
+        if (showSearch) {
+            showSearch = false
+            searchQuery = ""
+        } else {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onNavigateBack()
+        }
     }
 
     // Match the sticky follow-tail model: only update follow state after the user's scroll settles.
@@ -213,6 +226,17 @@ fun ChatScreen(
         }
     }
 
+    // Keep the active hit in range when matches change, and scroll it into view.
+    LaunchedEffect(searchMatches.size) {
+        if (currentMatchIndex >= searchMatches.size) currentMatchIndex = 0
+    }
+    LaunchedEffect(currentMatchIndex, searchMatches) {
+        searchMatches.getOrNull(currentMatchIndex)?.let { match ->
+            shouldFollowTail = false
+            listState.scrollToItem(match.blockIndex)
+        }
+    }
+
     Scaffold(
         topBar = {
             ChatTopBar(
@@ -221,6 +245,10 @@ fun ChatScreen(
                 onBack = onNavigateBack,
                 onTerminal = onOpenTerminal,
                 onFiles = onOpenFiles,
+                onSearch = {
+                    showSearch = true
+                    currentMatchIndex = 0
+                },
                 onCommands = {
                     viewModel.refreshCommandsIfNeeded(force = true)
                     showCommandPalette = true
@@ -295,11 +323,38 @@ fun ChatScreen(
             }
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            if (showSearch) {
+                ChatSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    matchCount = searchMatches.size,
+                    currentIndex = currentMatchIndex,
+                    onPrev = {
+                        if (searchMatches.isNotEmpty()) {
+                            currentMatchIndex = (currentMatchIndex - 1 + searchMatches.size) % searchMatches.size
+                        }
+                    },
+                    onNext = {
+                        if (searchMatches.isNotEmpty()) {
+                            currentMatchIndex = (currentMatchIndex + 1) % searchMatches.size
+                        }
+                    },
+                    onClose = {
+                        showSearch = false
+                        searchQuery = ""
+                    },
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+            ) {
             // Revert active banner
             uiState.session?.revert?.let {
                 val theme = LocalOpenCodeTheme.current
@@ -334,10 +389,6 @@ fun ChatScreen(
             if (!hasContent && !uiState.isLoading) {
                 EmptyChatView(modifier = Modifier.align(Alignment.Center))
             } else {
-                val messageBlocks = remember(messages) {
-                    groupMessagesIntoBlocks(messages)
-                }
-
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().testTag("message_list"),
@@ -345,25 +396,34 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.hairline),
                 ) {
                     // All messages - stable keys ensure only changed items recompose
-                    items(
+                    itemsIndexed(
                         items = messageBlocks,
-                        key = { block ->
+                        key = { _, block ->
                             when (block) {
                                 is MessageBlock.UserBlock -> block.message.message.id
                                 is MessageBlock.AssistantBlock -> block.messages.first().message.id
                             }
                         }
-                    ) { block ->
-                        MessageBlockView(
-                            block = block,
-                            onToolApprove = { viewModel.respondToPermission(it, "once") },
-                            onToolDeny = { viewModel.respondToPermission(it, "reject") },
-                            onToolAlways = { viewModel.respondToPermission(it, "always") },
-                            onOpenSubSession = onOpenSubSession,
-                            defaultToolWidgetState = defaultToolWidgetState,
-                            pendingPermissionsByCallId = pendingPermissionsByCallId,
-                            onRevert = { messageId -> showRevertDialog = messageId }
-                        )
+                    ) { index, block ->
+                        val isCurrentMatch = showSearch && searchQuery.isNotBlank() &&
+                            searchMatches.getOrNull(currentMatchIndex)?.blockIndex == index
+                        val highlight = if (isCurrentMatch) {
+                            Modifier.background(LocalOpenCodeTheme.current.accent.copy(alpha = 0.08f))
+                        } else {
+                            Modifier
+                        }
+                        Box(modifier = highlight) {
+                            MessageBlockView(
+                                block = block,
+                                onToolApprove = { viewModel.respondToPermission(it, "once") },
+                                onToolDeny = { viewModel.respondToPermission(it, "reject") },
+                                onToolAlways = { viewModel.respondToPermission(it, "always") },
+                                onOpenSubSession = onOpenSubSession,
+                                defaultToolWidgetState = defaultToolWidgetState,
+                                pendingPermissionsByCallId = pendingPermissionsByCallId,
+                                onRevert = { messageId -> showRevertDialog = messageId }
+                            )
+                        }
                     }
 
                     pendingQuestion?.let { questionRequest ->
@@ -423,6 +483,7 @@ fun ChatScreen(
                     .align(Alignment.BottomEnd)
                     .padding(end = Spacing.xl, bottom = Spacing.md)
             )
+            }
         }
     }
 
@@ -498,6 +559,7 @@ private fun ChatTopBar(
     onBack: () -> Unit,
     onTerminal: () -> Unit,
     onFiles: () -> Unit,
+    onSearch: () -> Unit,
     onCommands: () -> Unit,
     onViewChanges: () -> Unit,
     branchName: String? = null,
@@ -561,6 +623,13 @@ private fun ChatTopBar(
                     expanded = showOverflow,
                     onDismissRequest = { showOverflow = false }
                 ) {
+                    TuiDropdownMenuItem(
+                        text = "⌕ ${stringResource(R.string.chat_search_action)}",
+                        onClick = {
+                            showOverflow = false
+                            onSearch()
+                        }
+                    )
                     TuiDropdownMenuItem(
                         text = "± ${stringResource(R.string.sessions_view_changes)}",
                         onClick = {
