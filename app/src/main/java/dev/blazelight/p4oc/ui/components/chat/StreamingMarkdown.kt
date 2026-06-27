@@ -349,8 +349,16 @@ private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): Annotate
                     appendInline(text.substring(linkStart, linkStart + 1), colors)
                     index = linkStart + 1
                 } else {
-                    withLink(LinkAnnotation.Url(text.substring(openUrl + 1, closeUrl), linkStyles(colors))) {
-                        append(text.substring(linkStart + 1, close))
+                    val label = text.substring(linkStart + 1, close)
+                    val url = text.substring(openUrl + 1, closeUrl)
+                    if (url.isHttpUrl()) {
+                        withLink(LinkAnnotation.Url(url, linkStyles(colors))) {
+                            append(label)
+                        }
+                    } else {
+                        withStyle(SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)) {
+                            append(label)
+                        }
                     }
                     index = closeUrl + 1
                 }
@@ -365,6 +373,8 @@ private const val URL_TRAILING_TRIM = ".,;:!?\"'”’"
 private fun linkStyles(colors: MarkdownRenderColors) = TextLinkStyles(
     style = SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline),
 )
+
+private fun String.isHttpUrl(): Boolean = startsWith("https://") || startsWith("http://")
 
 private fun AnnotatedString.Builder.appendInline(text: String, colors: MarkdownRenderColors) {
     if (text.isEmpty()) return

@@ -140,7 +140,7 @@ fun ChatScreen(
     // Scroll UX state: follow new tail content only while the user remains pinned to bottom.
     var shouldFollowTail by remember(uiState.session?.id) { mutableStateOf(true) }
     var didInitialTailScroll by remember(uiState.session?.id) { mutableStateOf(false) }
-    var hasNewContentWhileAway by remember { mutableStateOf(false) }
+    var hasNewContentWhileAway by remember(uiState.session?.id) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     // Derived state: check if the bottom edge of the last rendered item is visible.
@@ -194,9 +194,9 @@ fun ChatScreen(
 
     // Scroll on new messages, new parts, or streaming text/reasoning growth.
     LaunchedEffect(messageCount, tailContentVersion, isBusy, pendingQuestionId) {
-        if (messages.isNotEmpty() || pendingQuestionId != null) {
+        if (didInitialTailScroll && (messages.isNotEmpty() || pendingQuestionId != null)) {
             if (shouldFollowTail) {
-                listState.scrollChatToBottom(animated = true)
+                listState.scrollChatToBottom()
             } else {
                 hasNewContentWhileAway = true
             }
@@ -407,7 +407,7 @@ fun ChatScreen(
                 }
             }
 
-            // Jump to bottom button - shows when scrolled away during streaming
+            // Jump to bottom button - shows when scrolled away from the tail.
             JumpToBottomButton(
                 visible = !shouldFollowTail,
                 hasNewContent = hasNewContentWhileAway,
@@ -635,14 +635,9 @@ private fun EmptyChatView(modifier: Modifier = Modifier) {
     }
 }
 
-private suspend fun LazyListState.scrollChatToBottom(animated: Boolean = false) {
+private suspend fun LazyListState.scrollChatToBottom() {
     val target = layoutInfo.totalItemsCount - 1
-    if (target < 0) return
-    if (animated) {
-        animateScrollToItem(target, Int.MAX_VALUE)
-    } else {
-        scrollToItem(target, Int.MAX_VALUE)
-    }
+    if (target >= 0) scrollToItem(target, Int.MAX_VALUE)
 }
 
 // MessageBlock, groupMessagesIntoBlocks, and MessageBlockView are now in MessageBlockUtils.kt

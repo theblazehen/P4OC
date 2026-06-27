@@ -55,36 +55,41 @@ class FilePickerManager(
             val workspaceKey = uploadDirectoryWorkspaceKey()
             val rememberedPath = settingsDataStore.lastUploadDirectoriesByWorkspace.first()[workspaceKey]
             val effectivePath = path ?: rememberedPath?.ifBlank { null } ?: "."
-            val result = safeApiCall { workspaceClient.listFiles(effectivePath) }
-            when (result) {
-                is ApiResult.Success -> {
-                    _pickerError.value = null
-                    val files = result.data.map { dto ->
-                        FileNode(
-                            name = dto.name,
-                            path = dto.path,
-                            absolute = dto.absolute,
-                            type = dto.type,
-                            ignored = dto.ignored
-                        )
-                    }
-                    _pickerFiles.value = files
-                    val resolved = if (effectivePath == ".") "" else effectivePath
-                    _pickerCurrentPath.value = resolved
-                    _isPickerLoading.value = false
-                    settingsDataStore.setLastUploadDirectory(workspaceKey, resolved)
+            val result = loadPickerFilesForPath(workspaceKey, effectivePath)
+            if (result is ApiResult.Error && path == null && effectivePath != ".") {
+                AppLog.w(TAG, "Remembered upload folder '$effectivePath' unavailable; falling back to root")
+                settingsDataStore.setLastUploadDirectory(workspaceKey, null)
+                loadPickerFilesForPath(workspaceKey, ".")
+            }
+        }
+    }
+
+    private suspend fun loadPickerFilesForPath(workspaceKey: String, path: String): ApiResult<Unit> {
+        val result = safeApiCall { workspaceClient.listFiles(path) }
+        when (result) {
+            is ApiResult.Success -> {
+                _pickerError.value = null
+                val files = result.data.map { dto ->
+                    FileNode(
+                        name = dto.name,
+                        path = dto.path,
+                        absolute = dto.absolute,
+                        type = dto.type,
+                        ignored = dto.ignored
+                    )
                 }
-                is ApiResult.Error -> {
-                    AppLog.w(TAG, "Failed to load files for path=$effectivePath: ${result.message}")
-                    if (path == null && effectivePath != ".") {
-                        AppLog.w(TAG, "Remembered upload folder '$effectivePath' unavailable; falling back to root")
-                        settingsDataStore.setLastUploadDirectory(workspaceKey, null)
-                        loadPickerFiles(".")
-                    } else {
-                        _pickerError.value = result.message
-                        _isPickerLoading.value = false
-                    }
-                }
+                _pickerFiles.value = files
+                val resolved = if (path == ".") "" else path
+                _pickerCurrentPath.value = resolved
+                _isPickerLoading.value = false
+                settingsDataStore.setLastUploadDirectory(workspaceKey, resolved)
+                return ApiResult.Success(Unit)
+            }
+            is ApiResult.Error -> {
+                AppLog.w(TAG, "Failed to load files for path=$path: ${result.message}")
+                _pickerError.value = result.message
+                _isPickerLoading.value = false
+                return result
             }
         }
     }

@@ -22,7 +22,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -65,56 +64,37 @@ fun ChatSettingsScreen(
                 .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            ChatToggleRow(
-                icon = Icons.AutoMirrored.Filled.KeyboardReturn,
-                title = stringResource(R.string.chat_settings_enter_to_send),
-                description = stringResource(R.string.chat_settings_enter_to_send_desc),
-                checked = settings.enterToSend,
-                onCheckedChange = { viewModel.toggleEnterToSend() },
-            )
-
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
+                    contentDescription = null,
+                    modifier = Modifier.size(Sizing.iconMd),
+                    tint = theme.accent,
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.chat_settings_enter_to_send),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = theme.text,
+                    )
+                    Text(
+                        text = stringResource(R.string.chat_settings_enter_to_send_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = theme.textMuted,
+                    )
+                }
+                TuiSwitch(
+                    checked = settings.enterToSend,
+                    onCheckedChange = { viewModel.toggleEnterToSend() },
+                )
+            }
 
             Spacer(Modifier.height(Spacing.lg))
         }
-    }
-}
-
-@Composable
-private fun ChatToggleRow(
-    icon: ImageVector,
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    val theme = LocalOpenCodeTheme.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(Sizing.iconMd),
-            tint = theme.accent,
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = theme.text,
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = theme.textMuted,
-            )
-        }
-        TuiSwitch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-        )
     }
 }
 
@@ -132,10 +112,8 @@ class ChatSettingsViewModel constructor(
         }
     }
 
-    fun toggleEnterToSend() = update { it.copy(enterToSend = !it.enterToSend) }
-
-    private fun update(transform: (ChatSettings) -> ChatSettings) {
-        val updated = transform(_settings.value)
+    fun toggleEnterToSend() {
+        val updated = _settings.value.copy(enterToSend = !_settings.value.enterToSend)
         _settings.value = updated
         viewModelScope.launch { settingsDataStore.updateChatSettings(updated) }
     }
