@@ -268,12 +268,14 @@ class SessionRepositoryImpl(
             }
             if (isRecentlyResolved) continue
 
-            // Try to set pendingQuestion on the owned session
+            // Mirror live question.asked handling: first pending question is shown,
+            // additional recovered questions are queued behind it.
             updateOwnedSession(questionDto.sessionID) { state ->
-                if (state.pendingQuestion == null && state.queuedQuestions.none { it.id == questionDto.id }) {
-                    state.copy(pendingQuestion = mapQuestionRequestDtoToDomain(questionDto))
-                } else {
-                    state
+                val question = mapQuestionRequestDtoToDomain(questionDto)
+                when {
+                    state.pendingQuestion?.id == question.id || state.queuedQuestions.any { it.id == question.id } -> state
+                    state.pendingQuestion == null -> state.copy(pendingQuestion = question)
+                    else -> state.copy(queuedQuestions = state.queuedQuestions + question)
                 }
             }
         }

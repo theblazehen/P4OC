@@ -250,6 +250,59 @@ class QuestionReconciliationTest {
     }
 
     @Test
+    fun `reconciliation queues additional pending questions for the same session`() = runTest {
+        val sessionId = "sess_001"
+        val firstQuestionId = "que_001"
+        val secondQuestionId = "que_002"
+        val firstQuestionDto = buildQuestionRequestDto(firstQuestionId, sessionId, "call_001")
+        val secondQuestionDto = buildQuestionRequestDto(secondQuestionId, sessionId, "call_002")
+
+        val client = FakeWorkspaceClient()
+        val repository = SessionRepositoryImpl(
+            client,
+            nowMs = { testScheduler.currentTime },
+            dispatcher = StandardTestDispatcher(testScheduler),
+            questionFetcher = { listOf(firstQuestionDto, secondQuestionDto) }
+        )
+
+        val session = Session(
+            id = sessionId,
+            projectID = "proj_001",
+            directory = "/test",
+            parentID = null,
+            title = "Test Session",
+            version = "1",
+            createdAt = 0L,
+            updatedAt = 0L,
+            compactingAt = null,
+            summary = null,
+            shareUrl = null,
+            revert = null
+        )
+        repository.acceptEvent(OpenCodeEvent.SessionCreated(session))
+
+        val toolPart = Part.Tool(
+            id = "part_001",
+            sessionID = sessionId,
+            messageID = "msg_001",
+            callID = "call_001",
+            toolName = "question",
+            state = ToolState.Running(
+                input = buildJsonObject {},
+                title = "Asking question",
+                startedAt = testScheduler.currentTime,
+                metadata = null
+            )
+        )
+        repository.acceptEvent(OpenCodeEvent.MessagePartUpdated(toolPart, null))
+        advanceUntilIdle()
+
+        val sessionState = repository.sessionUiState(SessionId(sessionId)).value
+        assertEquals(firstQuestionId, sessionState.pendingQuestion?.id)
+        assertEquals(listOf(secondQuestionId), sessionState.queuedQuestions.map { it.id })
+    }
+
+    @Test
     fun `clearQuestion with requestId records dedup id`() = runTest {
         val sessionId = "sess_001"
         val questionId = "que_001"
