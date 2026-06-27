@@ -48,8 +48,7 @@ import dev.blazelight.p4oc.ui.screens.files.upload.UploadProgressSheet
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -140,6 +139,7 @@ fun ChatScreen(
 
     // Scroll UX state: follow new tail content only while the user remains pinned to bottom.
     var shouldFollowTail by remember(uiState.session?.id) { mutableStateOf(true) }
+    var didInitialTailScroll by remember(uiState.session?.id) { mutableStateOf(false) }
     var hasNewContentWhileAway by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -203,24 +203,13 @@ fun ChatScreen(
         }
     }
 
-    // While pinned to the tail, use list layout growth as a smooth loading indicator.
-    LaunchedEffect(uiState.session?.id) {
-        snapshotFlow {
-            val layoutInfo = listState.layoutInfo
-            val last = layoutInfo.visibleItemsInfo.lastOrNull()
-            TailLayoutSnapshot(
-                totalItems = layoutInfo.totalItemsCount,
-                lastVisibleIndex = last?.index ?: -1,
-                lastVisibleBottom = last?.offset?.plus(last.size) ?: 0,
-                isLoading = uiState.isLoading,
-            )
+    // The loading screen hides the list; once the session content is visible, land at the tail.
+    LaunchedEffect(uiState.session?.id, uiState.isLoading, messageCount, pendingQuestionId) {
+        if (!didInitialTailScroll && !uiState.isLoading && (messages.isNotEmpty() || pendingQuestionId != null)) {
+            snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
+            if (shouldFollowTail) listState.scrollChatToBottom()
+            didInitialTailScroll = true
         }
-            .distinctUntilChanged()
-            .collectLatest { snapshot ->
-                if (shouldFollowTail && snapshot.totalItems > 0) {
-                    listState.scrollChatToBottom(animated = snapshot.isLoading)
-                }
-            }
     }
 
     Scaffold(
@@ -420,7 +409,7 @@ fun ChatScreen(
 
             // Jump to bottom button - shows when scrolled away during streaming
             JumpToBottomButton(
-                visible = !shouldFollowTail && uiState.isBusy,
+                visible = !shouldFollowTail,
                 hasNewContent = hasNewContentWhileAway,
                 onClick = {
                     coroutineScope.launch {
@@ -645,13 +634,6 @@ private fun EmptyChatView(modifier: Modifier = Modifier) {
         )
     }
 }
-
-private data class TailLayoutSnapshot(
-    val totalItems: Int,
-    val lastVisibleIndex: Int,
-    val lastVisibleBottom: Int,
-    val isLoading: Boolean,
-)
 
 private suspend fun LazyListState.scrollChatToBottom(animated: Boolean = false) {
     val target = layoutInfo.totalItemsCount - 1
