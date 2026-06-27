@@ -309,7 +309,7 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun sendMessage_clearsInput_andKeepsSendingUntilSseStatus() = runTest {
+    fun sendMessage_clearsInput_andMarksBusyUntilSseStatus() = runTest {
         val vm = createViewModel()
         coEvery { api.sendMessageAsync(any(), any(), any()) } returns Unit
         vm.updateInput("hello")
@@ -322,7 +322,8 @@ class ChatViewModelTest {
 
         advanceUntilIdle()
         assertEquals("", vm.uiState.value.inputText)
-        assertTrue(vm.uiState.value.isSending)
+        assertFalse(vm.uiState.value.isSending)
+        assertTrue(vm.uiState.value.isBusy)
     }
 
     @Test

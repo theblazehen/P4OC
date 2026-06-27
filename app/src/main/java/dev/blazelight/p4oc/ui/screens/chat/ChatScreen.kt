@@ -409,7 +409,7 @@ fun ChatScreen(
 
             // Jump to bottom button - shows when scrolled away from the tail.
             JumpToBottomButton(
-                visible = !shouldFollowTail,
+                visible = !isAtBottom,
                 hasNewContent = hasNewContentWhileAway,
                 onClick = {
                     coroutineScope.launch {

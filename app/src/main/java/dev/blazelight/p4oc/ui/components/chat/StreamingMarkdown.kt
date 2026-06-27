@@ -351,14 +351,12 @@ private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): Annotate
                 } else {
                     val label = text.substring(linkStart + 1, close)
                     val url = text.substring(openUrl + 1, closeUrl)
-                    if (url.isHttpUrl()) {
+                    if (url.isSafeLinkUrl()) {
                         withLink(LinkAnnotation.Url(url, linkStyles(colors))) {
                             append(label)
                         }
                     } else {
-                        withStyle(SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)) {
-                            append(label)
-                        }
+                        append(text.substring(linkStart, closeUrl + 1))
                     }
                     index = closeUrl + 1
                 }
@@ -374,7 +372,8 @@ private fun linkStyles(colors: MarkdownRenderColors) = TextLinkStyles(
     style = SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline),
 )
 
-private fun String.isHttpUrl(): Boolean = startsWith("https://") || startsWith("http://")
+private fun String.isSafeLinkUrl(): Boolean =
+    startsWith("https://") || startsWith("http://") || startsWith("mailto:")
 
 private fun AnnotatedString.Builder.appendInline(text: String, colors: MarkdownRenderColors) {
     if (text.isEmpty()) return

@@ -327,6 +327,7 @@ class ChatViewModel constructor(
             val result = sessionRepository.sendMessageAsync(SessionId(sessionId), request).await().toApiResult()
             when (result) {
                 is ApiResult.Success -> {
+                    _uiState.update { it.copy(isSending = false, isBusy = true) }
                     AppLog.d(TAG, "sendMessage: Async call succeeded, waiting for SSE events")
                 }
                 is ApiResult.Error -> {
@@ -410,6 +411,7 @@ class ChatViewModel constructor(
             val result = sessionRepository.sendMessageAsync(SessionId(sessionId), request).await().toApiResult()
             when (result) {
                 is ApiResult.Success -> {
+                    _uiState.update { it.copy(isSending = false, isBusy = true) }
                     AppLog.d(TAG, "sendQueuedMessageIfAny: Queued message sent successfully")
                 }
                 is ApiResult.Error -> {
