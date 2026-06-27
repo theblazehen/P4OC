@@ -75,10 +75,7 @@ class SettingsDataStore constructor(
 
         // Chat settings keys
         private val KEY_CHAT_ENTER_TO_SEND = booleanPreferencesKey("chat_enter_to_send")
-        private val KEY_CHAT_SCROLL_TO_BOTTOM_ON_OPEN = booleanPreferencesKey("chat_scroll_to_bottom_on_open")
-        private val KEY_CHAT_REMEMBER_UPLOAD_DIR = booleanPreferencesKey("chat_remember_upload_dir")
-        private val KEY_CHAT_LAST_UPLOAD_DIR = stringPreferencesKey("chat_last_upload_dir")
-        private val KEY_CHAT_LINKIFY_URLS = booleanPreferencesKey("chat_linkify_urls")
+        private val KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE = stringPreferencesKey("chat_last_upload_dir_by_workspace")
 
         // Connection settings keys
         private val KEY_AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
@@ -425,36 +422,40 @@ class SettingsDataStore constructor(
     val chatSettings: Flow<ChatSettings> = context.dataStore.data.map { prefs ->
         ChatSettings(
             enterToSend = prefs[KEY_CHAT_ENTER_TO_SEND] ?: false,
-            scrollToBottomOnOpen = prefs[KEY_CHAT_SCROLL_TO_BOTTOM_ON_OPEN] ?: false,
-            rememberUploadDirectory = prefs[KEY_CHAT_REMEMBER_UPLOAD_DIR] ?: false,
-            linkifyUrls = prefs[KEY_CHAT_LINKIFY_URLS] ?: false,
         )
     }
 
     suspend fun updateChatSettings(settings: ChatSettings) {
         context.dataStore.edit { prefs ->
             prefs[KEY_CHAT_ENTER_TO_SEND] = settings.enterToSend
-            prefs[KEY_CHAT_SCROLL_TO_BOTTOM_ON_OPEN] = settings.scrollToBottomOnOpen
-            prefs[KEY_CHAT_REMEMBER_UPLOAD_DIR] = settings.rememberUploadDirectory
-            prefs[KEY_CHAT_LINKIFY_URLS] = settings.linkifyUrls
         }
     }
 
-    /**
-     * The folder the file picker was last browsed to, persisted across restarts so the
-     * picker can reopen where the user left off (see [ChatSettings.rememberUploadDirectory]).
-     * Empty/blank means the workspace root.
-     */
-    val lastUploadDirectory: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[KEY_CHAT_LAST_UPLOAD_DIR]
+    val lastUploadDirectoriesByWorkspace: Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE]
+            ?.takeIf { it.isNotBlank() }
+            ?.let { encoded ->
+                runCatching { json.decodeFromString<Map<String, String>>(encoded) }.getOrDefault(emptyMap())
+            }
+            ?: emptyMap()
     }
 
-    suspend fun setLastUploadDirectory(path: String?) {
+    suspend fun setLastUploadDirectory(workspaceKey: String, path: String?) {
+        if (workspaceKey.isBlank()) return
         context.dataStore.edit { prefs ->
-            if (path.isNullOrBlank()) {
-                prefs.remove(KEY_CHAT_LAST_UPLOAD_DIR)
+            val current = prefs[KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE]
+                ?.takeIf { it.isNotBlank() }
+                ?.let { encoded -> runCatching { json.decodeFromString<Map<String, String>>(encoded) }.getOrNull() }
+                .orEmpty()
+            val updated = if (path.isNullOrBlank()) {
+                current - workspaceKey
             } else {
-                prefs[KEY_CHAT_LAST_UPLOAD_DIR] = path
+                current + (workspaceKey to path)
+            }
+            if (updated.isEmpty()) {
+                prefs.remove(KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE)
+            } else {
+                prefs[KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE] = json.encodeToString(updated)
             }
         }
     }
@@ -641,9 +642,6 @@ data class VisualSettings(
 
 data class ChatSettings(
     val enterToSend: Boolean = false,
-    val scrollToBottomOnOpen: Boolean = false,
-    val rememberUploadDirectory: Boolean = false,
-    val linkifyUrls: Boolean = false,
 )
 
 data class NotificationSettings(

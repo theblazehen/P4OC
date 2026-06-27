@@ -13,9 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -76,29 +73,6 @@ fun ChatSettingsScreen(
                 onCheckedChange = { viewModel.toggleEnterToSend() },
             )
 
-            ChatToggleRow(
-                icon = Icons.Filled.VerticalAlignBottom,
-                title = stringResource(R.string.chat_settings_scroll_to_bottom),
-                description = stringResource(R.string.chat_settings_scroll_to_bottom_desc),
-                checked = settings.scrollToBottomOnOpen,
-                onCheckedChange = { viewModel.toggleScrollToBottomOnOpen() },
-            )
-
-            ChatToggleRow(
-                icon = Icons.Filled.Folder,
-                title = stringResource(R.string.chat_settings_remember_upload_dir),
-                description = stringResource(R.string.chat_settings_remember_upload_dir_desc),
-                checked = settings.rememberUploadDirectory,
-                onCheckedChange = { viewModel.toggleRememberUploadDirectory() },
-            )
-
-            ChatToggleRow(
-                icon = Icons.Filled.Link,
-                title = stringResource(R.string.chat_settings_linkify_urls),
-                description = stringResource(R.string.chat_settings_linkify_urls_desc),
-                checked = settings.linkifyUrls,
-                onCheckedChange = { viewModel.toggleLinkifyUrls() },
-            )
 
             Spacer(Modifier.height(Spacing.lg))
         }
@@ -159,12 +133,6 @@ class ChatSettingsViewModel constructor(
     }
 
     fun toggleEnterToSend() = update { it.copy(enterToSend = !it.enterToSend) }
-
-    fun toggleScrollToBottomOnOpen() = update { it.copy(scrollToBottomOnOpen = !it.scrollToBottomOnOpen) }
-
-    fun toggleRememberUploadDirectory() = update { it.copy(rememberUploadDirectory = !it.rememberUploadDirectory) }
-
-    fun toggleLinkifyUrls() = update { it.copy(linkifyUrls = !it.linkifyUrls) }
 
     private fun update(transform: (ChatSettings) -> ChatSettings) {
         val updated = transform(_settings.value)

@@ -49,25 +49,12 @@ class FilePickerManager(
 
     val uploadState: StateFlow<UploadQueueState> = uploadCoordinator.state
 
-    /**
-     * Load files for the picker.
-     *
-     * When [path] is null (the picker is being opened) and the "remember last folder" setting is
-     * on, the picker reopens at the folder the user last browsed to. When that folder no longer
-     * exists in the current workspace, it falls back to the workspace root. Any explicit [path]
-     * (navigation) is used as-is and persisted as the new "last folder".
-     */
     fun loadPickerFiles(path: String? = null) {
         scope.launch {
             _isPickerLoading.value = true
-            val remember = runCatching { settingsDataStore.chatSettings.first().rememberUploadDirectory }
-                .getOrDefault(true)
-            val effectivePath = when {
-                path != null -> path
-                remember -> runCatching { settingsDataStore.lastUploadDirectory.first() }
-                    .getOrNull()?.ifBlank { null } ?: "."
-                else -> "."
-            }
+            val workspaceKey = uploadDirectoryWorkspaceKey()
+            val rememberedPath = settingsDataStore.lastUploadDirectoriesByWorkspace.first()[workspaceKey]
+            val effectivePath = path ?: rememberedPath?.ifBlank { null } ?: "."
             val result = safeApiCall { workspaceClient.listFiles(effectivePath) }
             when (result) {
                 is ApiResult.Success -> {
@@ -85,16 +72,13 @@ class FilePickerManager(
                     val resolved = if (effectivePath == ".") "" else effectivePath
                     _pickerCurrentPath.value = resolved
                     _isPickerLoading.value = false
-                    if (remember) {
-                        runCatching { settingsDataStore.setLastUploadDirectory(resolved) }
-                    }
+                    settingsDataStore.setLastUploadDirectory(workspaceKey, resolved)
                 }
                 is ApiResult.Error -> {
                     AppLog.w(TAG, "Failed to load files for path=$effectivePath: ${result.message}")
-                    // A remembered folder that no longer exists shouldn't trap the picker — fall
-                    // back to the workspace root once (path == null means we resolved a remembered dir).
                     if (path == null && effectivePath != ".") {
                         AppLog.w(TAG, "Remembered upload folder '$effectivePath' unavailable; falling back to root")
+                        settingsDataStore.setLastUploadDirectory(workspaceKey, null)
                         loadPickerFiles(".")
                     } else {
                         _pickerError.value = result.message
@@ -103,6 +87,12 @@ class FilePickerManager(
                 }
             }
         }
+    }
+
+    private fun uploadDirectoryWorkspaceKey(): String = buildString {
+        append(workspaceClient.workspace.server.endpointKey)
+        append('|')
+        append(workspaceClient.workspace.key.toString())
     }
 
     fun attachFile(file: FileNode) {

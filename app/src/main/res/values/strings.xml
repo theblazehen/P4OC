@@ -320,12 +320,6 @@
     <string name="visual_settings_open_sub_agent_new_tab_desc">Open sub-agent sessions in a new tab instead of the current tab</string>
     <string name="chat_settings_enter_to_send">Enter to Send</string>
     <string name="chat_settings_enter_to_send_desc">Send with Enter on hardware keyboards; use the on-screen send button for multiline drafts</string>
-    <string name="chat_settings_scroll_to_bottom">Scroll to Bottom on Open</string>
-    <string name="chat_settings_scroll_to_bottom_desc">Jump to the latest message when opening or resuming a chat</string>
-    <string name="chat_settings_remember_upload_dir">Remember Upload Folder</string>
-    <string name="chat_settings_remember_upload_dir_desc">Reopen the file picker at the folder you last browsed to instead of the workspace root</string>
-    <string name="chat_settings_linkify_urls">Tappable Links</string>
-    <string name="chat_settings_linkify_urls_desc">Make links in messages open in your browser when tapped (e.g. to download files)</string>
     <string name="visual_settings_color_theme">Color Theme</string>
     <string name="visual_settings_oneline_minimal">Oneline (minimal)</string>
     <string name="visual_settings_compact_summary">Compact (summary)</string>
