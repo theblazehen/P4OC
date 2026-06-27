@@ -57,7 +57,7 @@ class FakeSessionRepository(
 
     override fun clearPermissionByRequestId(sessionId: SessionId, requestId: String) = Unit
 
-    override fun clearQuestion(sessionId: SessionId) = Unit
+    override fun clearQuestion(sessionId: SessionId, requestId: String?) = Unit
 
     override suspend fun loadMessages(sessionId: SessionId, limit: Int?) = Unit
 

@@ -25,7 +25,7 @@ interface SessionRepository {
 
     fun clearPermissionByRequestId(sessionId: SessionId, requestId: String)
 
-    fun clearQuestion(sessionId: SessionId)
+    fun clearQuestion(sessionId: SessionId, requestId: String? = null)
 
     suspend fun loadMessages(sessionId: SessionId, limit: Int? = null)
 

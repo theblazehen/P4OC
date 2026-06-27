@@ -480,7 +480,7 @@ class ChatViewModel constructor(
         viewModelScope.launch {
             val request = QuestionReplyRequest(answers = answers)
             when (val result = safeApiCall { workspaceClient.respondToQuestion(requestId, request) }) {
-                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId))
+                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId), requestId)
                 is ApiResult.Error -> _uiState.update {
                     it.copy(
                         error = "Failed to answer question: ${result.message}"
@@ -498,11 +498,11 @@ class ChatViewModel constructor(
             // question.rejected SSE event (handled in SessionRepositoryImpl) will
             // also reconcile any other attached client.
             when (val result = safeApiCall { workspaceClient.rejectQuestion(requestId) }) {
-                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId))
+                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId), requestId)
                 is ApiResult.Error -> {
                     // A NotFound here means it was already resolved elsewhere — clear
                     // locally anyway so the user is not stuck on a dead modal.
-                    sessionRepository.clearQuestion(SessionId(sessionId))
+                    sessionRepository.clearQuestion(SessionId(sessionId), requestId)
                     AppLog.w(TAG, "rejectQuestion failed (clearing locally): ${result.message}")
                 }
             }

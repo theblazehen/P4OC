@@ -192,6 +192,11 @@ interface OpenCodeApi {
         @Query("directory") directory: String?
     ): Boolean
 
+    @GET("question")
+    suspend fun listPendingQuestions(
+        @Query("directory") directory: String?
+    ): List<QuestionRequestDto>
+
     @GET("command")
     suspend fun listCommands(
         @Query("directory") directory: String?
