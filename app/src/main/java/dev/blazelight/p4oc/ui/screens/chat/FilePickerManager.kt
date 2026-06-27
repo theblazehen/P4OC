@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
+import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.core.mime.FilenameMimeType
 import dev.blazelight.p4oc.core.network.ApiResult
@@ -14,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -24,6 +26,7 @@ class FilePickerManager(
     private val workspaceClient: WorkspaceClient,
     private val scope: CoroutineScope,
     private val uploadCoordinator: UploadCoordinator,
+    private val settingsDataStore: SettingsDataStore,
 ) {
     private companion object {
         const val TAG = "FilePickerManager"
@@ -49,31 +52,52 @@ class FilePickerManager(
     fun loadPickerFiles(path: String? = null) {
         scope.launch {
             _isPickerLoading.value = true
-            val effectivePath = path ?: "."
-            val result = safeApiCall { workspaceClient.listFiles(effectivePath) }
-            when (result) {
-                is ApiResult.Success -> {
-                    _pickerError.value = null
-                    val files = result.data.map { dto ->
-                        FileNode(
-                            name = dto.name,
-                            path = dto.path,
-                            absolute = dto.absolute,
-                            type = dto.type,
-                            ignored = dto.ignored
-                        )
-                    }
-                    _pickerFiles.value = files
-                    _pickerCurrentPath.value = if (effectivePath == ".") "" else effectivePath
-                    _isPickerLoading.value = false
-                }
-                is ApiResult.Error -> {
-                    AppLog.w(TAG, "Failed to load files for path=$effectivePath: ${result.message}")
-                    _pickerError.value = result.message
-                    _isPickerLoading.value = false
-                }
+            val workspaceKey = uploadDirectoryWorkspaceKey()
+            val rememberedPath = settingsDataStore.lastUploadDirectoriesByWorkspace.first()[workspaceKey]
+            val effectivePath = path ?: rememberedPath?.ifBlank { null } ?: "."
+            val result = loadPickerFilesForPath(workspaceKey, effectivePath)
+            if (result is ApiResult.Error && path == null && effectivePath != ".") {
+                AppLog.w(TAG, "Remembered upload folder '$effectivePath' unavailable; falling back to root")
+                settingsDataStore.setLastUploadDirectory(workspaceKey, null)
+                loadPickerFilesForPath(workspaceKey, ".")
             }
         }
+    }
+
+    private suspend fun loadPickerFilesForPath(workspaceKey: String, path: String): ApiResult<Unit> {
+        val result = safeApiCall { workspaceClient.listFiles(path) }
+        when (result) {
+            is ApiResult.Success -> {
+                _pickerError.value = null
+                val files = result.data.map { dto ->
+                    FileNode(
+                        name = dto.name,
+                        path = dto.path,
+                        absolute = dto.absolute,
+                        type = dto.type,
+                        ignored = dto.ignored
+                    )
+                }
+                _pickerFiles.value = files
+                val resolved = if (path == ".") "" else path
+                _pickerCurrentPath.value = resolved
+                _isPickerLoading.value = false
+                settingsDataStore.setLastUploadDirectory(workspaceKey, resolved)
+                return ApiResult.Success(Unit)
+            }
+            is ApiResult.Error -> {
+                AppLog.w(TAG, "Failed to load files for path=$path: ${result.message}")
+                _pickerError.value = result.message
+                _isPickerLoading.value = false
+                return result
+            }
+        }
+    }
+
+    private fun uploadDirectoryWorkspaceKey(): String = buildString {
+        append(workspaceClient.workspace.server.endpointKey)
+        append('|')
+        append(workspaceClient.workspace.key.toString())
     }
 
     fun attachFile(file: FileNode) {

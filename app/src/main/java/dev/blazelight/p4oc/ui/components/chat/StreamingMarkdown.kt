@@ -24,12 +24,15 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -306,15 +309,15 @@ private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): Annotate
         val boldStart = text.indexOf("**", index)
         val next = listOf(codeStart, linkStart, boldStart).filter { it >= 0 }.minOrNull() ?: -1
         if (next == -1) {
-            append(text.substring(index))
+            appendInline(text.substring(index), colors)
             break
         }
-        if (next > index) append(text.substring(index, next))
+        if (next > index) appendInline(text.substring(index, next), colors)
         when (next) {
             codeStart -> {
                 val end = text.indexOf('`', codeStart + 1)
                 if (end == -1) {
-                    append(text.substring(codeStart))
+                    appendInline(text.substring(codeStart), colors)
                     break
                 }
                 withStyle(
@@ -330,7 +333,7 @@ private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): Annotate
             boldStart -> {
                 val end = text.indexOf("**", boldStart + 2)
                 if (end == -1) {
-                    append(text.substring(boldStart))
+                    appendInline(text.substring(boldStart), colors)
                     break
                 }
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
@@ -343,17 +346,50 @@ private fun inlineMarkdown(text: String, colors: MarkdownRenderColors): Annotate
                 val openUrl = if (close != -1) text.indexOf('(', close + 1) else -1
                 val closeUrl = if (openUrl != -1 && openUrl == close + 1) text.indexOf(')', openUrl + 1) else -1
                 if (closeUrl == -1) {
-                    append(text.substring(linkStart, linkStart + 1))
+                    appendInline(text.substring(linkStart, linkStart + 1), colors)
                     index = linkStart + 1
                 } else {
-                    withStyle(SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)) {
-                        append(text.substring(linkStart + 1, close))
+                    val label = text.substring(linkStart + 1, close)
+                    val url = text.substring(openUrl + 1, closeUrl)
+                    if (url.isSafeLinkUrl()) {
+                        withLink(LinkAnnotation.Url(url, linkStyles(colors))) {
+                            append(label)
+                        }
+                    } else {
+                        append(text.substring(linkStart, closeUrl + 1))
                     }
                     index = closeUrl + 1
                 }
             }
         }
     }
+}
+
+private val URL_REGEX = Regex("""https?://[^\s<>()\[\]{}]+""")
+private const val URL_TRAILING_TRIM = ".,;:!?\"'”’"
+
+private fun linkStyles(colors: MarkdownRenderColors) = TextLinkStyles(
+    style = SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline),
+)
+
+private fun String.isSafeLinkUrl(): Boolean =
+    startsWith("https://") || startsWith("http://") || startsWith("mailto:")
+
+private fun AnnotatedString.Builder.appendInline(text: String, colors: MarkdownRenderColors) {
+    if (text.isEmpty()) return
+    var cursor = 0
+    for (match in URL_REGEX.findAll(text)) {
+        val start = match.range.first
+        var end = match.range.last + 1
+        while (end > start && text[end - 1] in URL_TRAILING_TRIM) end--
+        if (start > cursor) append(text.substring(cursor, start))
+        val url = text.substring(start, end)
+        withLink(LinkAnnotation.Url(url, linkStyles(colors))) {
+            append(url)
+        }
+        cursor = end
+    }
+    if (cursor < text.length) append(text.substring(cursor))
 }
 
 @Composable
