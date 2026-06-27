@@ -7,11 +7,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -30,8 +32,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,17 +79,19 @@ fun ChatInputBar(
 ) {
     val theme = LocalOpenCodeTheme.current
     val focusRequester = remember { FocusRequester() }
-    var inputFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(value, selection = TextRange(value.length)))
-    }
+    val textState = rememberTextFieldState(initialText = value)
 
+    // External value changes (e.g. a programmatic set from the parent) → field.
     LaunchedEffect(value) {
-        if (value != inputFieldValue.text) {
-            inputFieldValue = inputFieldValue.copy(
-                text = value,
-                selection = TextRange(value.length)
-            )
+        if (value != textState.text.toString()) {
+            textState.setTextAndPlaceCursorAtEnd(value)
         }
+    }
+    // Field edits → hoisted state. TextFieldState manages the IME composing
+    // region correctly, so clearText() (on send) actually clears even on IMEs
+    // like Samsung's that re-commit composing text with the old value API.
+    LaunchedEffect(textState) {
+        snapshotFlow { textState.text.toString() }.collect { onValueChange(it) }
     }
 
     // Request focus when triggered
@@ -104,7 +106,7 @@ fun ChatInputBar(
     }
 
     // Determine button state
-    val currentText = inputFieldValue.text
+    val currentText = textState.text.toString()
     val hasContent = currentText.isNotBlank() || attachedFiles.isNotEmpty()
     val queueIsFull = queuedCount >= 10
     val canSend = hasContent && enabled && !isLoading && !isBusy
@@ -147,20 +149,27 @@ fun ChatInputBar(
 
     fun selectActiveCommand(): Boolean {
         val command = filteredCommands.getOrNull(activeCommandIndex) ?: return false
-        inputFieldValue = TextFieldValue("/${command.name} ")
-        onValueChange(inputFieldValue.text)
+        textState.setTextAndPlaceCursorAtEnd("/${command.name} ")
         onCommandSelected(command)
         return true
+    }
+
+    fun clearInput() {
+        // TextFieldState.clearText() resets the editing buffer including the IME
+        // composing region, so the field stays cleared after send.
+        textState.clearText()
     }
 
     fun submitFromEnter(): Boolean = when {
         showSlashCommands -> selectActiveCommand()
         canSend -> {
             onSend()
+            clearInput()
             true
         }
         canQueue -> {
             onQueueMessage()
+            clearInput()
             true
         }
         else -> false
@@ -265,11 +274,7 @@ fun ChatInputBar(
                             )
                         }
                         BasicTextField(
-                            value = inputFieldValue,
-                            onValueChange = { nextValue: TextFieldValue ->
-                                inputFieldValue = nextValue
-                                onValueChange(nextValue.text)
-                            },
+                            state = textState,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(focusRequester)
@@ -324,12 +329,10 @@ fun ChatInputBar(
                                 keyboardType = KeyboardType.Text,
                                 imeAction = if (enterToSend) ImeAction.Send else ImeAction.Default,
                             ),
-                            keyboardActions = KeyboardActions(
-                                onSend = {
-                                    if (enterToSend) submitFromEnter()
-                                },
-                            ),
-                            maxLines = 4
+                            onKeyboardAction = { performDefault ->
+                                if (enterToSend) submitFromEnter() else performDefault()
+                            },
+                            lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 4)
                         )
                     }
 
@@ -357,6 +360,7 @@ fun ChatInputBar(
                                 canQueue -> onQueueMessage()
                                 else -> return@IconButton
                             }
+                            clearInput()
                             focusRequester.requestFocus()
                         },
                         enabled = canSend || canQueue,
@@ -394,8 +398,7 @@ fun ChatInputBar(
                     onRetry = onRetryCommands,
                     onCommandSelected = { command ->
                         // Replace the current text with the command
-                        inputFieldValue = TextFieldValue("/${command.name} ")
-                        onValueChange(inputFieldValue.text)
+                        textState.setTextAndPlaceCursorAtEnd("/${command.name} ")
                         onCommandSelected(command)
                     },
                     onDismiss = { /* Keep popup open while typing */ }
