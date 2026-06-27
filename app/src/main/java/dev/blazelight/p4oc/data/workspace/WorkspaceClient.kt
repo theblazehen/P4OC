@@ -42,11 +42,12 @@ class WorkspaceClient(
 
     override suspend fun listSessions(
         directory: String?,
+        scope: String?,
         roots: Boolean?,
         start: Long?,
         search: String?,
         limit: Int?,
-    ): List<SessionDto> = api.listSessions(directory, roots, start, search, limit)
+    ): List<SessionDto> = api.listSessions(directory, scope, roots, start, search, limit)
 
     override suspend fun createSession(request: CreateSessionRequest): SessionDto =
         api.createSession(directory = directory, request = request)

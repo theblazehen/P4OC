@@ -48,6 +48,7 @@ class SessionRepositoryImplTest {
 
         assertSame(first, second)
         assertEquals(listOf(null, "/repo/p1"), client.listSessionsDirectories)
+        assertEquals(listOf(null, "project"), client.listSessionsScopes)
 
         client.statusBlocker?.complete(Unit)
         advanceUntilIdle()
@@ -96,6 +97,7 @@ class SessionRepositoryImplTest {
         assertTrue(result.isSuccess)
         assertEquals(1, client.listProjectsCalls)
         assertEquals(listOf(null, "/repo/p1"), client.listSessionsDirectories)
+        assertEquals(listOf(null, "project"), client.listSessionsScopes)
     }
 
     @Test

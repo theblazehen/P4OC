@@ -521,7 +521,12 @@ class SessionRepositoryImpl(
                         async {
                             trackedStep("Loading sessions for ${project.worktree.substringAfterLast('/')}") {
                                 semaphore.withPermit {
-                                    client.listSessions(directory = project.worktree, roots = true, limit = 100)
+                                    client.listSessions(
+                                        directory = project.worktree,
+                                        roots = true,
+                                        limit = 100,
+                                        scope = "project",
+                                    )
                                 }
                             } to project
                         }
