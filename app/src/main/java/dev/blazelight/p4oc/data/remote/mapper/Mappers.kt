@@ -681,6 +681,14 @@ class EventMapper constructor(
                     )
                 )
             }
+            "question.replied" -> {
+                val props = json.decodeFromJsonElement<QuestionRepliedPropertiesDto>(dto.properties)
+                OpenCodeEvent.QuestionReplied(props.sessionID, props.requestID, props.answers)
+            }
+            "question.rejected" -> {
+                val props = json.decodeFromJsonElement<QuestionRejectedPropertiesDto>(dto.properties)
+                OpenCodeEvent.QuestionRejected(props.sessionID, props.requestID)
+            }
             "todo.updated" -> {
                 val props = json.decodeFromJsonElement<TodoEventPropertiesDto>(dto.properties)
                 OpenCodeEvent.TodoUpdated(

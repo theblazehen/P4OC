@@ -212,6 +212,8 @@ class SessionRepositoryImpl(
                     }
                 }
             }
+            is OpenCodeEvent.QuestionReplied -> resolveQuestion(event.sessionID, event.requestID)
+            is OpenCodeEvent.QuestionRejected -> resolveQuestion(event.sessionID, event.requestID)
             is OpenCodeEvent.TodoUpdated -> updateSession(event.sessionID) { it.copy(todos = event.todos) }
             is OpenCodeEvent.MessageUpdated -> upsertMessage(event.message)
             is OpenCodeEvent.MessagePartUpdated -> upsertPart(event.part, event.delta)
@@ -263,6 +265,32 @@ class SessionRepositoryImpl(
                 pendingQuestion = nextQuestion,
                 queuedQuestions = if (nextQuestion == null) emptyList() else state.queuedQuestions.drop(1),
             )
+        }
+    }
+
+    /**
+     * Resolve a question that was answered or rejected (by this client or any other,
+     * e.g. the desktop TUI). Clears it from the owning session's UI state by matching
+     * [requestID]: if it is the current pending question, the next queued question is
+     * promoted; if it is sitting in the queue, it is removed in place. Unknown
+     * requestIDs are a no-op (idempotent — a resolution we never tracked, or one
+     * already handled locally).
+     */
+    private fun resolveQuestion(eventSessionId: String, requestID: String) {
+        updateOwnedSession(eventSessionId) { state ->
+            when {
+                state.pendingQuestion?.id == requestID -> {
+                    val nextQuestion = state.queuedQuestions.firstOrNull()
+                    state.copy(
+                        pendingQuestion = nextQuestion,
+                        queuedQuestions = if (nextQuestion == null) emptyList() else state.queuedQuestions.drop(1),
+                    )
+                }
+                state.queuedQuestions.any { it.id == requestID } -> {
+                    state.copy(queuedQuestions = state.queuedQuestions.filterNot { it.id == requestID })
+                }
+                else -> state
+            }
         }
     }
 
