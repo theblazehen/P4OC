@@ -105,6 +105,9 @@ class WorkspaceClient(
     suspend fun respondToQuestion(requestId: String, request: QuestionReplyRequest): Boolean =
         api.respondToQuestion(requestId, request, directory)
 
+    suspend fun rejectQuestion(requestId: String): Boolean =
+        api.rejectQuestion(requestId, directory)
+
     suspend fun listCommands(): List<CommandDto> = api.listCommands(directory)
 
     suspend fun executeCommand(sessionId: String, request: ExecuteCommandRequest): MessageWrapperDto =
