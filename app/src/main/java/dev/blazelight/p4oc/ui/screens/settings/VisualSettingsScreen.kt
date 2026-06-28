@@ -47,6 +47,9 @@ class VisualSettingsViewModel constructor(
     private val _themeMode = MutableStateFlow("system")
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
+    private val _oledBlack = MutableStateFlow(false)
+    val oledBlack: StateFlow<Boolean> = _oledBlack.asStateFlow()
+
     val availableThemes = listOf(
         "catppuccin" to "Catppuccin Mocha",
         "catppuccin-macchiato" to "Catppuccin Macchiato",
@@ -76,6 +79,11 @@ class VisualSettingsViewModel constructor(
                 _themeMode.value = mode
             }
         }
+        viewModelScope.launch {
+            settingsDataStore.oledBlack.collect { enabled ->
+                _oledBlack.value = enabled
+            }
+        }
     }
 
     fun updateThemeName(name: String) {
@@ -89,6 +97,13 @@ class VisualSettingsViewModel constructor(
         _themeMode.value = mode
         viewModelScope.launch {
             settingsDataStore.setThemeMode(mode)
+        }
+    }
+
+    fun updateOledBlack(enabled: Boolean) {
+        _oledBlack.value = enabled
+        viewModelScope.launch {
+            settingsDataStore.setOledBlack(enabled)
         }
     }
 
@@ -137,6 +152,7 @@ fun VisualSettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val themeName by viewModel.themeName.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val oledBlack by viewModel.oledBlack.collectAsStateWithLifecycle()
 
     val theme = LocalOpenCodeTheme.current
     Scaffold(
@@ -171,6 +187,16 @@ fun VisualSettingsScreen(
                     selected = themeName,
                     options = viewModel.availableThemes,
                     onSelect = viewModel::updateThemeName
+                )
+
+                Spacer(Modifier.height(Spacing.md))
+
+                SettingsSwitch(
+                    title = stringResource(R.string.visual_settings_oled_black),
+                    subtitle = stringResource(R.string.visual_settings_oled_black_desc),
+                    checked = oledBlack,
+                    onCheckedChange = viewModel::updateOledBlack,
+                    icon = Icons.Default.DarkMode
                 )
             }
 
