@@ -20,7 +20,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
@@ -79,7 +82,8 @@ internal fun ChatSearchBar(
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .testTag("chat_search_field"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
@@ -101,9 +105,33 @@ internal fun ChatSearchBar(
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
-            SearchGlyphButton("↑", enabled = matchCount > 0, onClick = onPrev, color = theme.accent, mutedColor = theme.textMuted)
-            SearchGlyphButton("↓", enabled = matchCount > 0, onClick = onNext, color = theme.accent, mutedColor = theme.textMuted)
-            SearchGlyphButton("✕", enabled = true, onClick = onClose, color = theme.textMuted, mutedColor = theme.textMuted)
+            SearchGlyphButton(
+                glyph = "↑",
+                contentDescription = stringResource(R.string.previous),
+                testTag = "chat_search_previous",
+                enabled = matchCount > 0,
+                onClick = onPrev,
+                color = theme.accent,
+                mutedColor = theme.textMuted,
+            )
+            SearchGlyphButton(
+                glyph = "↓",
+                contentDescription = stringResource(R.string.next),
+                testTag = "chat_search_next",
+                enabled = matchCount > 0,
+                onClick = onNext,
+                color = theme.accent,
+                mutedColor = theme.textMuted,
+            )
+            SearchGlyphButton(
+                glyph = "✕",
+                contentDescription = stringResource(R.string.button_cancel),
+                testTag = "chat_search_close",
+                enabled = true,
+                onClick = onClose,
+                color = theme.textMuted,
+                mutedColor = theme.textMuted,
+            )
         }
     }
 }
@@ -111,12 +139,21 @@ internal fun ChatSearchBar(
 @Composable
 private fun SearchGlyphButton(
     glyph: String,
+    contentDescription: String,
+    testTag: String,
     enabled: Boolean,
     onClick: () -> Unit,
     color: Color,
     mutedColor: Color,
 ) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(Sizing.iconButtonMd)) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .size(Sizing.iconButtonMd)
+            .semantics { this.contentDescription = contentDescription }
+            .testTag(testTag),
+    ) {
         Text(
             text = glyph,
             color = if (enabled) color else mutedColor,

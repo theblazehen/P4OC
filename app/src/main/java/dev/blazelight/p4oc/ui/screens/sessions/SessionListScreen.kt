@@ -463,7 +463,8 @@ private fun SessionSearchField(
                 textStyle = MaterialTheme.typography.bodySmall.copy(color = theme.text),
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .testTag("sessions_search_field"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
