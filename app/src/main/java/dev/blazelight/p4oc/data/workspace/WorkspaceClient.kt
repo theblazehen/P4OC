@@ -11,7 +11,9 @@ import dev.blazelight.p4oc.data.remote.dto.FileStatusDto
 import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.InitSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.MessageWrapperDto
+import dev.blazelight.p4oc.data.remote.dto.PermissionDto
 import dev.blazelight.p4oc.data.remote.dto.PermissionResponseRequest
+import dev.blazelight.p4oc.data.remote.dto.PermissionV2RequestDto
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.dto.QuestionReplyRequest
 import dev.blazelight.p4oc.data.remote.dto.QuestionRequestDto
@@ -27,6 +29,7 @@ import dev.blazelight.p4oc.data.remote.dto.VcsInfoDto
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.workspace.Workspace
+import retrofit2.HttpException
 import java.io.IOException
 
 class WorkspaceClient(
@@ -101,7 +104,25 @@ class WorkspaceClient(
         api.sendMessageAsync(sessionId, request, directory)
     }
 
-    suspend fun respondToPermission(requestId: String, request: PermissionResponseRequest): Boolean =
+    override suspend fun listSessionPermissionsV2(sessionId: String): List<PermissionV2RequestDto> =
+        api.listSessionPermissionsV2(sessionId).data
+
+    override suspend fun listPermissions(): List<PermissionDto> = api.listPermissions(directory)
+
+    suspend fun respondToPermission(
+        sessionId: String,
+        requestId: String,
+        request: PermissionResponseRequest
+    ): Boolean {
+        val response = api.respondToPermissionV2(sessionId, requestId, request)
+        val contentType = response.headers()["Content-Type"].orEmpty()
+        if (response.isSuccessful && !contentType.startsWith("text/html")) return true
+        if (response.code() != 404 && !contentType.startsWith("text/html")) throw HttpException(response)
+
+        return respondToPermissionLegacy(requestId, request)
+    }
+
+    suspend fun respondToPermissionLegacy(requestId: String, request: PermissionResponseRequest): Boolean =
         api.respondToPermission(requestId, request, directory)
 
     suspend fun respondToQuestion(requestId: String, request: QuestionReplyRequest): Boolean =

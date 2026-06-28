@@ -154,6 +154,62 @@ class EventMapperTest {
         assertEquals(listOf("once"), perm.always)
     }
 
+    @Test
+    fun `maps permission_v2_asked with source callID`() {
+        val properties = buildJsonObject {
+            put("id", "per_1")
+            put("sessionID", "sess-1")
+            put("action", "bash")
+            putJsonArray("resources") {
+                add(JsonPrimitive("npm test"))
+            }
+            putJsonArray("save") {
+                add(JsonPrimitive("npm test"))
+            }
+            putJsonObject("metadata") {
+                put("key", "value")
+            }
+            putJsonObject("source") {
+                put("type", "tool")
+                put("messageID", "msg-42")
+                put("callID", "call-99")
+            }
+        }
+        val dto = EventDataDto(type = "permission.v2.asked", properties = properties)
+
+        val event = eventMapper.mapToEvent(dto)
+
+        assertNotNull(event)
+        assertTrue(event is OpenCodeEvent.PermissionRequested)
+        val perm = (event as OpenCodeEvent.PermissionRequested).permission
+        assertEquals("per_1", perm.id)
+        assertEquals("bash", perm.type)
+        assertEquals(listOf("npm test"), perm.patterns)
+        assertEquals("sess-1", perm.sessionID)
+        assertEquals("msg-42", perm.messageID)
+        assertEquals("call-99", perm.callID)
+        assertEquals(listOf("npm test"), perm.always)
+    }
+
+    @Test
+    fun `maps permission_v2_replied`() {
+        val properties = buildJsonObject {
+            put("sessionID", "sess-1")
+            put("requestID", "per_1")
+            put("reply", "once")
+        }
+        val dto = EventDataDto(type = "permission.v2.replied", properties = properties)
+
+        val event = eventMapper.mapToEvent(dto)
+
+        assertNotNull(event)
+        assertTrue(event is OpenCodeEvent.PermissionReplied)
+        val reply = event as OpenCodeEvent.PermissionReplied
+        assertEquals("sess-1", reply.sessionID)
+        assertEquals("per_1", reply.requestID)
+        assertEquals("once", reply.reply)
+    }
+
     // ── session.status ──────────────────────────────────────────────────────
 
     @Test

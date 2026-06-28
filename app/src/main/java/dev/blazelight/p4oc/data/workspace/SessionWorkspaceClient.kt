@@ -1,6 +1,8 @@
 package dev.blazelight.p4oc.data.workspace
 
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
+import dev.blazelight.p4oc.data.remote.dto.PermissionDto
+import dev.blazelight.p4oc.data.remote.dto.PermissionV2RequestDto
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.dto.SessionDto
@@ -39,6 +41,10 @@ interface SessionWorkspaceClient {
     suspend fun summarizeSession(id: String): Boolean
 
     suspend fun sendMessageAsync(sessionId: String, request: SendMessageRequest)
+
+    suspend fun listSessionPermissionsV2(sessionId: String): List<PermissionV2RequestDto> = emptyList()
+
+    suspend fun listPermissions(): List<PermissionDto> = emptyList()
 
     suspend fun abortSession(id: String): Boolean
 }

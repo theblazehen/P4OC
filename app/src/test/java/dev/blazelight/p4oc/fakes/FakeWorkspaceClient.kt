@@ -1,6 +1,10 @@
 package dev.blazelight.p4oc.fakes
 
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
+import dev.blazelight.p4oc.data.remote.dto.PermissionDto
+import dev.blazelight.p4oc.data.remote.dto.PermissionToolDto
+import dev.blazelight.p4oc.data.remote.dto.PermissionV2RequestDto
+import dev.blazelight.p4oc.data.remote.dto.PermissionV2SourceDto
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.dto.ProjectTimeDto
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
@@ -35,6 +39,10 @@ class FakeWorkspaceClient(
         private set
     var abortSessionCalls: Int = 0
         private set
+    var listSessionPermissionsV2Calls: Int = 0
+        private set
+    var listPermissionsCalls: Int = 0
+        private set
 
     val listSessionsDirectories = mutableListOf<String?>()
     val listSessionsScopes = mutableListOf<String?>()
@@ -44,6 +52,9 @@ class FakeWorkspaceClient(
     var listSessionsResult: List<SessionDto> = emptyList()
     var sessionsByDirectory: Map<String?, List<SessionDto>>? = null
     var statusesByDirectory: Map<String?, Map<String, SessionStatusDto>> = emptyMap()
+    var permissionsBySession: Map<String, List<PermissionV2RequestDto>> = emptyMap()
+    var legacyPermissions: List<PermissionDto> = emptyList()
+    var listSessionPermissionsV2Failure: Throwable? = null
     var listSessionsFailure: Throwable? = null
     var getSessionResults: MutableMap<String, SessionDto> = mutableMapOf()
     var getSessionFailure: Throwable? = null
@@ -141,6 +152,17 @@ class FakeWorkspaceClient(
         sendMessageBlocker?.await()
     }
 
+    override suspend fun listSessionPermissionsV2(sessionId: String): List<PermissionV2RequestDto> {
+        listSessionPermissionsV2Calls += 1
+        listSessionPermissionsV2Failure?.let { throw it }
+        return permissionsBySession[sessionId].orEmpty()
+    }
+
+    override suspend fun listPermissions(): List<PermissionDto> {
+        listPermissionsCalls += 1
+        return legacyPermissions
+    }
+
     override suspend fun abortSession(id: String): Boolean {
         abortSessionCalls += 1
         abortSessionBlocker?.await()
@@ -157,6 +179,37 @@ class FakeWorkspaceClient(
             id = id,
             worktree = worktree,
             time = ProjectTimeDto(created = 1L, initialized = 2L),
+        )
+
+        fun permissionV2Dto(
+            id: String,
+            sessionId: String,
+            callId: String,
+            action: String = "bash",
+            resource: String = "npm test",
+        ): PermissionV2RequestDto = PermissionV2RequestDto(
+            id = id,
+            sessionID = sessionId,
+            action = action,
+            resources = listOf(resource),
+            save = listOf(resource),
+            source = PermissionV2SourceDto(type = "tool", messageID = "msg-$callId", callID = callId),
+        )
+
+        fun permissionDto(
+            id: String,
+            sessionId: String,
+            callId: String,
+            permission: String = "bash",
+            pattern: String = "npm test",
+        ): PermissionDto = PermissionDto(
+            id = id,
+            permission = permission,
+            patterns = listOf(pattern),
+            sessionID = sessionId,
+            metadata = kotlinx.serialization.json.JsonObject(emptyMap()),
+            always = listOf(pattern),
+            tool = PermissionToolDto(messageID = "msg-$callId", callID = callId),
         )
 
         fun sessionDto(

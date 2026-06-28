@@ -206,6 +206,7 @@ fun ToolCallExpanded(
     tool: Part.Tool,
     onClick: (() -> Unit)?,
     showApprovalActions: Boolean = true,
+    approvalRequestId: String = tool.callID,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
     onOpenSubSession: ((String) -> Unit)? = null,
@@ -216,6 +217,7 @@ fun ToolCallExpanded(
             tool = tool,
             onClick = onClick,
             showApprovalActions = showApprovalActions,
+            approvalRequestId = approvalRequestId,
             onToolApprove = onToolApprove,
             onToolDeny = onToolDeny,
             modifier = modifier
@@ -234,6 +236,7 @@ fun ToolCallExpanded(
             tool = tool,
             onClick = onClick,
             showApprovalActions = showApprovalActions,
+            approvalRequestId = approvalRequestId,
             onToolApprove = onToolApprove,
             onToolDeny = onToolDeny,
             onOpenSubSession = onOpenSubSession,
@@ -243,6 +246,7 @@ fun ToolCallExpanded(
             tool = tool,
             onClick = onClick,
             showApprovalActions = showApprovalActions,
+            approvalRequestId = approvalRequestId,
             onToolApprove = onToolApprove,
             onToolDeny = onToolDeny,
             modifier = modifier
