@@ -1,12 +1,21 @@
+### Added
+- Added in-chat message search with next/previous result navigation.
+- Added session-list search, including server-backed lookup for sessions beyond the currently loaded list.
+- Added OLED black mode for dark themes.
+- Added chat display preferences for Enter-to-send, auto-scroll behavior, and directory upload visibility.
+
 ### Fixed
-- Restored saved self-signed/insecure certificate settings, username, and stored password into the server connection form after app recreation.
-- Persisted the selected agent per OpenCode session and restored the agent's configured model after process death or screen recreation.
-- Updated the selected model immediately when switching agents, preventing stale manually selected models from overriding agent defaults.
-- Hid stale project entries automatically when their saved worktree can no longer be listed through the server file API.
-- Fixed explicit HTTP/HTTPS server URL normalization so Tailscale and HTTPS URLs without ports use their standard ports.
+- Recovered pending question prompts when opening or reconnecting to a session.
+- Recovered pending tool permission prompts after missed events, reconnects, or app/session restoration.
+- Cleared question and permission prompts when they are resolved remotely.
+- Sent Skip actions to the OpenCode server instead of clearing question prompts locally only.
+- Fixed workspace repository handoff so tabs do not lose their active session repository.
+- Included worktree and forked sessions in project-scoped session pickers.
+- Tolerated OpenCode sync mirror events so live updates keep flowing.
+- Kept session search scoped to the selected project while preserving fast local filtering.
 
 ### Verification
-- Added regression coverage for agent/model synchronization and HTTP/HTTPS URL normalization.
-- Verified agent/model restoration and stale project filtering on-device with UIAutomator XML inspection.
+- Added regression coverage for question recovery, permission recovery, and server-backed session search.
+- Verified debug compile, focused session-search tests, full unit tests, and detekt locally.
 
-**Full Changelog**: https://github.com/theblazehen/P4OC/compare/v0.11.0...v0.11.1
+**Full Changelog**: https://github.com/theblazehen/P4OC/compare/v0.12.0...v0.13.0
