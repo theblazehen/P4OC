@@ -142,8 +142,13 @@
     <string name="sessions_title">Sessions</string>
     <string name="sessions_empty_title">No sessions yet</string>
     <string name="sessions_empty_hint">Tap above to start a new session</string>
-    <string name="sessions_search_placeholder">Search chats…</string>
-    <string name="sessions_search_no_match">No matching chats</string>
+    <string name="sessions_search_placeholder">Search session titles…</string>
+    <string name="sessions_search_no_match">No matching sessions</string>
+    <string name="sessions_search_waiting">Searching…</string>
+    <string name="sessions_search_status_searching">Searching</string>
+    <string name="sessions_search_status_refining">Refining</string>
+    <string name="sessions_search_status_current">Current</string>
+    <string name="sessions_search_status_failed">Failed</string>
     <string name="sessions_loading">Loading sessions</string>
     <string name="sessions_new">New Session</string>
     <string name="sessions_delete">Delete</string>

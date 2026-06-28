@@ -11,6 +11,8 @@ import dev.blazelight.p4oc.domain.model.SessionStatus
 import dev.blazelight.p4oc.domain.model.resolveSessionPresence
 import dev.blazelight.p4oc.domain.session.SessionId
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +29,10 @@ class SessionListViewModel constructor(
 
     private companion object {
         const val LOAD_TIMEOUT_MS = 30_000L
+        const val SEARCH_DEBOUNCE_MS = 300L
     }
+
+    private var searchJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -61,6 +66,7 @@ class SessionListViewModel constructor(
                         sessionPresences = snapshot.statuses.mapValues { (_, status) -> resolveSessionPresence(
                             status
                         ) },
+                        searchResults = if (state.searchQuery.isBlank()) emptyList() else state.searchResults,
                         error = (repoState as? RepoState.Stale)?.reason ?: state.error,
                     )
                 }
@@ -71,6 +77,8 @@ class SessionListViewModel constructor(
 
     fun refresh() {
         viewModelScope.launch {
+            val activeSearchQuery = _uiState.value.searchQuery
+            val activeSearchDirectory = _uiState.value.searchDirectory
             _uiState.update { it.copy(isLoading = true, loadingText = "Loading projects and sessions", error = null) }
             val result = withTimeoutOrNull(LOAD_TIMEOUT_MS) {
                 sessionRepository.awaitOrFetch()
@@ -99,6 +107,9 @@ class SessionListViewModel constructor(
                             error = null,
                         )
                     }
+                    if (activeSearchQuery.isNotBlank()) {
+                        searchSessions(activeSearchQuery, activeSearchDirectory, debounce = false)
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
@@ -109,6 +120,86 @@ class SessionListViewModel constructor(
                             loadingCounts = null,
                             error = "Failed to load sessions: ${error.message}"
                         )
+                    }
+                },
+            )
+        }
+    }
+
+    fun updateSearchQuery(query: String, directory: String?) {
+        _uiState.update { state ->
+            state.copy(
+                searchQuery = query,
+                searchDirectory = directory,
+                searchError = null,
+                searchResults = if (query.isBlank()) emptyList() else state.searchResults,
+            )
+        }
+        searchSessions(query, directory, debounce = true)
+    }
+
+    fun updateSearchDirectory(directory: String?) {
+        val query = _uiState.value.searchQuery
+        _uiState.update { it.copy(searchDirectory = directory) }
+        if (query.isNotBlank()) {
+            searchSessions(query, directory, debounce = false)
+        }
+    }
+
+    private fun searchSessions(query: String, directory: String?, debounce: Boolean) {
+        searchJob?.cancel()
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    isSearching = false,
+                    serverSearchQuery = null,
+                    searchResults = emptyList(),
+                    searchError = null,
+                )
+            }
+            return
+        }
+
+        searchJob = viewModelScope.launch {
+            if (debounce) delay(SEARCH_DEBOUNCE_MS)
+            _uiState.update { it.copy(isSearching = true, searchError = null) }
+            val result = runCatching { sessionRepository.searchSessions(trimmed, directory) }
+            result.fold(
+                onSuccess = { sessions ->
+                    _uiState.update { state ->
+                        if (state.searchQuery.trim() == trimmed && state.searchDirectory == directory) {
+                            val projects = state.projects
+                            state.copy(
+                                isSearching = false,
+                                serverSearchQuery = trimmed,
+                                searchResults = sessions.map { workspaceSession ->
+                                    val session = workspaceSession.session
+                                    val project = projects.find { it.worktree == session.directory }
+                                    SessionWithProject(
+                                        session = session,
+                                        projectId = project?.id,
+                                        projectName = (project?.worktree ?: session.directory).substringAfterLast("/"),
+                                    )
+                                },
+                                searchError = null,
+                            )
+                        } else {
+                            state
+                        }
+                    }
+                },
+                onFailure = { error ->
+                    if (error is CancellationException) throw error
+                    _uiState.update { state ->
+                        if (state.searchQuery.trim() == trimmed && state.searchDirectory == directory) {
+                            state.copy(
+                                isSearching = false,
+                                searchError = "Search failed: ${error.message ?: "Unknown error"}",
+                            )
+                        } else {
+                            state
+                        }
                     }
                 },
             )
@@ -254,11 +345,45 @@ data class SessionListUiState(
     val sessionStatuses: Map<String, SessionStatus> = emptyMap(),
     val sessionPresences: Map<String, SessionPresence> = emptyMap(),
     val projects: List<ProjectInfo> = emptyList(),
+    val searchQuery: String = "",
+    val searchDirectory: String? = null,
+    val serverSearchQuery: String? = null,
+    val searchResults: List<SessionWithProject> = emptyList(),
+    val isSearching: Boolean = false,
+    val searchError: String? = null,
     val newSessionId: String? = null,
     val newSessionDirectory: String? = null,
     val shareUrl: String? = null,
     val error: String? = null
-)
+) {
+    val isSearchActive: Boolean
+        get() = searchQuery.isNotBlank()
+
+    val displayedSearchResults: List<SessionWithProject>
+        get() {
+            val trimmed = searchQuery.trim()
+            if (trimmed.isBlank()) return emptyList()
+            if (serverSearchQuery == trimmed) return searchResults
+            return searchResults.filter { it.session.title.contains(trimmed, ignoreCase = true) }
+        }
+
+    val searchStatus: SessionSearchStatus?
+        get() = when {
+            searchQuery.isBlank() -> null
+            searchError != null -> SessionSearchStatus.Failed
+            isSearching && serverSearchQuery != searchQuery.trim() -> SessionSearchStatus.Refining
+            isSearching -> SessionSearchStatus.Searching
+            serverSearchQuery == searchQuery.trim() -> SessionSearchStatus.Current
+            else -> SessionSearchStatus.Refining
+        }
+}
+
+sealed interface SessionSearchStatus {
+    data object Searching : SessionSearchStatus
+    data object Refining : SessionSearchStatus
+    data object Current : SessionSearchStatus
+    data object Failed : SessionSearchStatus
+}
 
 data class ProjectInfo(
     val id: String,
