@@ -62,7 +62,7 @@ class ChatViewModel constructor(
     // --- Sub-managers ---
     val dialogManager = DialogQueueManager(savedStateHandle, json, viewModelScope)
     val modelAgentManager = ModelAgentManager(connectionManager, settingsDataStore, viewModelScope, sessionId)
-    val filePickerManager = FilePickerManager(workspaceClient, viewModelScope, uploadCoordinator)
+    val filePickerManager = FilePickerManager(workspaceClient, viewModelScope, uploadCoordinator, settingsDataStore)
 
     // --- Core state ---
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -327,6 +327,7 @@ class ChatViewModel constructor(
             val result = sessionRepository.sendMessageAsync(SessionId(sessionId), request).await().toApiResult()
             when (result) {
                 is ApiResult.Success -> {
+                    _uiState.update { it.copy(isSending = false, isBusy = true) }
                     AppLog.d(TAG, "sendMessage: Async call succeeded, waiting for SSE events")
                 }
                 is ApiResult.Error -> {
@@ -410,6 +411,7 @@ class ChatViewModel constructor(
             val result = sessionRepository.sendMessageAsync(SessionId(sessionId), request).await().toApiResult()
             when (result) {
                 is ApiResult.Success -> {
+                    _uiState.update { it.copy(isSending = false, isBusy = true) }
                     AppLog.d(TAG, "sendQueuedMessageIfAny: Queued message sent successfully")
                 }
                 is ApiResult.Error -> {
@@ -478,7 +480,7 @@ class ChatViewModel constructor(
         viewModelScope.launch {
             val request = QuestionReplyRequest(answers = answers)
             when (val result = safeApiCall { workspaceClient.respondToQuestion(requestId, request) }) {
-                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId))
+                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId), requestId)
                 is ApiResult.Error -> _uiState.update {
                     it.copy(
                         error = "Failed to answer question: ${result.message}"
@@ -488,8 +490,23 @@ class ChatViewModel constructor(
         }
     }
 
-    fun dismissQuestion() {
-        sessionRepository.clearQuestion(SessionId(sessionId))
+    fun dismissQuestion(requestId: String) {
+        viewModelScope.launch {
+            // Reject the question server-side so the agent's pending request is
+            // resolved (otherwise it stays pending forever and the session never
+            // goes idle). The local modal is cleared optimistically; the matching
+            // question.rejected SSE event (handled in SessionRepositoryImpl) will
+            // also reconcile any other attached client.
+            when (val result = safeApiCall { workspaceClient.rejectQuestion(requestId) }) {
+                is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId), requestId)
+                is ApiResult.Error -> {
+                    // A NotFound here means it was already resolved elsewhere — clear
+                    // locally anyway so the user is not stuck on a dead modal.
+                    sessionRepository.clearQuestion(SessionId(sessionId), requestId)
+                    AppLog.w(TAG, "rejectQuestion failed (clearing locally): ${result.message}")
+                }
+            }
+        }
     }
 
     // --- Commands & Todos ---

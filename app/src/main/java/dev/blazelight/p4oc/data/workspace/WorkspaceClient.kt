@@ -14,6 +14,7 @@ import dev.blazelight.p4oc.data.remote.dto.MessageWrapperDto
 import dev.blazelight.p4oc.data.remote.dto.PermissionResponseRequest
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.dto.QuestionReplyRequest
+import dev.blazelight.p4oc.data.remote.dto.QuestionRequestDto
 import dev.blazelight.p4oc.data.remote.dto.RevertSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.dto.SessionDto
@@ -41,11 +42,12 @@ class WorkspaceClient(
 
     override suspend fun listSessions(
         directory: String?,
+        scope: String?,
         roots: Boolean?,
         start: Long?,
         search: String?,
         limit: Int?,
-    ): List<SessionDto> = api.listSessions(directory, roots, start, search, limit)
+    ): List<SessionDto> = api.listSessions(directory, scope, roots, start, search, limit)
 
     override suspend fun createSession(request: CreateSessionRequest): SessionDto =
         api.createSession(directory = directory, request = request)
@@ -104,6 +106,12 @@ class WorkspaceClient(
 
     suspend fun respondToQuestion(requestId: String, request: QuestionReplyRequest): Boolean =
         api.respondToQuestion(requestId, request, directory)
+
+    suspend fun rejectQuestion(requestId: String): Boolean =
+        api.rejectQuestion(requestId, directory)
+
+    suspend fun listPendingQuestions(): List<QuestionRequestDto> =
+        api.listPendingQuestions(directory)
 
     suspend fun listCommands(): List<CommandDto> = api.listCommands(directory)
 

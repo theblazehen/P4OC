@@ -15,6 +15,7 @@ interface SessionWorkspaceClient {
 
     suspend fun listSessions(
         directory: String?,
+        scope: String? = null,
         roots: Boolean? = null,
         start: Long? = null,
         search: String? = null,

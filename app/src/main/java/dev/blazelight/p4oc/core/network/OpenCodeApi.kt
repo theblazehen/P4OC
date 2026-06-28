@@ -26,6 +26,7 @@ interface OpenCodeApi {
     @GET("session")
     suspend fun listSessions(
         @Query("directory") directory: String?,
+        @Query("scope") scope: String? = null,
         @Query("roots") roots: Boolean? = null,
         @Query("start") start: Long? = null,
         @Query("search") search: String? = null,
@@ -185,6 +186,17 @@ interface OpenCodeApi {
         @Body request: QuestionReplyRequest,
         @Query("directory") directory: String?
     ): Boolean
+
+    @POST("question/{requestId}/reject")
+    suspend fun rejectQuestion(
+        @Path("requestId") requestId: String,
+        @Query("directory") directory: String?
+    ): Boolean
+
+    @GET("question")
+    suspend fun listPendingQuestions(
+        @Query("directory") directory: String?
+    ): List<QuestionRequestDto>
 
     @GET("command")
     suspend fun listCommands(

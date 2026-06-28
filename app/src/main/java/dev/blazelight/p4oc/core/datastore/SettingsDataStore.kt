@@ -76,6 +76,7 @@ class SettingsDataStore constructor(
 
         // Chat settings keys
         private val KEY_CHAT_ENTER_TO_SEND = booleanPreferencesKey("chat_enter_to_send")
+        private val KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE = stringPreferencesKey("chat_last_upload_dir_by_workspace")
 
         // Connection settings keys
         private val KEY_AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
@@ -439,6 +440,35 @@ class SettingsDataStore constructor(
     suspend fun updateChatSettings(settings: ChatSettings) {
         context.dataStore.edit { prefs ->
             prefs[KEY_CHAT_ENTER_TO_SEND] = settings.enterToSend
+        }
+    }
+
+    val lastUploadDirectoriesByWorkspace: Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE]
+            ?.takeIf { it.isNotBlank() }
+            ?.let { encoded ->
+                runCatching { json.decodeFromString<Map<String, String>>(encoded) }.getOrDefault(emptyMap())
+            }
+            ?: emptyMap()
+    }
+
+    suspend fun setLastUploadDirectory(workspaceKey: String, path: String?) {
+        if (workspaceKey.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE]
+                ?.takeIf { it.isNotBlank() }
+                ?.let { encoded -> runCatching { json.decodeFromString<Map<String, String>>(encoded) }.getOrNull() }
+                .orEmpty()
+            val updated = if (path.isNullOrBlank()) {
+                current - workspaceKey
+            } else {
+                current + (workspaceKey to path)
+            }
+            if (updated.isEmpty()) {
+                prefs.remove(KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE)
+            } else {
+                prefs[KEY_CHAT_LAST_UPLOAD_DIR_BY_WORKSPACE] = json.encodeToString(updated)
+            }
         }
     }
 
