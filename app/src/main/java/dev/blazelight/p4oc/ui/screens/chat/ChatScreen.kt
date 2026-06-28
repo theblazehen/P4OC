@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
@@ -48,6 +49,7 @@ import dev.blazelight.p4oc.ui.screens.files.upload.UploadProgressSheet
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -145,7 +147,8 @@ fun ChatScreen(
 
     // Scroll UX state: follow new tail content only while the user remains pinned to bottom.
     var shouldFollowTail by remember(uiState.session?.id) { mutableStateOf(true) }
-    var hasNewContentWhileAway by remember { mutableStateOf(false) }
+    var didInitialTailScroll by remember(uiState.session?.id) { mutableStateOf(false) }
+    var hasNewContentWhileAway by remember(uiState.session?.id) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     // Derived state: check if the bottom edge of the last rendered item is visible.
@@ -204,22 +207,9 @@ fun ChatScreen(
 
     // Scroll on new messages, new parts, or streaming text/reasoning growth.
     LaunchedEffect(messageCount, tailContentVersion, isBusy, pendingQuestionId) {
-        if (messages.isNotEmpty() || pendingQuestionId != null) {
+        if (didInitialTailScroll && (messages.isNotEmpty() || pendingQuestionId != null)) {
             if (shouldFollowTail) {
-                val lastIndex = (messageCount - 1).coerceAtLeast(0) + if (pendingQuestion != null) 1 else 0
-                val layoutInfo = listState.layoutInfo
-                val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull { it.index == lastIndex }
-                val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
-                val distanceFromLastVisible = layoutInfo.totalItemsCount - 1 -
-                    (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0)
-
-                if (lastVisibleItem != null && lastVisibleItem.size > viewportHeight) {
-                    listState.scrollToItem(lastIndex, Int.MAX_VALUE)
-                } else if (distanceFromLastVisible < 3) {
-                    listState.animateScrollToItem(lastIndex)
-                } else {
-                    listState.scrollToItem(lastIndex)
-                }
+                listState.scrollChatToBottom()
             } else {
                 hasNewContentWhileAway = true
             }
@@ -234,6 +224,15 @@ fun ChatScreen(
         searchMatches.getOrNull(currentMatchIndex)?.let { match ->
             shouldFollowTail = false
             listState.scrollToItem(match.blockIndex)
+        }
+    }
+
+    // The loading screen hides the list; once the session content is visible, land at the tail.
+    LaunchedEffect(uiState.session?.id, uiState.isLoading, messageCount, pendingQuestionId) {
+        if (!didInitialTailScroll && !uiState.isLoading && (messages.isNotEmpty() || pendingQuestionId != null)) {
+            snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
+            if (shouldFollowTail) listState.scrollChatToBottom()
+            didInitialTailScroll = true
         }
     }
 
@@ -431,7 +430,7 @@ fun ChatScreen(
                             InlineQuestionCard(
                                 questionRequestId = questionRequest.id,
                                 questionData = dev.blazelight.p4oc.domain.model.QuestionData(questionRequest.questions),
-                                onDismiss = viewModel::dismissQuestion,
+                                onDismiss = { viewModel.dismissQuestion(questionRequest.id) },
                                 onSubmit = { answers ->
                                     viewModel.respondToQuestion(questionRequest.id, answers)
                                 },
@@ -468,15 +467,15 @@ fun ChatScreen(
                 }
             }
 
-            // Jump to bottom button - shows when scrolled away during streaming
+            // Jump to bottom button - shows when scrolled away from the tail.
             JumpToBottomButton(
-                visible = !shouldFollowTail && uiState.isBusy,
+                visible = !isAtBottom,
                 hasNewContent = hasNewContentWhileAway,
                 onClick = {
                     coroutineScope.launch {
                         shouldFollowTail = true
                         hasNewContentWhileAway = false
-                        listState.scrollToItem(listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
+                        listState.scrollChatToBottom()
                     }
                 },
                 modifier = Modifier
@@ -703,6 +702,11 @@ private fun EmptyChatView(modifier: Modifier = Modifier) {
             color = theme.textMuted
         )
     }
+}
+
+private suspend fun LazyListState.scrollChatToBottom() {
+    val target = layoutInfo.totalItemsCount - 1
+    if (target >= 0) scrollToItem(target, Int.MAX_VALUE)
 }
 
 // MessageBlock, groupMessagesIntoBlocks, and MessageBlockView are now in MessageBlockUtils.kt

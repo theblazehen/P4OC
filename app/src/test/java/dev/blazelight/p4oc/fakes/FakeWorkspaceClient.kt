@@ -37,6 +37,7 @@ class FakeWorkspaceClient(
         private set
 
     val listSessionsDirectories = mutableListOf<String?>()
+    val listSessionsScopes = mutableListOf<String?>()
     val getSessionStatusesDirectories = mutableListOf<String?>()
 
     var projects: List<ProjectDto> = emptyList()
@@ -62,6 +63,7 @@ class FakeWorkspaceClient(
 
     override suspend fun listSessions(
         directory: String?,
+        scope: String?,
         roots: Boolean?,
         start: Long?,
         search: String?,
@@ -69,6 +71,7 @@ class FakeWorkspaceClient(
     ): List<SessionDto> {
         listSessionsCalls += 1
         listSessionsDirectories += directory
+        listSessionsScopes += scope
         listSessionsFailure?.let { throw it }
         return sessionsByDirectory?.get(directory) ?: listSessionsResult
     }

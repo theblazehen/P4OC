@@ -182,13 +182,22 @@ fun MainTabScreen(
                 currentOwner.workspace != workspace ||
                 currentOwner.generation != generation
             ) {
-                currentOwner?.close()
-                workspaceOwners[tab.id] = WorkspaceRepositoryOwner(
+                // Acquire the new owner BEFORE releasing the old one. Repositories are
+                // shared and ref-counted per workspace key by SessionRepositoryProvider;
+                // constructing the new owner first bumps the shared repository's ref-count
+                // (transiently to 2 when the key is unchanged), so closing the old owner
+                // afterwards drops it back to 1 instead of to 0. Closing first would evict
+                // and close() a repository that other consumers (e.g. the session list, or
+                // another tab on the same directory) are still using, surfacing as
+                // "SessionRepository closed" and breaking submission until force-stop.
+                val newOwner = WorkspaceRepositoryOwner(
                     tabId = tab.id,
                     workspace = workspace,
                     generation = generation,
                     sessionRepositoryProvider = sessionRepositoryProvider,
                 )
+                currentOwner?.close()
+                workspaceOwners[tab.id] = newOwner
             }
         }
     }
