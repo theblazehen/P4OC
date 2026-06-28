@@ -81,8 +81,8 @@ fun PocketCodeTheme(
             @Suppress("DEPRECATION")
             window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
+                isAppearanceLightStatusBars = !openCodeTheme.isDark
+                isAppearanceLightNavigationBars = !openCodeTheme.isDark
             }
         }
     }
