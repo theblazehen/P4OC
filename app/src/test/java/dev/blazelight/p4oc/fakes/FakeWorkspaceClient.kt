@@ -44,13 +44,24 @@ class FakeWorkspaceClient(
     var listPermissionsCalls: Int = 0
         private set
 
+    data class ListSessionsCall(
+        val directory: String?,
+        val scope: String?,
+        val roots: Boolean?,
+        val start: Long?,
+        val search: String?,
+        val limit: Int?,
+    )
+
     val listSessionsDirectories = mutableListOf<String?>()
     val listSessionsScopes = mutableListOf<String?>()
+    val listSessionsCallsLog = mutableListOf<ListSessionsCall>()
     val getSessionStatusesDirectories = mutableListOf<String?>()
 
     var projects: List<ProjectDto> = emptyList()
     var listSessionsResult: List<SessionDto> = emptyList()
     var sessionsByDirectory: Map<String?, List<SessionDto>>? = null
+    var sessionsByDirectoryAndSearch: Map<Pair<String?, String?>, List<SessionDto>> = emptyMap()
     var statusesByDirectory: Map<String?, Map<String, SessionStatusDto>> = emptyMap()
     var permissionsBySession: Map<String, List<PermissionV2RequestDto>> = emptyMap()
     var legacyPermissions: List<PermissionDto> = emptyList()
@@ -83,8 +94,11 @@ class FakeWorkspaceClient(
         listSessionsCalls += 1
         listSessionsDirectories += directory
         listSessionsScopes += scope
+        listSessionsCallsLog += ListSessionsCall(directory, scope, roots, start, search, limit)
         listSessionsFailure?.let { throw it }
-        return sessionsByDirectory?.get(directory) ?: listSessionsResult
+        return sessionsByDirectoryAndSearch[Pair(directory, search)]
+            ?: sessionsByDirectory?.get(directory)
+            ?: listSessionsResult
     }
 
     override suspend fun getSession(id: String): SessionDto {

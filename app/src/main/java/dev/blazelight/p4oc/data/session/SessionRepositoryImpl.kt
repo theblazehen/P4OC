@@ -138,6 +138,48 @@ class SessionRepositoryImpl(
         _state.value = RepoState.Live(snapshot)
     }
 
+    suspend fun searchSessions(query: String, directory: String? = null): List<WorkspaceSession> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return emptyList()
+
+        val projects = if (directory == null) {
+            runCatching { client.listProjects() }.getOrElse { emptyList() }
+        } else {
+            emptyList()
+        }
+        val directories = if (directory != null) {
+            listOf(directory)
+        } else {
+            listOf<String?>(null) + projects.map { it.worktree }
+        }
+
+        return coroutineScope {
+            val results = directories.map { searchDirectory ->
+                async {
+                    runCatching {
+                        client.listSessions(
+                            directory = searchDirectory,
+                            scope = null,
+                            roots = true,
+                            search = trimmed,
+                            limit = SEARCH_LIMIT,
+                        ).filterNot { dto -> OfishSessionNames.isOfishTitle(dto.title) }
+                            .map { dto -> workspaceSession(SessionMapper.mapToDomain(dto)) }
+                    }.onFailure { error ->
+                        AppLog.e(TAG, "Failed to search sessions for ${searchDirectory ?: "global"}: ${error.message}")
+                    }
+                }
+            }.awaitAll()
+            if (results.all { it.isFailure }) {
+                throw results.firstNotNullOf { it.exceptionOrNull() }
+            }
+            results.map { it.getOrElse { emptyList() } }
+                .flatten()
+                .distinctBy { it.id.value }
+                .sortedByDescending { it.session.updatedAt }
+        }
+    }
+
     override suspend fun getSession(id: SessionId): WorkspaceSession? {
         val current = state.value.snapshot.sessions[id.value]
         if (current != null) return current
@@ -854,6 +896,7 @@ class SessionRepositoryImpl(
     private companion object {
         const val FRESHNESS_MS = 30_000L
         const val MAX_CONCURRENT = 10
+        const val SEARCH_LIMIT = 100
         const val TAG = "SessionRepository"
         const val RESOLVED_QUESTION_TTL_MS = 30_000L
     }

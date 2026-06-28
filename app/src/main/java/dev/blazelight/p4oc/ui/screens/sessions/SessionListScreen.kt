@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -23,6 +24,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -86,9 +88,9 @@ fun SessionListScreen(
     var showNewSessionCustomDir by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Session?>(null) }
     var showRenameDialog by remember { mutableStateOf<Session?>(null) }
-    var showSearch by remember { mutableStateOf(false) }
-    var sessionSearchQuery by remember { mutableStateOf("") }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val filterDirectory = remember(uiState.projects, filterProjectId) {
         filterProjectId?.let { filter ->
@@ -96,18 +98,29 @@ fun SessionListScreen(
         }
     }
 
-    val displayedSessions = remember(uiState.sessions, filterDirectory) {
+    val baseDisplayedSessions = remember(uiState.sessions, filterDirectory) {
         if (filterDirectory != null) {
             uiState.sessions.filter { it.session.directory == filterDirectory }
         } else {
             uiState.sessions
         }
     }
+    val displayedSessions = if (!uiState.isSearchActive) {
+        baseDisplayedSessions
+    } else if (uiState.serverSearchQuery == null) {
+        baseDisplayedSessions.filter { it.session.title.contains(uiState.searchQuery.trim(), ignoreCase = true) }
+    } else {
+        uiState.displayedSearchResults
+    }
 
     val filteredProject = remember(uiState.projects, filterDirectory) {
         filterDirectory?.let { directory -> uiState.projects.find { it.worktree == directory } }
     }
     val projectName = filteredProject?.name ?: filterDirectory?.substringAfterLast("/")
+
+    LaunchedEffect(filterDirectory) {
+        viewModel.updateSearchDirectory(filterDirectory)
+    }
 
     LaunchedEffect(autoCreateSession, autoCreateSessionTitle, autoCreateSessionDirectory) {
         if (autoCreateSession) {
@@ -165,15 +178,13 @@ fun SessionListScreen(
                         )
                     }
                     IconButton(
-                        onClick = {
-                            showSearch = !showSearch
-                            if (!showSearch) sessionSearchQuery = ""
-                        },
+                        onClick = { showSearch = !showSearch },
                         modifier = Modifier.size(Sizing.iconButtonMd).testTag("sessions_search_button")
                     ) {
                         Icon(
-                            Icons.Default.Search,
+                            imageVector = if (uiState.isSearchActive) Icons.Default.SearchOff else Icons.Default.Search,
                             contentDescription = stringResource(R.string.cd_search),
+                            tint = if (uiState.isSearchActive) theme.accent else LocalContentColor.current,
                             modifier = Modifier.size(Sizing.iconAction)
                         )
                     }
@@ -227,8 +238,8 @@ fun SessionListScreen(
 
                 // During search, flatten to matching sessions (tree roots only would
                 // hide matching child sessions whose parent is filtered out).
-                val sessionTree = remember(displayedSessions, sessionSearchQuery) {
-                    val q = sessionSearchQuery.trim()
+                val sessionTree = remember(displayedSessions, uiState.searchQuery) {
+                    val q = uiState.searchQuery.trim()
                     if (q.isBlank()) {
                         buildSessionTree(displayedSessions)
                     } else {
@@ -243,15 +254,17 @@ fun SessionListScreen(
                     contentPadding = PaddingValues(Spacing.md),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
-                    val searchActive = sessionSearchQuery.isNotBlank()
-                    if (showSearch) {
+                    val searchActive = uiState.isSearchActive
+                    if (showSearch || uiState.isSearchActive) {
                         stickyHeader(key = "session_search") {
                             SessionSearchField(
-                                query = sessionSearchQuery,
-                                onQueryChange = { sessionSearchQuery = it },
+                                query = uiState.searchQuery,
+                                status = uiState.searchStatus,
+                                onQueryChange = { query -> viewModel.updateSearchQuery(query, filterDirectory) },
                                 onClose = {
                                     showSearch = false
-                                    sessionSearchQuery = ""
+                                    viewModel.updateSearchQuery("", filterDirectory)
+                                    keyboardController?.hide()
                                 },
                             )
                         }
@@ -305,7 +318,11 @@ fun SessionListScreen(
                     if (searchActive && sessionTree.isEmpty()) {
                         item(key = "no_match") {
                             Text(
-                                text = stringResource(R.string.sessions_search_no_match),
+                                text = if (uiState.isSearching || uiState.serverSearchQuery != uiState.searchQuery.trim()) {
+                                    stringResource(R.string.sessions_search_waiting)
+                                } else {
+                                    stringResource(R.string.sessions_search_no_match)
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = theme.textMuted,
                                 modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.lg)
@@ -436,12 +453,17 @@ fun SessionListScreen(
 @Composable
 private fun SessionSearchField(
     query: String,
+    status: SessionSearchStatus?,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
 ) {
     val theme = LocalOpenCodeTheme.current
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
     Surface(color = theme.backgroundPanel, shape = RectangleShape, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -473,6 +495,15 @@ private fun SessionSearchField(
                     unfocusedTextColor = theme.text,
                 ),
             )
+            status?.let { searchStatus ->
+                val visual = searchStatusVisual(searchStatus, theme)
+                Icon(
+                    imageVector = visual.icon,
+                    contentDescription = visual.contentDescription,
+                    tint = visual.color,
+                    modifier = Modifier.size(Sizing.iconMd),
+                )
+            }
             IconButton(onClick = onClose, modifier = Modifier.size(Sizing.iconButtonMd)) {
                 Icon(
                     Icons.Default.Close,
@@ -484,6 +515,39 @@ private fun SessionSearchField(
         }
     }
 }
+
+@Composable
+private fun searchStatusVisual(
+    status: SessionSearchStatus,
+    theme: dev.blazelight.p4oc.ui.theme.opencode.OpenCodeTheme,
+): SearchStatusVisual = when (status) {
+    SessionSearchStatus.Searching -> SearchStatusVisual(
+        icon = Icons.Default.Search,
+        contentDescription = stringResource(R.string.sessions_search_status_searching),
+        color = theme.accent,
+    )
+    SessionSearchStatus.Refining -> SearchStatusVisual(
+        icon = Icons.Default.FilterList,
+        contentDescription = stringResource(R.string.sessions_search_status_refining),
+        color = theme.warning,
+    )
+    SessionSearchStatus.Current -> SearchStatusVisual(
+        icon = Icons.Default.CheckCircle,
+        contentDescription = stringResource(R.string.sessions_search_status_current),
+        color = theme.success,
+    )
+    SessionSearchStatus.Failed -> SearchStatusVisual(
+        icon = Icons.Default.ErrorOutline,
+        contentDescription = stringResource(R.string.sessions_search_status_failed),
+        color = theme.error,
+    )
+}
+
+private data class SearchStatusVisual(
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val contentDescription: String,
+    val color: Color,
+)
 
 private fun buildSessionTree(sessions: List<SessionWithProject>): List<SessionNode> {
     val childrenByParent = sessions
