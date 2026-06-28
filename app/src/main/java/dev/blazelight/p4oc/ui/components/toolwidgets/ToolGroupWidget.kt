@@ -60,7 +60,7 @@ private data class ToolGroup(
 fun ToolGroupWidget(
     tools: List<Part.Tool>,
     defaultState: ToolWidgetState,
-    pendingPermissionCallIds: Set<String> = emptySet(),
+    pendingPermissionIdsByCallId: Map<String, String> = emptyMap(),
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
     onOpenSubSession: ((String) -> Unit)? = null,
@@ -68,8 +68,8 @@ fun ToolGroupWidget(
 ) {
     val theme = LocalOpenCodeTheme.current
 
-    // HITL tools (pending state) always show expanded
-    val hasPendingTools = tools.any { it.state is ToolState.Pending }
+    // A recovered permission request is authoritative even if persisted tool history still says running.
+    val hasPendingTools = tools.any { it.state is ToolState.Pending || it.callID in pendingPermissionIdsByCallId.keys }
     val effectiveDefault = if (hasPendingTools) ToolWidgetState.EXPANDED else defaultState
 
     var currentState by remember(tools.firstOrNull()?.callID) { mutableStateOf(effectiveDefault) }
@@ -82,12 +82,12 @@ fun ToolGroupWidget(
     }
 
     // Group tools by name and determine aggregate state
-    val toolGroups = remember(tools) {
+    val toolGroups = remember(tools, pendingPermissionIdsByCallId.keys) {
         tools.groupBy { it.toolName }
             .map { (name, toolList) ->
                 val state = when {
+                    toolList.any { it.state is ToolState.Pending || it.callID in pendingPermissionIdsByCallId.keys } -> AggregateToolState.PENDING
                     toolList.any { it.state is ToolState.Running } -> AggregateToolState.RUNNING
-                    toolList.any { it.state is ToolState.Pending } -> AggregateToolState.PENDING
                     toolList.any { it.state is ToolState.Error } -> AggregateToolState.ERROR
                     else -> AggregateToolState.COMPLETED
                 }
@@ -188,11 +188,11 @@ fun ToolGroupWidget(
                                 modifier = Modifier.fillMaxWidth()
                             )
 
-                            // Show approval buttons if pending
-                            if (tool.state is ToolState.Pending && tool.callID in pendingPermissionCallIds) {
+                            // Show approval buttons for live or recovered pending permissions.
+                            if (tool.callID in pendingPermissionIdsByCallId.keys) {
                                 PendingApprovalButtonsInline(
-                                    onApprove = { onToolApprove(tool.callID) },
-                                    onDeny = { onToolDeny(tool.callID) }
+                                    onApprove = { onToolApprove(pendingPermissionIdsByCallId[tool.callID] ?: tool.callID) },
+                                    onDeny = { onToolDeny(pendingPermissionIdsByCallId[tool.callID] ?: tool.callID) }
                                 )
                             }
                         }
@@ -201,7 +201,8 @@ fun ToolGroupWidget(
                             ToolCallExpanded(
                                 tool = tool,
                                 onClick = { currentState = currentState.next() },
-                                showApprovalActions = tool.callID in pendingPermissionCallIds,
+                                showApprovalActions = tool.callID in pendingPermissionIdsByCallId.keys,
+                                approvalRequestId = pendingPermissionIdsByCallId[tool.callID] ?: tool.callID,
                                 onToolApprove = onToolApprove,
                                 onToolDeny = onToolDeny,
                                 onOpenSubSession = onOpenSubSession,

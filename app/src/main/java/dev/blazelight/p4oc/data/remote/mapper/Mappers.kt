@@ -558,6 +558,34 @@ object StatusMapper {
 }
 
 // ============================================================================
+// Permission Mapper
+// ============================================================================
+
+object PermissionMapper {
+    fun mapToDomain(dto: PermissionDto): Permission = Permission(
+        id = dto.id,
+        type = dto.permission,
+        patterns = dto.patterns,
+        sessionID = dto.sessionID,
+        messageID = dto.tool?.messageID.orEmpty(),
+        callID = dto.tool?.callID,
+        metadata = dto.metadata,
+        always = dto.always,
+    )
+
+    fun mapV2ToDomain(dto: PermissionV2RequestDto): Permission = Permission(
+        id = dto.id,
+        type = dto.action,
+        patterns = dto.resources,
+        sessionID = dto.sessionID,
+        messageID = dto.source?.takeIf { it.type == "tool" }?.messageID.orEmpty(),
+        callID = dto.source?.takeIf { it.type == "tool" }?.callID,
+        metadata = dto.metadata ?: JsonObject(emptyMap()),
+        always = dto.save,
+    )
+}
+
+// ============================================================================
 // Event Mapper
 // ============================================================================
 
@@ -665,20 +693,13 @@ class EventMapper constructor(
             }
             "permission.asked" -> {
                 val permissionDto = json.decodeFromJsonElement<PermissionDto>(dto.properties)
-                OpenCodeEvent.PermissionRequested(
-                    Permission(
-                        id = permissionDto.id,
-                        type = permissionDto.permission,
-                        patterns = permissionDto.patterns,
-                        sessionID = permissionDto.sessionID,
-                        messageID = permissionDto.tool?.messageID ?: "",
-                        callID = permissionDto.tool?.callID,
-                        metadata = permissionDto.metadata,
-                        always = permissionDto.always
-                    )
-                )
+                OpenCodeEvent.PermissionRequested(PermissionMapper.mapToDomain(permissionDto))
             }
-            "permission.replied" -> {
+            "permission.v2.asked" -> {
+                val permissionDto = json.decodeFromJsonElement<PermissionV2RequestDto>(dto.properties)
+                OpenCodeEvent.PermissionRequested(PermissionMapper.mapV2ToDomain(permissionDto))
+            }
+            "permission.replied", "permission.v2.replied" -> {
                 val props = json.decodeFromJsonElement<PermissionRepliedPropertiesDto>(dto.properties)
                 OpenCodeEvent.PermissionReplied(props.sessionID, props.requestID, props.reply)
             }

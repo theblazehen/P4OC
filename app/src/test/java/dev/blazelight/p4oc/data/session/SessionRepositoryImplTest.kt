@@ -300,6 +300,84 @@ class SessionRepositoryImplTest {
     }
 
     @Test
+    fun `connected event recovers missed pending permissions for observed sessions`() = runTest {
+        val client = FakeWorkspaceClient().apply {
+            projects = emptyList()
+            permissionsBySession = mapOf(
+                "s1" to listOf(FakeWorkspaceClient.permissionV2Dto(id = "per_1", sessionId = "s1", callId = "call-1"))
+            )
+        }
+        val repository =
+            SessionRepositoryImpl(
+                client,
+                nowMs = { testScheduler.currentTime },
+                dispatcher = StandardTestDispatcher(testScheduler)
+            )
+        repository.sessionUiState(SessionId("s1"))
+
+        repository.acceptEvent(OpenCodeEvent.Connected)
+        advanceUntilIdle()
+
+        val permissions = repository.sessionUiState(SessionId("s1")).value.pendingPermissionsByCallId
+        assertEquals(1, client.listSessionPermissionsV2Calls)
+        assertEquals("per_1", permissions.getValue("call-1").id)
+    }
+
+    @Test
+    fun `connected event recovers missed legacy pending permissions before probing v2`() = runTest {
+        val client = FakeWorkspaceClient().apply {
+            projects = emptyList()
+            listSessionPermissionsV2Failure = RuntimeException("not found")
+            legacyPermissions = listOf(
+                FakeWorkspaceClient.permissionDto(id = "per_1", sessionId = "s1", callId = "call-1"),
+                FakeWorkspaceClient.permissionDto(id = "per_2", sessionId = "other", callId = "call-2"),
+            )
+        }
+        val repository =
+            SessionRepositoryImpl(
+                client,
+                nowMs = { testScheduler.currentTime },
+                dispatcher = StandardTestDispatcher(testScheduler)
+            )
+        repository.sessionUiState(SessionId("s1"))
+
+        repository.acceptEvent(OpenCodeEvent.Connected)
+        advanceUntilIdle()
+
+        val permissions = repository.sessionUiState(SessionId("s1")).value.pendingPermissionsByCallId
+        assertEquals(0, client.listSessionPermissionsV2Calls)
+        assertEquals(1, client.listPermissionsCalls)
+        assertEquals("per_1", permissions.getValue("call-1").id)
+        assertFalse(permissions.containsKey("call-2"))
+    }
+
+    @Test
+    fun `permission reconciliation clears stale resolved permissions`() = runTest {
+        val client = FakeWorkspaceClient().apply {
+            projects = emptyList()
+            permissionsBySession = mapOf(
+                "s1" to listOf(FakeWorkspaceClient.permissionV2Dto(id = "per_1", sessionId = "s1", callId = "call-1"))
+            )
+        }
+        val repository =
+            SessionRepositoryImpl(
+                client,
+                nowMs = { testScheduler.currentTime },
+                dispatcher = StandardTestDispatcher(testScheduler)
+            )
+        repository.sessionUiState(SessionId("s1"))
+        repository.acceptEvent(OpenCodeEvent.Connected)
+        advanceUntilIdle()
+        assertTrue(repository.sessionUiState(SessionId("s1")).value.pendingPermissionsByCallId.isNotEmpty())
+
+        client.permissionsBySession = emptyMap()
+        repository.acceptEvent(OpenCodeEvent.Connected)
+        advanceUntilIdle()
+
+        assertTrue(repository.sessionUiState(SessionId("s1")).value.pendingPermissionsByCallId.isEmpty())
+    }
+
+    @Test
     fun `delete http failure refetches server truth instead of rollback map`() = runTest {
         val client = FakeWorkspaceClient().apply {
             projects = emptyList()

@@ -173,12 +173,29 @@ interface OpenCodeApi {
         @Query("directory") directory: String?
     ): MessageWrapperDto
 
+    @GET("permission")
+    suspend fun listPermissions(
+        @Query("directory") directory: String?
+    ): List<PermissionDto>
+
     @POST("permission/{requestId}/reply")
     suspend fun respondToPermission(
         @Path("requestId") requestId: String,
         @Body request: PermissionResponseRequest,
         @Query("directory") directory: String?
     ): Boolean
+
+    @GET("api/session/{sessionId}/permission")
+    suspend fun listSessionPermissionsV2(
+        @Path("sessionId") sessionId: String
+    ): PermissionV2RequestListResponseDto
+
+    @POST("api/session/{sessionId}/permission/{requestId}/reply")
+    suspend fun respondToPermissionV2(
+        @Path("sessionId") sessionId: String,
+        @Path("requestId") requestId: String,
+        @Body request: PermissionResponseRequest
+    ): Response<Unit>
 
     @POST("question/{requestId}/reply")
     suspend fun respondToQuestion(

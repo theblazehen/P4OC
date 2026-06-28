@@ -224,7 +224,7 @@ private fun AssistantMessageContent(
                     ToolGroupWidget(
                         tools = group.tools,
                         defaultState = defaultToolWidgetState,
-                        pendingPermissionCallIds = pendingPermissionsByCallId.keys,
+                        pendingPermissionIdsByCallId = pendingPermissionsByCallId.mapValues { it.value.id },
                         onToolApprove = onToolApprove,
                         onToolDeny = onToolDeny,
                         onOpenSubSession = onOpenSubSession

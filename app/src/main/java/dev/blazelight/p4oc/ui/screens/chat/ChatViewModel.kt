@@ -458,7 +458,7 @@ class ChatViewModel constructor(
     fun respondToPermission(permissionId: String, response: String) {
         viewModelScope.launch {
             val request = PermissionResponseRequest(reply = response)
-            when (val result = safeApiCall { workspaceClient.respondToPermission(permissionId, request) }) {
+            when (val result = safeApiCall { workspaceClient.respondToPermission(sessionId, permissionId, request) }) {
                 is ApiResult.Success -> {
                     dialogManager.clearPermission(permissionId)
                     sessionRepository.clearPermission(SessionId(sessionId), permissionId)

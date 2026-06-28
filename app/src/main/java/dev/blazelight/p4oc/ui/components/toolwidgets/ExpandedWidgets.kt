@@ -38,6 +38,7 @@ fun BashWidgetExpanded(
     tool: Part.Tool,
     onClick: (() -> Unit)?,
     showApprovalActions: Boolean,
+    approvalRequestId: String = tool.callID,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -116,10 +117,10 @@ fun BashWidgetExpanded(
         }
 
         // Pending approval buttons
-        if (state is ToolState.Pending && showApprovalActions) {
+        if (showApprovalActions) {
             PendingApprovalButtons(
-                onApprove = { onToolApprove(tool.callID) },
-                onDeny = { onToolDeny(tool.callID) }
+                onApprove = { onToolApprove(approvalRequestId) },
+                onDeny = { onToolDeny(approvalRequestId) }
             )
         }
     }
@@ -342,6 +343,7 @@ fun DefaultWidgetExpanded(
     tool: Part.Tool,
     onClick: (() -> Unit)?,
     showApprovalActions: Boolean,
+    approvalRequestId: String = tool.callID,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -429,10 +431,10 @@ fun DefaultWidgetExpanded(
         }
 
         // Pending approval buttons
-        if (state is ToolState.Pending && showApprovalActions) {
+        if (showApprovalActions) {
             PendingApprovalButtons(
-                onApprove = { onToolApprove(tool.callID) },
-                onDeny = { onToolDeny(tool.callID) }
+                onApprove = { onToolApprove(approvalRequestId) },
+                onDeny = { onToolDeny(approvalRequestId) }
             )
         }
     }
@@ -447,6 +449,7 @@ fun TaskWidgetExpanded(
     tool: Part.Tool,
     onClick: (() -> Unit)?,
     showApprovalActions: Boolean,
+    approvalRequestId: String = tool.callID,
     onToolApprove: (String) -> Unit,
     onToolDeny: (String) -> Unit,
     onOpenSubSession: ((String) -> Unit)?,
@@ -565,10 +568,10 @@ fun TaskWidgetExpanded(
         }
 
         // Pending approval buttons
-        if (state is ToolState.Pending && showApprovalActions) {
+        if (showApprovalActions) {
             PendingApprovalButtons(
-                onApprove = { onToolApprove(tool.callID) },
-                onDeny = { onToolDeny(tool.callID) }
+                onApprove = { onToolApprove(approvalRequestId) },
+                onDeny = { onToolDeny(approvalRequestId) }
             )
         }
     }

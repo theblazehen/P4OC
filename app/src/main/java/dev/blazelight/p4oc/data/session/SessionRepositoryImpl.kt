@@ -8,6 +8,7 @@ import dev.blazelight.p4oc.data.remote.dto.QuestionRequestDto
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
+import dev.blazelight.p4oc.data.remote.mapper.PermissionMapper
 import dev.blazelight.p4oc.data.remote.mapper.SessionMapper
 import dev.blazelight.p4oc.data.remote.mapper.mapQuestionRequestDtoToDomain
 import dev.blazelight.p4oc.data.workspace.SessionWorkspaceClient
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.atomic.AtomicInteger
@@ -147,6 +149,7 @@ class SessionRepositoryImpl(
     override fun acceptEvent(event: OpenCodeEvent) {
         if (event is OpenCodeEvent.Connected) {
             hydrateAfterReconnect()
+            scope.launch { reconcileObservedPendingPermissions() }
             return
         }
 
@@ -397,6 +400,7 @@ class SessionRepositoryImpl(
         if (hasRunningQuestion) {
             reconcilePendingQuestions()
         }
+        reconcilePendingPermissions(sessionId.value)
     }
 
     override fun sendMessageAsync(sessionId: SessionId, request: SendMessageRequest): Deferred<Result<Unit>> = scope.async {
@@ -640,6 +644,34 @@ class SessionRepositoryImpl(
     private fun updateOwnedSession(eventSessionId: String, transform: (SessionUiState) -> SessionUiState) {
         val ownerSessionId = synchronized(childToParentSessionIds) { childToParentSessionIds[eventSessionId] } ?: eventSessionId
         updateSession(ownerSessionId, transform)
+    }
+
+    private suspend fun reconcileObservedPendingPermissions() {
+        val sessionIds = synchronized(sessionUiStates) { sessionUiStates.keys.toList() }
+        sessionIds.forEach { sessionId -> reconcilePendingPermissions(sessionId) }
+    }
+
+    private suspend fun reconcilePendingPermissions(sessionId: String) {
+        val legacyPermissions = runCatching {
+            client.listPermissions()
+                .filter { permission -> permission.sessionID == sessionId }
+                .map(PermissionMapper::mapToDomain)
+        }.getOrNull()
+        val permissions = if (!legacyPermissions.isNullOrEmpty()) {
+            legacyPermissions
+        } else {
+            runCatching { client.listSessionPermissionsV2(sessionId).map(PermissionMapper::mapV2ToDomain) }
+                .getOrNull()
+                ?: legacyPermissions
+                ?: return
+        }
+        updateSession(sessionId) { state ->
+            val recovered = permissions.mapNotNull { permission ->
+                val callId = permission.callID ?: return@mapNotNull null
+                callId to permission
+            }.toMap()
+            state.copy(pendingPermissionsByCallId = recovered)
+        }
     }
 
     private fun mergeLoadedMessages(sessionId: String, loaded: List<MessageWithParts>) {

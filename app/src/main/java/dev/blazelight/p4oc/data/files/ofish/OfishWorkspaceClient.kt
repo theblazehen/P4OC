@@ -43,5 +43,5 @@ internal class WorkspaceClientOfishAdapter(
         )
 
     override suspend fun respondToPermission(id: String, request: PermissionResponseRequest): Boolean =
-        workspaceClient.respondToPermission(id, request)
+        workspaceClient.respondToPermissionLegacy(id, request)
 }

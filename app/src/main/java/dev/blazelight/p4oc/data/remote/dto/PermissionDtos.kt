@@ -26,6 +26,29 @@ data class PermissionToolDto(
 )
 
 @Serializable
+data class PermissionV2RequestListResponseDto(
+    val data: List<PermissionV2RequestDto>
+)
+
+@Serializable
+data class PermissionV2RequestDto(
+    val id: String,
+    @SerialName("sessionID") val sessionID: String,
+    val action: String,
+    val resources: List<String>,
+    val save: List<String> = emptyList(),
+    val metadata: JsonObject? = null,
+    val source: PermissionV2SourceDto? = null
+)
+
+@Serializable
+data class PermissionV2SourceDto(
+    val type: String,
+    @SerialName("messageID") val messageID: String,
+    @SerialName("callID") val callID: String
+)
+
+@Serializable
 data class PermissionResponseRequest(
     val reply: String,
     val message: String? = null
