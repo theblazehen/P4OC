@@ -142,6 +142,8 @@
     <string name="sessions_title">Sessions</string>
     <string name="sessions_empty_title">No sessions yet</string>
     <string name="sessions_empty_hint">Tap above to start a new session</string>
+    <string name="sessions_search_placeholder">Search chats…</string>
+    <string name="sessions_search_no_match">No matching chats</string>
     <string name="sessions_loading">Loading sessions</string>
     <string name="sessions_new">New Session</string>
     <string name="sessions_delete">Delete</string>
@@ -174,6 +176,9 @@
     <string name="sessions_create_in_project">Create session in %1$s</string>
     
     <!-- Chat Screen -->
+    <string name="chat_search_action">Search chat</string>
+    <string name="chat_search_placeholder">Search in chat…</string>
+    <string name="chat_search_no_matches">No matches</string>
     <string name="chat_empty_title">Start a conversation</string>
     <string name="chat_empty_description">Type a message below to begin</string>
     <string name="chat_input_placeholder">Type a message…</string>

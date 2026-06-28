@@ -18,6 +18,9 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -58,7 +61,7 @@ private data class SessionNode(
         get() = children.size + children.sumOf { it.totalDescendants }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SessionListScreen(
     viewModel: SessionListViewModel = koinViewModel(),
@@ -83,6 +86,8 @@ fun SessionListScreen(
     var showNewSessionCustomDir by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Session?>(null) }
     var showRenameDialog by remember { mutableStateOf<Session?>(null) }
+    var showSearch by remember { mutableStateOf(false) }
+    var sessionSearchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
 
     val filterDirectory = remember(uiState.projects, filterProjectId) {
@@ -160,6 +165,19 @@ fun SessionListScreen(
                         )
                     }
                     IconButton(
+                        onClick = {
+                            showSearch = !showSearch
+                            if (!showSearch) sessionSearchQuery = ""
+                        },
+                        modifier = Modifier.size(Sizing.iconButtonMd).testTag("sessions_search_button")
+                    ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = stringResource(R.string.cd_search),
+                            modifier = Modifier.size(Sizing.iconAction)
+                        )
+                    }
+                    IconButton(
                         onClick = onSettings,
                         modifier = Modifier.size(Sizing.iconButtonMd).testTag("sessions_settings_button")
                     ) {
@@ -207,8 +225,17 @@ fun SessionListScreen(
             } else {
                 val expandedSessions = remember { mutableStateMapOf<String, Boolean>() }
 
-                val sessionTree = remember(displayedSessions) {
-                    buildSessionTree(displayedSessions)
+                // During search, flatten to matching sessions (tree roots only would
+                // hide matching child sessions whose parent is filtered out).
+                val sessionTree = remember(displayedSessions, sessionSearchQuery) {
+                    val q = sessionSearchQuery.trim()
+                    if (q.isBlank()) {
+                        buildSessionTree(displayedSessions)
+                    } else {
+                        displayedSessions
+                            .filter { it.session.title.contains(q, ignoreCase = true) }
+                            .map { SessionNode(it, emptyList()) }
+                    }
                 }
 
                 LazyColumn(
@@ -216,8 +243,21 @@ fun SessionListScreen(
                     contentPadding = PaddingValues(Spacing.md),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
-                    // Pinned quick actions (only on unfiltered list)
-                    if (filterProjectId == null) {
+                    val searchActive = sessionSearchQuery.isNotBlank()
+                    if (showSearch) {
+                        stickyHeader(key = "session_search") {
+                            SessionSearchField(
+                                query = sessionSearchQuery,
+                                onQueryChange = { sessionSearchQuery = it },
+                                onClose = {
+                                    showSearch = false
+                                    sessionSearchQuery = ""
+                                },
+                            )
+                        }
+                    }
+                    // Pinned quick actions (hidden while searching)
+                    if (!searchActive && filterProjectId == null) {
                         item(key = "quick_action_global") {
                             QuickActionCard(
                                 icon = "\u25C6",
@@ -244,7 +284,7 @@ fun SessionListScreen(
                                 modifier = Modifier.testTag("quick_action_custom")
                             )
                         }
-                    } else {
+                    } else if (!searchActive) {
                         filterDirectory?.let { directory ->
                             item(key = "quick_action_project") {
                                 QuickActionCard(
@@ -262,7 +302,16 @@ fun SessionListScreen(
                         }
                     }
 
-                    if (displayedSessions.isEmpty() && filterProjectId == null) {
+                    if (searchActive && sessionTree.isEmpty()) {
+                        item(key = "no_match") {
+                            Text(
+                                text = stringResource(R.string.sessions_search_no_match),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = theme.textMuted,
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.lg)
+                            )
+                        }
+                    } else if (displayedSessions.isEmpty() && filterProjectId == null) {
                         item(key = "empty_hint") {
                             Text(
                                 text = stringResource(R.string.sessions_empty_hint),
@@ -381,6 +430,58 @@ fun SessionListScreen(
             confirmText = stringResource(R.string.sessions_rename),
             dismissText = stringResource(R.string.button_cancel)
         )
+    }
+}
+
+@Composable
+private fun SessionSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    val theme = LocalOpenCodeTheme.current
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    Surface(color = theme.backgroundPanel, shape = RectangleShape, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = {
+                    Text(
+                        text = stringResource(R.string.sessions_search_placeholder),
+                        color = theme.textMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall.copy(color = theme.text),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .testTag("sessions_search_field"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    cursorColor = theme.accent,
+                    focusedTextColor = theme.text,
+                    unfocusedTextColor = theme.text,
+                ),
+            )
+            IconButton(onClick = onClose, modifier = Modifier.size(Sizing.iconButtonMd)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = stringResource(R.string.button_cancel),
+                    modifier = Modifier.size(Sizing.iconAction),
+                    tint = theme.textMuted,
+                )
+            }
+        }
     }
 }
 
