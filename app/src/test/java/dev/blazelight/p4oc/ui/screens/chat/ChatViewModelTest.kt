@@ -46,6 +46,7 @@ import dev.blazelight.p4oc.ui.navigation.Screen
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadCoordinator
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -532,6 +533,20 @@ class ChatViewModelTest {
 
         assertTrue(vm.sessionMissing.replayCache.isNotEmpty())
         assertNull(vm.uiState.value.error)
+    }
+
+    @Test
+    fun refreshAfterForeground_refetchesOpenSessionMetadataAndMessages() = runTest {
+        val vm = createViewModel()
+        clearMocks(api, answers = false, recordedCalls = true, childMocks = false)
+        coEvery { api.getSession("session-1", any(), null) } returns sessionDto()
+        coEvery { api.getMessages("session-1", any(), null, any(), null) } returns emptyList()
+
+        vm.refreshAfterForeground()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { api.getSession("session-1", "/test", null) }
+        coVerify(exactly = 1) { api.getMessages("session-1", any(), null, "/test", null) }
     }
 
     @Test

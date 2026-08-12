@@ -248,10 +248,7 @@ class ConnectionManager constructor(
 
     fun onAppForegrounded() {
         val connection = _connection.value ?: return
-        val state = _connectionState.value
-        if (state is ConnectionState.Connected || state is ConnectionState.Connecting) return
-
-        AppLog.d(TAG, "Refreshing SSE connection after foreground resume")
+        AppLog.d(TAG, "Restarting SSE connection after foreground resume")
         connection.eventSource.resetConsecutiveErrors()
         reconnectSse(reason = "app_foreground")
     }

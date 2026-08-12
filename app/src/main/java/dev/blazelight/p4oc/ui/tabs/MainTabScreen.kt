@@ -69,9 +69,9 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -411,10 +411,20 @@ private val rememberConnectSavedServer: @Composable (
 
 private val mainTabForegroundEffect: @Composable (ServerConnectionRegistry, LifecycleOwner) -> Unit =
     { serverConnectionRegistry, lifecycleOwner ->
-        LaunchedEffect(lifecycleOwner) {
-            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                serverConnectionRegistry.onAppForegrounded()
+        DisposableEffect(serverConnectionRegistry, lifecycleOwner) {
+            var wasStopped = false
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_STOP -> wasStopped = true
+                    Lifecycle.Event.ON_START -> if (wasStopped) {
+                        wasStopped = false
+                        serverConnectionRegistry.onAppForegrounded()
+                    }
+                    else -> Unit
+                }
             }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
     }
 

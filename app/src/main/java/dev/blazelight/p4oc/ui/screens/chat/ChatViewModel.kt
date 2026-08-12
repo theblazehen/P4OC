@@ -273,6 +273,12 @@ class ChatViewModel constructor(
         _isActiveTab.value = false
     }
 
+    /** Reconciles REST-backed chat state after Android resumes from the background. */
+    fun refreshAfterForeground() {
+        loadSession()
+        loadMessages()
+    }
+
     fun updateInput(text: String) {
         persistInputText(text)
         _uiState.update { it.copy(inputText = text) }

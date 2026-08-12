@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.domain.model.Part
@@ -151,6 +152,15 @@ fun ChatScreen(
         if (!uris.isNullOrEmpty()) {
             viewModel.filePickerManager.uploadAndAttach(uploadSource, uris.map { it.toString() })
         }
+    }
+
+    var hasCompletedInitialResume by rememberSaveable { mutableStateOf(false) }
+    LifecycleResumeEffect(isActiveTab) {
+        if (hasCompletedInitialResume && isActiveTab) {
+            viewModel.refreshAfterForeground()
+        }
+        hasCompletedInitialResume = true
+        onPauseOrDispose { }
     }
 
     // Notify parent when session is loaded
