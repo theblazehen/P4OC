@@ -10,6 +10,7 @@ import dev.blazelight.p4oc.core.network.DiscoveryState
 import dev.blazelight.p4oc.core.network.MdnsDiscoveryManager
 import dev.blazelight.p4oc.core.network.ServerConfig
 import dev.blazelight.p4oc.core.network.ServerConnectionRegistry
+import dev.blazelight.p4oc.core.network.ServerUrl
 import dev.blazelight.p4oc.core.security.CredentialStore
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -146,6 +147,42 @@ class ServerViewModelIssue37Test {
         assertTrue(viewModel.uiState.value.isConnected)
         assertEquals("http://saved.local:4096", viewModel.uiState.value.connectedEndpointKey)
         assertEquals(NavigationDestination.Sessions, viewModel.uiState.value.navigationDestination)
+    }
+
+    @Test
+    fun `allowed reconnect preserves persisted no-port endpoint and canonical identity`() = runTest(dispatcher) {
+        val settingsDataStore = mockk<SettingsDataStore>()
+        val connectionRegistry = mockk<ServerConnectionRegistry>()
+        val discoveryManager = discoveryManager()
+        val connectedServer = slot<SavedServer>()
+        val config = ServerConfig(
+            url = "https://saved.local",
+            name = "Saved server",
+            username = "opencode",
+        )
+        val expectedEndpointKey = requireNotNull(ServerUrl.endpointKey(config.url))
+        every { settingsDataStore.recentServers } returns flowOf(emptyList())
+        every { settingsDataStore.savedServers } returns flowOf(listOf(savedServer()))
+        every { settingsDataStore.connectionSettings } returns flowOf(
+            ConnectionSettings(autoReconnect = true)
+        )
+        coEvery { settingsDataStore.getLastConnection() } returns (config to "secret")
+        coEvery { connectionRegistry.connectAndAwait(any(), any()) } returns Result.success(emptyList())
+        val viewModel = viewModel(settingsDataStore, connectionRegistry, discoveryManager)
+
+        viewModel.start(autoReconnect = true)
+        advanceUntilIdle()
+
+        verify(exactly = 1) { settingsDataStore.connectionSettings }
+        coVerify(exactly = 1) { settingsDataStore.getLastConnection() }
+        coVerify(exactly = 1) {
+            connectionRegistry.connectAndAwait(capture(connectedServer), "secret")
+        }
+        assertEquals("https://saved.local", connectedServer.captured.endpoint)
+        assertEquals(expectedEndpointKey, connectedServer.captured.endpointKey)
+        assertFalse(viewModel.uiState.value.isConnecting)
+        assertTrue(viewModel.uiState.value.isConnected)
+        assertEquals(expectedEndpointKey, viewModel.uiState.value.connectedEndpointKey)
     }
 
     private fun viewModel(
