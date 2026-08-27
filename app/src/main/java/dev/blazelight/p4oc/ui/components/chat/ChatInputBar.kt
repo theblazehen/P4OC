@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -49,11 +50,69 @@ import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 import dev.blazelight.p4oc.ui.theme.TuiCodeFontSize
+import android.view.KeyEvent as AndroidKeyEvent
 
 data class ModelOption(
     val key: String,
     val displayName: String
 )
+
+internal class PromptHistoryNavigator(initialDraft: String = "") {
+    private var historyIndex: Int? = null
+    private var draft: String = initialDraft
+
+    fun older(history: List<String>, currentText: String): String? {
+        if (history.isEmpty()) {
+            reset(currentText)
+            return null
+        }
+
+        val currentIndex = reconcileSelection(history, currentText)
+        val nextIndex = currentIndex?.let { (it - 1).coerceAtLeast(0) } ?: history.lastIndex
+        historyIndex = nextIndex
+        return history[nextIndex]
+    }
+
+    fun newer(history: List<String>, currentText: String): String? {
+        val nextText = if (history.isEmpty()) {
+            reset(currentText)
+            null
+        } else {
+            val currentIndex = reconcileSelection(history, currentText)
+            when {
+                currentIndex == null -> null
+                currentIndex < history.lastIndex -> {
+                    val nextIndex = currentIndex + 1
+                    historyIndex = nextIndex
+                    history[nextIndex]
+                }
+                else -> {
+                    historyIndex = null
+                    draft
+                }
+            }
+        }
+        return nextText
+    }
+
+    fun onTextChanged(text: String, history: List<String>) {
+        reconcileSelection(history, text)
+    }
+
+    fun reset(text: String) {
+        historyIndex = null
+        draft = text
+    }
+
+    private fun reconcileSelection(history: List<String>, currentText: String): Int? {
+        val currentIndex = historyIndex?.takeIf { it in history.indices }
+        if (currentIndex == null || history[currentIndex] != currentText) {
+            reset(currentText)
+            return null
+        }
+        return currentIndex
+    }
+}
 
 private fun nextCommandIndex(
     currentIndex: Int,
@@ -62,6 +121,7 @@ private fun nextCommandIndex(
 ): Int = (currentIndex + delta + commandCount) % commandCount
 
 @Composable
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod", "FunctionNaming")
 fun ChatInputBar(
     value: String,
     onValueChange: (String) -> Unit,
@@ -82,6 +142,8 @@ fun ChatInputBar(
     requestFocus: Boolean = false,
     isActiveTab: Boolean = true,
     onComposerFocusChanged: (Boolean) -> Unit = {},
+    promptHistory: List<String> = emptyList(),
+    promptHistorySessionId: String? = null,
     enterToSend: Boolean = false,
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -91,10 +153,15 @@ fun ChatInputBar(
     val initialFocusState = rememberSaveable(saver = InitialInputFocusState.Saver) {
         InitialInputFocusState()
     }
+    val historyNavigator = remember(promptHistorySessionId) { PromptHistoryNavigator(value) }
+    val currentHistoryNavigator by rememberUpdatedState(historyNavigator)
+    val currentPromptHistory by rememberUpdatedState(promptHistory)
+    val currentText = textState.text.toString()
 
     // External value changes (e.g. a programmatic set from the parent) → field.
     LaunchedEffect(value) {
         if (value != textState.text.toString()) {
+            historyNavigator.reset(value)
             textState.setTextAndPlaceCursorAtEnd(value)
         }
     }
@@ -102,7 +169,10 @@ fun ChatInputBar(
     // region correctly, so clearText() (on send) actually clears even on IMEs
     // like Samsung's that re-commit composing text with the old value API.
     LaunchedEffect(textState) {
-        snapshotFlow { textState.text.toString() }.collect { onValueChange(it) }
+        snapshotFlow { textState.text.toString() }.collect { text ->
+            currentHistoryNavigator.onTextChanged(text, currentPromptHistory)
+            onValueChange(text)
+        }
     }
 
     // Request focus once the field is attached and the tab is active. The request stays eligible
@@ -117,7 +187,6 @@ fun ChatInputBar(
     }
 
     // Determine button state
-    val currentText = textState.text.toString()
     val hasContent = currentText.isNotBlank() || attachedFiles.isNotEmpty()
     val canSubmit = hasContent && enabled && !isLoading
     val loadingDescription = stringResource(R.string.cd_loading)
@@ -164,7 +233,19 @@ fun ChatInputBar(
     fun clearInput() {
         // TextFieldState.clearText() resets the editing buffer including the IME
         // composing region, so the field stays cleared after send.
+        historyNavigator.reset("")
         textState.clearText()
+    }
+
+    fun navigatePromptHistory(older: Boolean): Boolean {
+        val liveText = textState.text.toString()
+        val replacement = if (older) {
+            historyNavigator.older(promptHistory, liveText)
+        } else {
+            historyNavigator.newer(promptHistory, liveText)
+        } ?: return false
+        textState.setTextAndPlaceCursorAtEnd(replacement)
+        return true
     }
 
     fun submitFromEnter(): Boolean = when {
@@ -363,7 +444,11 @@ fun ChatInputBar(
                                                 else -> false
                                             }
                                         }
-                                        else -> false
+                                        else -> when (event.key.nativeKeyCode) {
+                                            AndroidKeyEvent.KEYCODE_VOLUME_UP -> navigatePromptHistory(older = true)
+                                            AndroidKeyEvent.KEYCODE_VOLUME_DOWN -> navigatePromptHistory(older = false)
+                                            else -> false
+                                        }
                                     }
                                 }
                                 .testTag("chat_input"),

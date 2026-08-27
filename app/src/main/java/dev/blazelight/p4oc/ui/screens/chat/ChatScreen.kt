@@ -34,8 +34,8 @@ import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
 import dev.blazelight.p4oc.domain.model.Message
-import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.MessageWithParts
+import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.Permission
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.domain.model.SessionPresence
@@ -233,6 +233,7 @@ fun ChatScreen(
     val searchMatches = remember(messageBlocks, scrollRestorationState.searchQuery) {
         findChatMatches(messageBlocks, scrollRestorationState.searchQuery)
     }
+    val promptHistory = remember(messages) { messages.toPromptHistory() }
     val coroutineScope = rememberCoroutineScope()
     var composerFocused by remember { mutableStateOf(false) }
 
@@ -460,6 +461,8 @@ fun ChatScreen(
                         requestFocus = requestInitialInputFocus,
                         isActiveTab = isActiveTab,
                         onComposerFocusChanged = { composerFocused = it },
+                        promptHistory = promptHistory,
+                        promptHistorySessionId = uiState.session?.id,
                         enterToSend = chatSettings.enterToSend,
                     )
                 }
@@ -965,6 +968,18 @@ private fun EmptyChatView(modifier: Modifier = Modifier) {
 private suspend fun LazyListState.scrollChatToBottom() {
     val target = layoutInfo.totalItemsCount - 1
     if (target >= 0) scrollToItem(target, Int.MAX_VALUE)
+}
+
+internal fun List<MessageWithParts>.toPromptHistory(): List<String> {
+    val prompts = mapNotNull { messageWithParts ->
+        if (messageWithParts.message !is Message.User) return@mapNotNull null
+        messageWithParts.parts
+            .filterIsInstance<Part.Text>()
+            .filter { !it.synthetic && !it.ignored }
+            .joinToString(separator = "\n") { it.text }
+            .takeIf(String::isNotBlank)
+    }
+    return prompts.asReversed().distinct().asReversed()
 }
 
 // MessageBlock, groupMessagesIntoBlocks, and MessageBlockView are now in MessageBlockUtils.kt
