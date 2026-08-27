@@ -22,6 +22,7 @@ import dev.blazelight.p4oc.domain.server.ServerIdentity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.security.cert.CertPathValidatorException
@@ -95,7 +96,13 @@ class ServerViewModel constructor(
         loadRecentServers()
         loadSavedServers()
         collectDiscoveryFlows()
-        if (autoReconnect) tryAutoReconnect()
+        if (autoReconnect) {
+            viewModelScope.launch {
+                if (settingsDataStore.connectionSettings.first().autoReconnect) {
+                    tryAutoReconnect()
+                }
+            }
+        }
     }
 
     private fun loadRecentServers() {
@@ -114,58 +121,56 @@ class ServerViewModel constructor(
         }
     }
 
-    private fun tryAutoReconnect() {
-        viewModelScope.launch {
-            val (lastConfig, password) = settingsDataStore.getLastConnection() ?: return@launch
+    private suspend fun tryAutoReconnect() {
+        val (lastConfig, password) = settingsDataStore.getLastConnection() ?: return
 
-            AppLog.d(TAG, "Found last connection")
-            val endpointKey = ServerUrl.endpointKey(lastConfig.url)
-            _uiState.update {
-                it.copy(
-                    isConnecting = true,
-                    connectingEndpointKey = endpointKey,
-                    remoteUrl = lastConfig.url,
-                    username = lastConfig.username ?: ServerUrl.DEFAULT_USERNAME,
-                    password = password ?: "",
-                    allowInsecure = lastConfig.allowInsecure
-                )
-            }
-
-            val server = SavedServerRegistry.fromConnection(
-                url = lastConfig.url,
-                name = lastConfig.name,
-                username = lastConfig.username,
-                allowInsecure = lastConfig.allowInsecure,
-            )
-            val result = serverConnectionRegistry.connectAndAwait(server, password)
-
-            result.fold(
-                onSuccess = { projects ->
-                    AppLog.d(TAG, "Auto-reconnect successful")
-                    initializeProjectContext()
-                    _uiState.update {
-                        it.copy(
-                            isConnecting = false,
-                            isConnected = true,
-                            connectingEndpointKey = null,
-                            connectedEndpointKey = endpointKey,
-                            failedEndpointKey = null,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    AppLog.w(TAG, "Auto-reconnect failed")
-                    _uiState.update {
-                        it.copy(
-                            isConnecting = false,
-                            connectingEndpointKey = null,
-                            failedEndpointKey = endpointKey,
-                            error = "Could not reconnect to the server. Check the address and connection."
-                        )
-                    }
-                }
+        AppLog.d(TAG, "Found last connection")
+        val endpointKey = ServerUrl.endpointKey(lastConfig.url)
+        _uiState.update {
+            it.copy(
+                isConnecting = true,
+                connectingEndpointKey = endpointKey,
+                remoteUrl = lastConfig.url,
+                username = lastConfig.username ?: ServerUrl.DEFAULT_USERNAME,
+                password = password ?: "",
+                allowInsecure = lastConfig.allowInsecure
             )
         }
+
+        val server = SavedServerRegistry.fromConnection(
+            url = lastConfig.url,
+            name = lastConfig.name,
+            username = lastConfig.username,
+            allowInsecure = lastConfig.allowInsecure,
+        )
+        val result = serverConnectionRegistry.connectAndAwait(server, password)
+
+        result.fold(
+            onSuccess = { projects ->
+                AppLog.d(TAG, "Auto-reconnect successful")
+                initializeProjectContext()
+                _uiState.update {
+                    it.copy(
+                        isConnecting = false,
+                        isConnected = true,
+                        connectingEndpointKey = null,
+                        connectedEndpointKey = endpointKey,
+                        failedEndpointKey = null,
+                    )
+                }
+            },
+            onFailure = { error ->
+                AppLog.w(TAG, "Auto-reconnect failed")
+                _uiState.update {
+                    it.copy(
+                        isConnecting = false,
+                        connectingEndpointKey = null,
+                        failedEndpointKey = endpointKey,
+                        error = "Could not reconnect to the server. Check the address and connection."
+                    )
+                }
+            }
+        )
     }
 
     fun setRemoteUrl(url: String) {
