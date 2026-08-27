@@ -55,7 +55,7 @@ class OpenCodeEventSourceTest {
             okHttpClient = OkHttpClient(),
             json = json,
             baseUrl = "http://127.0.0.1:1",
-            eventMapper = EventMapper(json, MessageMapper(json)),
+            eventMapper = EventMapper(json, MessageMapper()),
         )
         val collected = mutableListOf<String>()
         var collector: Job? = null
@@ -171,7 +171,7 @@ class OpenCodeEventSourceTest {
         okHttpClient = OkHttpClient(),
         json = json,
         baseUrl = "http://127.0.0.1:1",
-        eventMapper = EventMapper(json, MessageMapper(json)),
+        eventMapper = EventMapper(json, MessageMapper()),
     )
 
     @Suppress("UNCHECKED_CAST")

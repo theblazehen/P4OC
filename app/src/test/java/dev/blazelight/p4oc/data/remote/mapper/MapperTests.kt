@@ -2,7 +2,6 @@ package dev.blazelight.p4oc.data.remote.mapper
 
 import dev.blazelight.p4oc.data.remote.dto.*
 import dev.blazelight.p4oc.domain.model.*
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.*
@@ -305,8 +304,7 @@ class PartMapperTest {
 
 class MessageMapperTest {
 
-    private val json = Json { ignoreUnknownKeys = true }
-    private val messageMapper = MessageMapper(json)
+    private val messageMapper = MessageMapper()
 
     @Test
     fun `maps user message with model ref`() {

@@ -38,7 +38,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
@@ -141,7 +140,7 @@ class SessionRepositoryProviderTest {
                 activeServerApiProvider = ActiveServerApiProvider { serverRef, generation ->
                     byKey[serverRef to generation]?.api ?: defaultApi
                 },
-                messageMapper = MessageMapper(Json { ignoreUnknownKeys = true }),
+                messageMapper = MessageMapper(),
                 serverConnectionRegistry = registry,
                 dispatcher = dispatcher,
                 repositoryDispatcher = dispatcher,
@@ -449,7 +448,7 @@ class SessionRepositoryProviderTest {
         val api = mockk<OpenCodeApi>(relaxed = true)
         val provider = SessionRepositoryProvider(
             activeServerApiProvider = ActiveServerApiProvider { _, _ -> api },
-            messageMapper = MessageMapper(Json { ignoreUnknownKeys = true }),
+            messageMapper = MessageMapper(),
             serverConnectionRegistry = registry,
             dispatcher = StandardTestDispatcher(testScheduler),
             repositoryDispatcher = StandardTestDispatcher(testScheduler),

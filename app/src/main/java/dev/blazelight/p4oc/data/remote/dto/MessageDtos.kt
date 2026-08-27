@@ -2,7 +2,6 @@ package dev.blazelight.p4oc.data.remote.dto
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 // ============================================================================
@@ -30,7 +29,6 @@ data class MessageInfoDto(
     val tokens: TokenUsageDto? = null,
     val error: MessageErrorDto? = null,
     val path: MessagePathDto? = null,
-    val summary: JsonElement? = null,
     val finish: String? = null,
     val mode: String? = null,
     val system: String? = null,
@@ -92,11 +90,4 @@ data class ApiErrorDataDto(
     val isRetryable: Boolean = false,
     val responseHeaders: Map<String, String>? = null,
     val responseBody: String? = null
-)
-
-@Serializable
-data class MessageSummaryDto(
-    val title: String? = null,
-    val body: String? = null,
-    val diffs: List<FileDiffDto> = emptyList()
 )

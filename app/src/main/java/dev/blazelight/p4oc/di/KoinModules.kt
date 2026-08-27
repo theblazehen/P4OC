@@ -71,8 +71,8 @@ val appModule = module {
 }
 
 val networkModule = module {
-    // Mappers (stateless mappers are objects — only DI-dependent ones registered here)
-    single { MessageMapper(get()) }
+    // Mappers
+    single { MessageMapper() }
     single { EventMapper(get(), get()) }
 
     // Network

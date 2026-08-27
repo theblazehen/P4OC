@@ -29,7 +29,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -39,8 +38,7 @@ import org.junit.Test
 class SessionRepositoryRecoveryTest {
 
     private val sessionId = SessionId("s1")
-    private val json = Json { ignoreUnknownKeys = true }
-    private val mapper = MessageMapper(json)
+    private val mapper = MessageMapper()
 
     @Test
     fun `reconnect recovers messages for actively leased session with bounded default limit`() = runTest {
