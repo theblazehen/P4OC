@@ -241,6 +241,10 @@
     <string name="sessions_new">New Session</string>
     <string name="sessions_delete">Delete</string>
     <string name="sessions_rename">Rename</string>
+    <string name="sessions_open_actions">Open session actions</string>
+    <string name="sessions_fork">Fork session</string>
+    <string name="sessions_forking">Forking session</string>
+    <string name="sessions_fork_already_pending">Another session fork is already starting</string>
     <string name="sessions_rename_title">Rename Session</string>
     <string name="sessions_rename_failed">Failed to rename session</string>
     <string name="sessions_share">Share</string>

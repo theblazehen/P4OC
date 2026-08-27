@@ -258,12 +258,13 @@ class ChatViewModelDraftPersistenceTest {
         assertFalse(restored.available)
 
         vm.updateInput("please read this")
-        vm.sendMessage()
+        assertFalse(vm.sendMessage())
         advanceUntilIdle()
 
         coVerify(exactly = 0) { api.sendMessageAsync(any(), any(), any(), null) }
         assertEquals("please read this", vm.uiState.value.inputText)
         assertEquals(listOf("src/Missing.kt"), vm.filePickerManager.attachedFiles.value.map { it.path })
+        assertEquals("Remove unavailable attachments before sending.", vm.uiState.value.error)
     }
 
     @Test
@@ -310,7 +311,7 @@ class ChatViewModelDraftPersistenceTest {
     }
 
     @Test
-    fun sendMessage_successClearsPersistedDraftAndAttachments() = runTest {
+    fun acceptedSend_composerClearClearsPersistedDraftAndAttachments() = runTest {
         val savedStateHandle = SavedStateHandle(mapOf(Screen.Chat.ARG_SESSION_ID to "session-1"))
         val vm = createViewModel(savedStateHandle)
         coEvery { api.sendMessageAsync(any(), any(), any(), null) } returns Unit
@@ -330,7 +331,9 @@ class ChatViewModelDraftPersistenceTest {
         assertEquals("hello", savedStateHandle.get<String>("chat_draft_text"))
         assertTrue(savedStateHandle.get<String>("chat_attached_files")?.contains("src/Main.kt") == true)
 
-        vm.sendMessage()
+        assertTrue(vm.sendMessage())
+        assertEquals("hello", savedStateHandle.get<String>("chat_draft_text"))
+        vm.updateInput("")
         advanceUntilIdle()
 
         assertNull(savedStateHandle.get<String>("chat_draft_text"))

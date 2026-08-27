@@ -13,12 +13,15 @@ import dev.blazelight.p4oc.core.network.OpenCodeApi
 import dev.blazelight.p4oc.data.files.FileRepository
 import dev.blazelight.p4oc.data.files.FileRepositoryFactory
 import dev.blazelight.p4oc.data.remote.dto.CommandDto
+import dev.blazelight.p4oc.data.remote.dto.ExecuteCommandRequest
 import dev.blazelight.p4oc.data.remote.dto.FileNodeDto
+import dev.blazelight.p4oc.data.remote.dto.InitSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.MessageInfoDto
 import dev.blazelight.p4oc.data.remote.dto.MessageTimeDto
 import dev.blazelight.p4oc.data.remote.dto.MessageWrapperDto
 import dev.blazelight.p4oc.data.remote.dto.ModelRefDto
 import dev.blazelight.p4oc.data.remote.dto.PartDto
+import dev.blazelight.p4oc.data.remote.dto.ProvidersResponseDto
 import dev.blazelight.p4oc.data.remote.dto.RevertSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
 import dev.blazelight.p4oc.data.remote.dto.SessionDto
@@ -30,6 +33,7 @@ import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
+import dev.blazelight.p4oc.domain.model.CommandSource
 import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageError
 import dev.blazelight.p4oc.domain.model.MessageWithParts
@@ -64,6 +68,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -76,7 +82,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
@@ -91,6 +99,7 @@ import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import retrofit2.HttpException
 import retrofit2.Response
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("LargeClass")
@@ -401,6 +410,25 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun sendMessage_blankAndEmptySlashReturnFalsePreserveInputAndCallNoSubmissionEndpoints() = runTest {
+        val vm = createViewModel()
+        val refusedInputs = listOf("  \n  ", "/")
+
+        refusedInputs.forEach { input ->
+            vm.updateInput(input)
+
+            assertFalse(vm.sendMessage())
+            assertEquals(input, vm.uiState.value.inputText)
+        }
+
+        coVerify(exactly = 0) { api.sendMessageAsync(any(), any(), any(), null) }
+        coVerify(exactly = 0) { api.executeCommand(any(), any(), any(), null) }
+        coVerify(exactly = 0) { api.revertSession(any(), any(), any(), null) }
+        coVerify(exactly = 0) { api.unrevertSession(any(), any(), null) }
+        coVerify(exactly = 0) { api.initSession(any(), any(), any(), null) }
+    }
+
+    @Test
     fun sendMessage_undoSlashCommand_revertsToPreviousUserMessageBoundaryWithoutExecutingCommand() =
         runTest {
             coEvery { api.getSession("session-1", any(), null) } returns sessionDto(revertMessageId = "user-2")
@@ -418,9 +446,10 @@ class ChatViewModelTest {
             val vm = createViewModel()
 
             vm.updateInput("/undo")
-            vm.sendMessage()
+            assertTrue(vm.sendMessage())
             advanceUntilIdle()
 
+            assertEquals("/undo", vm.uiState.value.inputText)
             coVerify(exactly = 0) { api.executeCommand(any(), any(), any(), null) }
             coVerify(exactly = 1) {
                 api.revertSession("session-1", RevertSessionRequest(messageID = "user-1"), "/test", null)
@@ -446,9 +475,10 @@ class ChatViewModelTest {
             val vm = createViewModel()
 
             vm.updateInput("/redo")
-            vm.sendMessage()
+            assertTrue(vm.sendMessage())
             advanceUntilIdle()
 
+            assertEquals("/redo", vm.uiState.value.inputText)
             coVerify(exactly = 0) { api.executeCommand(any(), any(), any(), null) }
             coVerify(exactly = 1) {
                 api.revertSession("session-1", RevertSessionRequest(messageID = "user-2"), "/test", null)
@@ -457,16 +487,148 @@ class ChatViewModelTest {
         }
 
     @Test
-    fun sendMessage_clearsInput_andMarksBusyUntilSseStatus() = runTest {
+    fun sendMessage_busySlashCommandsPreserveExactInputShowErrorAndCallNoCommandEndpoints() = runTest {
+        val vm = createViewModel()
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
+        flushMessages()
+
+        val refusedInputs = listOf(
+            "/undo",
+            "/redo   keep  these arguments ",
+            "/init   keep init arguments ",
+            "/custom keep  custom arguments ",
+        )
+        refusedInputs.forEach { input ->
+            vm.updateInput(input)
+
+            assertFalse(vm.sendMessage())
+
+            assertEquals(input, vm.uiState.value.inputText)
+            assertEquals(
+                "Wait for the current run to finish or stop it first.",
+                vm.uiState.value.error,
+            )
+        }
+
+        coVerify(exactly = 0) { api.sendMessageAsync(any(), any(), any(), null) }
+        coVerify(exactly = 0) { api.executeCommand(any(), any(), any(), null) }
+        coVerify(exactly = 0) { api.revertSession(any(), any(), any(), null) }
+        coVerify(exactly = 0) { api.unrevertSession(any(), any(), null) }
+        coVerify(exactly = 0) { api.initSession(any(), any(), any(), null) }
+    }
+
+    @Test
+    fun sendMessage_idleCustomSlashCommandReturnsAcceptedAndDispatchesParsedArguments() = runTest {
+        val request = slot<ExecuteCommandRequest>()
+        coEvery {
+            api.executeCommand("session-1", capture(request), "/test", null)
+        } returns assistantMessageDto("command-response", createdAt = 5)
+        val vm = createViewModel()
+        vm.updateInput("/custom exact  arguments")
+
+        assertTrue(vm.sendMessage())
+        runCurrent()
+
+        assertEquals("/custom exact  arguments", vm.uiState.value.inputText)
+        assertEquals("custom", request.captured.command)
+        assertEquals("exact  arguments", request.captured.arguments)
+        coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+    }
+
+    @Test
+    fun sendMessage_gatedGenericSlashFailureRestoresExactRawDraftAndSendsTrimmedPayload() = runTest {
+        val failureGate = CompletableDeferred<Unit>()
+        val request = slot<ExecuteCommandRequest>()
+        coEvery { api.executeCommand("session-1", capture(request), "/test", null) } coAnswers {
+            failureGate.await()
+            throw IOException("boom")
+        }
+        val vm = createViewModel()
+        val submittedDraft = " \t/custom exact  arguments  \n"
+
+        vm.updateInput(submittedDraft)
+        assertTrue(vm.sendMessage())
+        runCurrent()
+        vm.updateInput("")
+
+        failureGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(submittedDraft, vm.uiState.value.inputText)
+        assertEquals("custom", request.captured.command)
+        assertEquals("exact  arguments", request.captured.arguments)
+        assertEquals("Could not execute the command. Try again.", vm.uiState.value.error)
+    }
+
+    @Test
+    fun sendMessage_missingInitModelReturnsFalseWithoutClearingDraftAndReleasesCommandOwner() = runTest {
+        coEvery { api.getSession("session-1", any(), null) } returns sessionDto()
+        coEvery { api.getProviders(any(), null) } returns ProvidersResponseDto(
+            all = emptyList(),
+            default = emptyMap(),
+            connected = emptyList(),
+        )
+        coEvery { api.executeCommand("session-1", any(), "/test", null) } returns assistantMessageDto(
+            "command-response",
+            createdAt = 5,
+        )
+        val vm = createViewModel()
+        val refusedDraft = "  /init keep exact spacing  \n"
+
+        vm.updateInput(refusedDraft)
+        assertFalse(vm.sendMessage())
+
+        assertEquals(refusedDraft, vm.uiState.value.inputText)
+        assertFalse(vm.uiState.value.isSending)
+        assertEquals("Select a model before initializing the session.", vm.uiState.value.error)
+        coVerify(exactly = 0) { api.initSession(any(), any(), any(), null) }
+
+        assertTrue(vm.executeCommand("custom", "after refusal"))
+        runCurrent()
+        coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+    }
+
+    @Test
+    fun sendMessage_noUndoOrRedoBoundaryReturnsFalseWithoutClearingExactDraft() = runTest {
+        coEvery { api.getMessages("session-1", any(), null, any(), null) } returns emptyList()
+        coEvery { api.executeCommand("session-1", any(), "/test", null) } returns assistantMessageDto(
+            "command-response",
+            createdAt = 5,
+        )
+        val vm = createViewModel()
+        val refusedDrafts = listOf(
+            " \t/undo  \n" to "Nothing to undo",
+            "  /redo keep ignored args  " to "Nothing to redo",
+        )
+
+        refusedDrafts.forEach { (draft, expectedError) ->
+            vm.updateInput(draft)
+
+            assertFalse(vm.sendMessage())
+
+            assertEquals(draft, vm.uiState.value.inputText)
+            assertFalse(vm.uiState.value.isSending)
+            assertEquals(expectedError, vm.uiState.value.error)
+        }
+        coVerify(exactly = 0) { api.revertSession(any(), any(), any(), null) }
+        coVerify(exactly = 0) { api.unrevertSession(any(), any(), null) }
+
+        assertTrue(vm.executeCommand("custom", "after redo refusal"))
+        runCurrent()
+        coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+    }
+
+    @Test
+    fun sendMessage_acceptsInput_andMarksBusyUntilSseStatus() = runTest {
         val vm = createViewModel()
         coEvery { api.sendMessageAsync(any(), any(), any(), null) } returns Unit
         vm.updateInput("hello")
 
-        vm.sendMessage()
+        assertTrue(vm.sendMessage())
         assertTrue(vm.uiState.value.isSending)
 
         advanceUntilIdle()
-        assertEquals("", vm.uiState.value.inputText)
+        assertEquals("hello", vm.uiState.value.inputText)
         assertFalse(vm.uiState.value.isSending)
         assertTrue(vm.uiState.value.isBusy)
     }
@@ -822,21 +984,128 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun sendMessage_restoresInput_onApiError() = runTest {
+    fun sendMessage_immediateApiErrorRestoresExactDraftAfterAcceptedComposerClear() = runTest {
+        val request = slot<SendMessageRequest>()
+        coEvery { api.sendMessageAsync(any(), capture(request), any(), null) } throws RuntimeException("boom")
         val vm = createViewModel()
+        val submittedDraft = "  hello from composer  \n"
 
-        coEvery { api.sendMessageAsync(any(), any(), any(), null) } throws RuntimeException("boom")
+        vm.updateInput(submittedDraft)
+        val syncGenerationBeforeSend = vm.uiState.value.inputSyncGeneration
+        assertTrue(vm.sendMessage())
+        runCurrent()
 
-        vm.updateInput("hello")
-        vm.sendMessage()
-        advanceUntilIdle()
+        // The endpoint can fail before ChatInputBar's accepted clear is hoisted to the ViewModel.
+        // That later clear atomically acknowledges the submission and forces the exact failed
+        // draft back into the owned field, without relying on a transient empty state or a frame.
+        assertEquals(syncGenerationBeforeSend, vm.uiState.value.inputSyncGeneration)
+        vm.updateInput("")
 
-        assertEquals("hello", vm.uiState.value.inputText)
+        assertEquals(submittedDraft, vm.uiState.value.inputText)
+        assertTrue(vm.uiState.value.inputSyncGeneration > syncGenerationBeforeSend)
+        assertEquals("hello from composer", request.captured.parts.single().text)
         assertFalse(vm.uiState.value.isSending)
         assertEquals(
             "Could not send the message. Check the connection and try again.",
             vm.uiState.value.error,
         )
+    }
+
+    @Test
+    fun sendMessage_gatedApiErrorRestoresExactDraftClearedWhileRequestIsPending() = runTest {
+        val failureGate = CompletableDeferred<Unit>()
+        val request = slot<SendMessageRequest>()
+        coEvery { api.sendMessageAsync(any(), capture(request), any(), null) } coAnswers {
+            failureGate.await()
+            throw IOException("boom")
+        }
+        val vm = createViewModel()
+        val submittedDraft = "\t message with exact whitespace \n"
+
+        vm.updateInput(submittedDraft)
+        val syncGenerationBeforeSend = vm.uiState.value.inputSyncGeneration
+        assertTrue(vm.sendMessage())
+        runCurrent()
+        vm.updateInput("")
+        assertEquals("", vm.uiState.value.inputText)
+        assertEquals(syncGenerationBeforeSend, vm.uiState.value.inputSyncGeneration)
+
+        failureGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(submittedDraft, vm.uiState.value.inputText)
+        assertTrue(vm.uiState.value.inputSyncGeneration > syncGenerationBeforeSend)
+        assertEquals("message with exact whitespace", request.captured.parts.single().text)
+    }
+
+    @Test
+    fun sendMessage_gatedApiErrorDoesNotOverwriteNewerNonblankDraft() = runTest {
+        val failureGate = CompletableDeferred<Unit>()
+        coEvery { api.sendMessageAsync(any(), any(), any(), null) } coAnswers {
+            failureGate.await()
+            throw IOException("boom")
+        }
+        val vm = createViewModel()
+
+        vm.updateInput("  original draft  ")
+        val syncGenerationBeforeSend = vm.uiState.value.inputSyncGeneration
+        assertTrue(vm.sendMessage())
+        runCurrent()
+        vm.updateInput("")
+        vm.updateInput("newer typed draft")
+
+        failureGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("newer typed draft", vm.uiState.value.inputText)
+        assertEquals(syncGenerationBeforeSend, vm.uiState.value.inputSyncGeneration)
+        assertEquals(
+            "Could not send the message. Check the connection and try again.",
+            vm.uiState.value.error,
+        )
+    }
+
+    @Test
+    fun sendMessage_gatedApiErrorDoesNotOverwriteWhitespaceDraftTypedAfterClear() = runTest {
+        val failureGate = CompletableDeferred<Unit>()
+        coEvery { api.sendMessageAsync(any(), any(), any(), null) } coAnswers {
+            failureGate.await()
+            throw IOException("boom")
+        }
+        val vm = createViewModel()
+        val newerWhitespaceDraft = " \t\n"
+
+        vm.updateInput("original draft")
+        val syncGenerationBeforeSend = vm.uiState.value.inputSyncGeneration
+        assertTrue(vm.sendMessage())
+        runCurrent()
+        vm.updateInput("")
+        vm.updateInput(newerWhitespaceDraft)
+
+        failureGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(newerWhitespaceDraft, vm.uiState.value.inputText)
+        assertEquals(syncGenerationBeforeSend, vm.uiState.value.inputSyncGeneration)
+    }
+
+    @Test
+    fun sendMessage_immediateApiErrorDoesNotOverwriteNewerWhitespaceDraft() = runTest {
+        coEvery { api.sendMessageAsync(any(), any(), any(), null) } throws RuntimeException("boom")
+        val vm = createViewModel()
+        val newerWhitespaceDraft = "\t \n"
+
+        vm.updateInput("original draft")
+        val syncGenerationBeforeSend = vm.uiState.value.inputSyncGeneration
+        assertTrue(vm.sendMessage())
+        runCurrent()
+
+        // Failure has already completed, but a nonempty whitespace edit is user input rather
+        // than the composer's accepted empty-string clear acknowledgment.
+        vm.updateInput(newerWhitespaceDraft)
+
+        assertEquals(newerWhitespaceDraft, vm.uiState.value.inputText)
+        assertEquals(syncGenerationBeforeSend, vm.uiState.value.inputSyncGeneration)
     }
 
     @Test
@@ -1031,6 +1300,554 @@ class ChatViewModelTest {
         assertTrue(vm.uiState.value.commands.any { it.name == "workspace" })
         assertTrue(vm.uiState.value.hasLoadedWorkspaceCommands)
         assertNull(vm.uiState.value.commandLoadError)
+    }
+
+    @Test
+    fun loadCommands_serverInitOverridesBuiltinMetadata_withoutRemovingOtherBuiltIns() = runTest {
+        coEvery { api.listCommands("/test", null) } returns listOf(
+            CommandDto(
+                name = "init",
+                description = "Initialize from the live server",
+                agent = "server-agent",
+                model = "server-model",
+                template = JsonPrimitive("server-template"),
+                source = "command",
+            ),
+        )
+        val vm = createViewModel()
+
+        vm.loadCommands()
+        advanceUntilIdle()
+
+        val commands = vm.uiState.value.commands
+        val initCommands = commands.filter { it.name == "init" }
+        assertEquals(1, initCommands.size)
+        with(initCommands.single()) {
+            assertEquals("Initialize from the live server", description)
+            assertEquals("server-agent", agent)
+            assertEquals("server-model", model)
+            assertEquals("server-template", template)
+            assertEquals(CommandSource.Skill, source)
+        }
+        assertTrue(commands.any { it.name == "help" && it.source == CommandSource.BuiltIn })
+    }
+
+    @Test
+    fun executeCommand_initWithSelectedModel_usesDedicatedInitEndpointWithGeneratedMessageId() = runTest {
+        val selectedModel = dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        val request = slot<InitSessionRequest>()
+        coEvery { api.initSession("session-1", capture(request), "/test", null) } returns true
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(selectedModel)
+        runCurrent()
+
+        vm.executeCommand("init", "ignored arguments")
+        runCurrent()
+
+        coVerify(exactly = 1) { api.initSession("session-1", any(), "/test", null) }
+        assertTrue(request.captured.messageID.startsWith("msg_"))
+        assertTrue(request.captured.messageID.removePrefix("msg_").isNotBlank())
+        assertEquals(selectedModel.providerID, request.captured.providerID)
+        assertEquals(selectedModel.modelID, request.captured.modelID)
+        assertTrue(vm.uiState.value.isBusy)
+
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+        runCurrent()
+
+        coVerify(exactly = 0) { api.executeCommand(any(), any(), any(), null) }
+    }
+
+    @Test
+    fun sendMessage_gatedInitFailureRestoresExactRawSlashDraft() = runTest {
+        val initResponse = CompletableDeferred<Boolean>()
+        coEvery { api.initSession("session-1", any(), "/test", null) } coAnswers {
+            initResponse.await()
+        }
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(
+            dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        )
+        runCurrent()
+        val submittedDraft = " \t/init ignored  arguments \n"
+
+        vm.updateInput(submittedDraft)
+        assertTrue(vm.sendMessage())
+        runCurrent()
+        vm.updateInput("")
+
+        initResponse.complete(false)
+        advanceUntilIdle()
+
+        assertEquals(submittedDraft, vm.uiState.value.inputText)
+        assertFalse(vm.uiState.value.isSending)
+        assertEquals("Could not initialize the session. Try again.", vm.uiState.value.error)
+        coVerify(exactly = 1) { api.initSession("session-1", any(), "/test", null) }
+    }
+
+    @Test
+    fun sendMessage_gatedUndoFailureRestoresExactRawSlashDraft() = runTest {
+        val revertGate = CompletableDeferred<Unit>()
+        coEvery { api.getSession("session-1", any(), null) } returns sessionDto(revertMessageId = "user-2")
+        coEvery { api.getMessages("session-1", any(), null, any(), null) } returns listOf(
+            userMessageDto("user-1", createdAt = 1),
+            assistantMessageDto("assistant-1", createdAt = 2),
+            userMessageDto("user-2", createdAt = 3),
+        )
+        coEvery { api.revertSession(any(), any(), any(), null) } coAnswers {
+            revertGate.await()
+            throw IOException("boom")
+        }
+        val vm = createViewModel()
+        val submittedDraft = "  /undo keep exact whitespace \n"
+
+        vm.updateInput(submittedDraft)
+        assertTrue(vm.sendMessage())
+        runCurrent()
+        vm.updateInput("")
+
+        revertGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(submittedDraft, vm.uiState.value.inputText)
+        assertFalse(vm.uiState.value.isSending)
+        assertEquals("Could not undo. Try again.", vm.uiState.value.error)
+        coVerify(exactly = 1) {
+            api.revertSession("session-1", RevertSessionRequest(messageID = "user-1"), "/test", null)
+        }
+    }
+
+    @Test
+    fun sendMessage_gatedRedoFailureRestoresExactRawSlashDraft() = runTest {
+        val revertGate = CompletableDeferred<Unit>()
+        coEvery { api.getSession("session-1", any(), null) } returns sessionDto(revertMessageId = "user-1")
+        coEvery { api.getMessages("session-1", any(), null, any(), null) } returns listOf(
+            userMessageDto("user-1", createdAt = 1),
+            assistantMessageDto("assistant-1", createdAt = 2),
+            userMessageDto("user-2", createdAt = 3),
+        )
+        coEvery { api.revertSession(any(), any(), any(), null) } coAnswers {
+            revertGate.await()
+            throw IOException("boom")
+        }
+        val vm = createViewModel()
+        val submittedDraft = "\t/redo keep exact whitespace  \n"
+
+        vm.updateInput(submittedDraft)
+        assertTrue(vm.sendMessage())
+        runCurrent()
+        vm.updateInput("")
+
+        revertGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(submittedDraft, vm.uiState.value.inputText)
+        assertFalse(vm.uiState.value.isSending)
+        assertEquals("Could not redo. Try again.", vm.uiState.value.error)
+        coVerify(exactly = 1) {
+            api.revertSession("session-1", RevertSessionRequest(messageID = "user-2"), "/test", null)
+        }
+    }
+
+    @Test
+    fun executeCommand_genericCommandDispatchesOnlyWhileIdle() = runTest {
+        val commandResponse = CompletableDeferred<MessageWrapperDto>()
+        coEvery { api.executeCommand("session-1", any(), "/test", null) } coAnswers {
+            commandResponse.await()
+        }
+        val vm = createViewModel()
+
+        assertTrue(vm.executeCommand("custom", "first"))
+        assertFalse(vm.executeCommand("custom", "while sending"))
+        assertEquals(
+            "Wait for the current run to finish or stop it first.",
+            vm.uiState.value.error,
+        )
+        runCurrent()
+        assertTrue(vm.uiState.value.isSending)
+        coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+
+        commandResponse.complete(assistantMessageDto("command-response", createdAt = 10))
+        runCurrent()
+        assertTrue(vm.uiState.value.isBusy)
+
+        assertFalse(vm.executeCommand("custom", "while busy"))
+        runCurrent()
+        coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun executeCommand_paletteFailureLeavesExistingComposerDraftUnchanged() = runTest {
+        coEvery { api.executeCommand("session-1", any(), "/test", null) } throws RuntimeException("boom")
+        val vm = createViewModel()
+        val existingDraft = "keep palette composer draft"
+        vm.updateInput(existingDraft)
+
+        assertTrue(vm.executeCommand("custom", "palette arguments"))
+        advanceUntilIdle()
+
+        assertEquals(existingDraft, vm.uiState.value.inputText)
+        assertFalse(vm.uiState.value.isSending)
+        assertEquals("Could not execute the command. Try again.", vm.uiState.value.error)
+    }
+
+    @Test
+    fun executeCommand_inFlightGenericRetainsOwnerAcrossUnrelatedIdleTodo_andReleasesAfterCompletion() =
+        runTest {
+            val commandResponse = CompletableDeferred<MessageWrapperDto>()
+            coEvery { api.executeCommand("session-1", any(), "/test", null) } coAnswers {
+                commandResponse.await()
+            }
+            val vm = createViewModel()
+            emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+            runCurrent()
+
+            assertTrue(vm.executeCommand("custom", "first"))
+            runCurrent()
+            assertTrue(vm.uiState.value.isSending)
+
+            emitEvent(
+                OpenCodeEvent.TodoUpdated(
+                    "session-1",
+                    listOf(Todo(id = "t1", content = "step", status = "pending", priority = "medium")),
+                )
+            )
+            runCurrent()
+
+            val refusedInput = "/custom keep this input"
+            vm.updateInput(refusedInput)
+            assertFalse(vm.executeCommand("custom", "second"))
+            assertEquals(refusedInput, vm.uiState.value.inputText)
+            assertTrue(vm.uiState.value.isSending)
+            assertEquals(
+                "Wait for the current run to finish or stop it first.",
+                vm.uiState.value.error,
+            )
+            coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+
+            commandResponse.complete(assistantMessageDto("command-response", createdAt = 10))
+            runCurrent()
+            assertFalse(vm.uiState.value.isSending)
+            assertTrue(vm.uiState.value.isBusy)
+
+            emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+            runCurrent()
+            assertFalse(vm.uiState.value.isBusy)
+            assertTrue(vm.executeCommand("custom", "after completion"))
+            runCurrent()
+            coVerify(exactly = 2) { api.executeCommand("session-1", any(), "/test", null) }
+        }
+
+    @Test
+    fun executeCommand_inFlightUndoRetainsOwnerAcrossPriorErrorTodo_andReleasesAfterCompletion() =
+        runTest {
+            val revertResponse = CompletableDeferred<SessionDto>()
+            coEvery { api.getSession("session-1", any(), null) } returns sessionDto(
+                revertMessageId = "user-2",
+            )
+            coEvery { api.getMessages("session-1", any(), null, any(), null) } returns listOf(
+                userMessageDto("user-1", createdAt = 1),
+                assistantMessageDto("assistant-1", createdAt = 2),
+                userMessageDto("user-2", createdAt = 3),
+            )
+            coEvery { api.revertSession(any(), any(), any(), null) } coAnswers {
+                revertResponse.await()
+            }
+            val vm = createViewModel()
+            emitEvent(
+                OpenCodeEvent.SessionError(
+                    "session-1",
+                    MessageError(name = "APIError", message = "prior failure"),
+                )
+            )
+            runCurrent()
+            assertEquals("The run failed. Try again.", vm.uiState.value.error)
+
+            assertTrue(vm.executeCommand("undo", ""))
+            runCurrent()
+            assertTrue(vm.uiState.value.isSending)
+
+            emitEvent(
+                OpenCodeEvent.TodoUpdated(
+                    "session-1",
+                    listOf(Todo(id = "t1", content = "step", status = "pending", priority = "medium")),
+                )
+            )
+            runCurrent()
+
+            val refusedInput = "/redo keep this input"
+            vm.updateInput(refusedInput)
+            assertFalse(vm.executeCommand("redo", ""))
+            assertEquals(refusedInput, vm.uiState.value.inputText)
+            assertTrue(vm.uiState.value.isSending)
+            assertEquals(
+                "Wait for the current run to finish or stop it first.",
+                vm.uiState.value.error,
+            )
+            coVerify(exactly = 1) {
+                api.revertSession("session-1", RevertSessionRequest(messageID = "user-1"), "/test", null)
+            }
+            coVerify(exactly = 0) { api.executeCommand(any(), any(), any(), null) }
+
+            revertResponse.complete(sessionDto(revertMessageId = "user-1"))
+            runCurrent()
+            assertFalse(vm.uiState.value.isSending)
+        }
+
+    @Test
+    fun executeCommand_undoWithoutBoundaryReleasesOwnerForNextIdleCommand() = runTest {
+        coEvery { api.getMessages("session-1", any(), null, any(), null) } returns emptyList()
+        coEvery { api.executeCommand("session-1", any(), "/test", null) } returns assistantMessageDto(
+            "command-response",
+            createdAt = 10,
+        )
+        val vm = createViewModel()
+
+        assertFalse(vm.executeCommand("undo", ""))
+        assertFalse(vm.uiState.value.isSending)
+        assertEquals("Nothing to undo", vm.uiState.value.error)
+        coVerify(exactly = 0) { api.revertSession(any(), any(), any(), null) }
+
+        assertTrue(vm.executeCommand("custom", "after no boundary"))
+        runCurrent()
+        coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+    }
+
+    @Test
+    fun executeCommand_concurrentCallersAcceptAndDispatchExactlyOneCommand() = runTest {
+        val commandResponse = CompletableDeferred<MessageWrapperDto>()
+        coEvery { api.executeCommand("session-1", any(), "/test", null) } coAnswers {
+            commandResponse.await()
+        }
+        val vm = createViewModel()
+        val start = CompletableDeferred<Unit>()
+        val callers = List(32) { attempt ->
+            async(Dispatchers.Default) {
+                start.await()
+                vm.executeCommand("custom", "attempt-$attempt")
+            }
+        }
+
+        start.complete(Unit)
+        val results = callers.map { it.await() }
+        runCurrent()
+
+        assertEquals(1, results.count { it })
+        assertEquals(31, results.count { !it })
+        assertEquals(
+            "Wait for the current run to finish or stop it first.",
+            vm.uiState.value.error,
+        )
+        coVerify(exactly = 1) { api.executeCommand("session-1", any(), "/test", null) }
+
+        commandResponse.complete(assistantMessageDto("command-response", createdAt = 10))
+        runCurrent()
+    }
+
+    @Test
+    fun executeCommand_duplicateInitWhileSendingOrBusy_launchesOnlyOnce() = runTest {
+        val initResponse = CompletableDeferred<Boolean>()
+        coEvery { api.initSession("session-1", any(), "/test", null) } coAnswers {
+            initResponse.await()
+        }
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(
+            dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        )
+        runCurrent()
+
+        vm.executeCommand("init", "")
+        vm.executeCommand("init", "")
+        runCurrent()
+
+        coVerify(exactly = 1) { api.initSession("session-1", any(), "/test", null) }
+        assertTrue(vm.uiState.value.isSending)
+
+        initResponse.complete(true)
+        runCurrent()
+        assertTrue(vm.uiState.value.isBusy)
+
+        vm.executeCommand("init", "")
+        runCurrent()
+        coVerify(exactly = 1) { api.initSession("session-1", any(), "/test", null) }
+
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun executeCommand_pendingInitIgnoresUnrelatedTerminalToken() = runTest {
+        val initResponse = CompletableDeferred<Boolean>()
+        coEvery { api.initSession("session-1", any(), "/test", null) } coAnswers {
+            initResponse.await()
+        }
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(
+            dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        )
+        runCurrent()
+
+        vm.executeCommand("init", "")
+        runCurrent()
+
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+        runCurrent()
+        initResponse.complete(true)
+        runCurrent()
+
+        assertTrue(vm.uiState.value.isBusy)
+        assertNull(vm.uiState.value.error)
+
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isBusy)
+    }
+
+    @Test
+    fun abortSession_invalidatesPendingSuccessfulInit_beforeBusyOrReconciliation() = runTest {
+        val initResponse = CompletableDeferred<Boolean>()
+        val abortResponse = CompletableDeferred<Response<Unit>>()
+        coEvery { api.initSession("session-1", any(), "/test", null) } coAnswers {
+            withContext(NonCancellable) { initResponse.await() }
+        }
+        coEvery { api.abortSession("session-1", "/test", null) } coAnswers {
+            abortResponse.await()
+        }
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(
+            dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        )
+        runCurrent()
+
+        vm.executeCommand("init", "")
+        runCurrent()
+        assertTrue(vm.uiState.value.isSending)
+
+        vm.abortSession()
+        runCurrent()
+
+        initResponse.complete(true)
+        runCurrent()
+
+        assertFalse(vm.uiState.value.isBusy)
+        assertNull(vm.uiState.value.error)
+        advanceTimeBy(2_000)
+        runCurrent()
+        coVerify(exactly = 0) { api.getSessionStatuses("/test", null) }
+
+        abortResponse.complete(Response.success(Unit))
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSending)
+    }
+
+    @Test
+    fun abortSession_invalidatesPendingFailedInit_beforeError() = runTest {
+        val initResponse = CompletableDeferred<Boolean>()
+        val abortResponse = CompletableDeferred<Response<Unit>>()
+        coEvery { api.initSession("session-1", any(), "/test", null) } coAnswers {
+            withContext(NonCancellable) { initResponse.await() }
+        }
+        coEvery { api.abortSession("session-1", "/test", null) } coAnswers {
+            abortResponse.await()
+        }
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(
+            dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        )
+        runCurrent()
+
+        vm.executeCommand("init", "")
+        runCurrent()
+        vm.abortSession()
+        runCurrent()
+
+        initResponse.complete(false)
+        runCurrent()
+
+        assertFalse(vm.uiState.value.isBusy)
+        assertNull(vm.uiState.value.error)
+        coVerify(exactly = 0) { api.getSessionStatuses("/test", null) }
+
+        abortResponse.complete(Response.success(Unit))
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSending)
+    }
+
+    @Test
+    fun sendMessage_replacementInvalidatesPendingInitCompletion() = runTest {
+        val initResponse = CompletableDeferred<Boolean>()
+        coEvery { api.initSession("session-1", any(), "/test", null) } coAnswers {
+            withContext(NonCancellable) { initResponse.await() }
+        }
+        coEvery { api.sendMessageAsync(any(), any(), any(), null) } returns Unit
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(
+            dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        )
+        runCurrent()
+
+        vm.executeCommand("init", "")
+        runCurrent()
+        vm.updateInput("replacement")
+        vm.sendMessage()
+        runCurrent()
+        assertTrue(vm.uiState.value.isBusy)
+
+        initResponse.complete(false)
+        runCurrent()
+
+        assertTrue(vm.uiState.value.isBusy)
+        assertNull(vm.uiState.value.error)
+
+        emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Idle))
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun executeCommand_initReconcilesAssistant_whenTerminalSseIsMissing() = runTest {
+        val existingUser = userMessageDto("user-existing", createdAt = 10)
+        val initAssistant = assistantMessageDto(
+            id = "assistant-init",
+            createdAt = 11,
+            completedAt = 12,
+            parts = listOf(
+                PartDto(
+                    id = "part-init",
+                    sessionID = "session-1",
+                    messageID = "assistant-init",
+                    type = "text",
+                    text = "Initialized",
+                )
+            ),
+        )
+        coEvery { api.getMessages("session-1", 100, null, "/test", null) } returnsMany listOf(
+            listOf(existingUser),
+            listOf(existingUser, initAssistant),
+        )
+        coEvery { api.getSessionStatuses("/test", null) } returns mapOf(
+            "session-1" to SessionStatusDto(type = "idle")
+        )
+        coEvery { api.initSession("session-1", any(), "/test", null) } returns true
+        val vm = createViewModel()
+        vm.modelAgentManager.selectModel(
+            dev.blazelight.p4oc.data.remote.dto.ModelInput("openai", "gpt-5")
+        )
+        runCurrent()
+
+        vm.executeCommand("init", "")
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isBusy)
+        assertNull(vm.uiState.value.error)
+        assertEquals(
+            listOf("user-existing", "assistant-init"),
+            vm.currentMessages().map { it.message.id },
+        )
+        assertEquals("Initialized", (vm.currentMessages().last().parts.single() as Part.Text).text)
+        coVerify(exactly = 1) { api.getSessionStatuses("/test", null) }
+        coVerify(exactly = 2) { api.getMessages("session-1", 100, null, "/test", null) }
     }
 
     @Test

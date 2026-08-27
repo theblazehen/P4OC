@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -22,6 +23,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
+import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.core.network.ServerConnectionRegistry
@@ -60,6 +62,45 @@ private data class PendingSessionCreate(
     val title: String?,
     val directory: String?,
 )
+
+internal data class PendingSessionFork(
+    val sourceSessionId: String,
+    val directory: String?,
+)
+
+internal data class PendingSessionForkEnqueueDecision(
+    val pending: PendingSessionFork,
+    val accepted: Boolean,
+)
+
+internal fun decidePendingSessionForkEnqueue(
+    current: PendingSessionFork?,
+    requested: PendingSessionFork,
+): PendingSessionForkEnqueueDecision = if (current == null) {
+    PendingSessionForkEnqueueDecision(pending = requested, accepted = true)
+} else {
+    PendingSessionForkEnqueueDecision(pending = current, accepted = false)
+}
+
+internal data class PendingSessionForkStep(
+    val remaining: PendingSessionFork?,
+    val sourceSessionIdToFork: String?,
+)
+
+internal fun pendingSessionForkStep(
+    pending: PendingSessionFork?,
+    currentDirectory: String?,
+): PendingSessionForkStep = when {
+    pending == null -> PendingSessionForkStep(remaining = null, sourceSessionIdToFork = null)
+    pending.directory != currentDirectory -> PendingSessionForkStep(
+        remaining = pending,
+        sourceSessionIdToFork = null,
+    )
+    else -> PendingSessionForkStep(
+        remaining = null,
+        sourceSessionIdToFork = pending.sourceSessionId,
+    )
+}
 
 private fun workspaceGraphRoute(tabId: String, revision: Int): String = "workspace/$tabId/$revision"
 
@@ -107,6 +148,7 @@ fun TabNavHost(
     val workspaceRoute = remember(tabId, workspaceRevision) { workspaceGraphRoute(tabId, workspaceRevision) }
     var pendingRoute by remember(tabId) { mutableStateOf<String?>(null) }
     var pendingSessionCreate by remember(tabId) { mutableStateOf<PendingSessionCreate?>(null) }
+    var pendingSessionFork by remember(tabId) { mutableStateOf<PendingSessionFork?>(null) }
 
     LaunchedEffect(workspaceRevision, pendingRoute, pendingSessionCreate) {
         pendingRoute?.let { route ->
@@ -120,6 +162,7 @@ fun TabNavHost(
     // Sessions tab: exits the app.
     var backPressedAt by remember { mutableLongStateOf(0L) }
     val context = LocalContext.current
+    val forkAlreadyPendingMessage = stringResource(R.string.sessions_fork_already_pending)
     val isDedicatedTab = startRoute != Screen.Sessions.route
 
     BackHandler(enabled = navController.previousBackStackEntry == null) {
@@ -206,12 +249,23 @@ fun TabNavHost(
                     workspaceOwner,
                     backStackEntry.destination.route
                 )
+                val sessionListViewModel = sessionListViewModelForRoute(
+                    owner = backStackEntry,
+                    workspaceViewModel = workspaceViewModel,
+                    keySuffix = "sessions",
+                )
+                LaunchedEffect(workspaceViewModel, sessionListViewModel, pendingSessionFork) {
+                    val step = pendingSessionForkStep(
+                        pending = pendingSessionFork,
+                        currentDirectory = workspaceViewModel.workspace.directory,
+                    )
+                    val sourceSessionId = step.sourceSessionIdToFork ?: return@LaunchedEffect
+                    pendingSessionFork = step.remaining
+                    sessionListViewModel.forkSession(sourceSessionId)
+                }
                 SessionListScreen(
-                    viewModel = sessionListViewModelForRoute(
-                        owner = backStackEntry,
-                        workspaceViewModel = workspaceViewModel,
-                        keySuffix = "sessions",
-                    ),
+                    viewModel = sessionListViewModel,
+                    isSessionForkPending = pendingSessionFork != null,
                     onSessionClick = { sessionId, directory ->
                         val selection = directory.toNavigationWorkspaceSelection()
                             ?: return@SessionListScreen
@@ -251,6 +305,26 @@ fun TabNavHost(
                     onViewChanges = { sessionId ->
                         navController.navigate(Screen.SessionDiff.createRoute(sessionId))
                     },
+                    onForkSessionInWorkspace = { sourceSessionId, directory ->
+                        val selection = directory.toNavigationWorkspaceSelection()
+                            ?: return@SessionListScreen
+                        val decision = decidePendingSessionForkEnqueue(
+                            current = pendingSessionFork,
+                            requested = PendingSessionFork(sourceSessionId, selection.directory),
+                        )
+                        pendingSessionFork = decision.pending
+                        if (!decision.accepted) {
+                            Toast.makeText(
+                                context,
+                                forkAlreadyPendingMessage,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            return@SessionListScreen
+                        }
+                        if (selection.directory != workspaceOwner.workspace.directory) {
+                            tabManager.updateTabWorkspace(tabId, selection.workspaceKey)
+                        }
+                    },
                     onCreateSessionInWorkspace = { title, directory ->
                         val selection = directory.toNavigationWorkspaceSelection()
                             ?: return@SessionListScreen
@@ -284,13 +358,24 @@ fun TabNavHost(
                     backStackEntry.destination.route
                 )
                 val projectId = backStackEntry.arguments?.getString(Screen.SessionsFiltered.ARG_PROJECT_ID) ?: ""
+                val sessionListViewModel = sessionListViewModelForRoute(
+                    owner = backStackEntry,
+                    workspaceViewModel = workspaceViewModel,
+                    keySuffix = "sessions-filtered-$projectId",
+                )
+                LaunchedEffect(workspaceViewModel, sessionListViewModel, pendingSessionFork) {
+                    val step = pendingSessionForkStep(
+                        pending = pendingSessionFork,
+                        currentDirectory = workspaceViewModel.workspace.directory,
+                    )
+                    val sourceSessionId = step.sourceSessionIdToFork ?: return@LaunchedEffect
+                    pendingSessionFork = step.remaining
+                    sessionListViewModel.forkSession(sourceSessionId)
+                }
                 SessionListScreen(
-                    viewModel = sessionListViewModelForRoute(
-                        owner = backStackEntry,
-                        workspaceViewModel = workspaceViewModel,
-                        keySuffix = "sessions-filtered-$projectId",
-                    ),
+                    viewModel = sessionListViewModel,
                     filterProjectId = projectId,
+                    isSessionForkPending = pendingSessionFork != null,
                     onSessionClick = { sessionId, directory ->
                         val selection = directory.toNavigationWorkspaceSelection()
                             ?: return@SessionListScreen
@@ -329,6 +414,27 @@ fun TabNavHost(
                     },
                     onViewChanges = { sessionId ->
                         navController.navigate(Screen.SessionDiff.createRoute(sessionId))
+                    },
+                    onForkSessionInWorkspace = { sourceSessionId, directory ->
+                        val selection = directory.toNavigationWorkspaceSelection()
+                            ?: return@SessionListScreen
+                        val decision = decidePendingSessionForkEnqueue(
+                            current = pendingSessionFork,
+                            requested = PendingSessionFork(sourceSessionId, selection.directory),
+                        )
+                        pendingSessionFork = decision.pending
+                        if (!decision.accepted) {
+                            Toast.makeText(
+                                context,
+                                forkAlreadyPendingMessage,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            return@SessionListScreen
+                        }
+                        if (selection.directory != workspaceOwner.workspace.directory) {
+                            pendingRoute = Screen.SessionsFiltered.createRoute(projectId)
+                            tabManager.updateTabWorkspace(tabId, selection.workspaceKey)
+                        }
                     },
                     onCreateSessionInWorkspace = { title, directory ->
                         val selection = directory.toNavigationWorkspaceSelection()

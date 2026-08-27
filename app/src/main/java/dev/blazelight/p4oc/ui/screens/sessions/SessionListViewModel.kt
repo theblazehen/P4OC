@@ -397,6 +397,37 @@ class SessionListViewModel constructor(
         }
     }
 
+    fun forkSession(sessionId: String) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    forkingSessionIds = it.forkingSessionIds + sessionId,
+                    error = null,
+                )
+            }
+            try {
+                val forked = sessionRepository.forkSession(SessionId(sessionId))
+                _uiState.update {
+                    it.copy(
+                        newSessionId = forked.id.value,
+                        newSessionDirectory = forked.session.directory,
+                        forkingSessionIds = it.forkingSessionIds - sessionId,
+                        error = null,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLog.e(TAG, "Failed to fork session")
+                _uiState.update { it.copy(error = "Could not fork the session. Try again.") }
+            } finally {
+                _uiState.update {
+                    it.copy(forkingSessionIds = it.forkingSessionIds - sessionId)
+                }
+            }
+        }
+    }
+
     fun deleteSession(sessionId: String) {
         viewModelScope.launch {
             try {
@@ -510,6 +541,7 @@ data class SessionListUiState(
     val newSessionDirectory: String? = null,
     val shareUrl: String? = null,
     val expandedSessionIds: Set<String> = emptySet(),
+    val forkingSessionIds: Set<String> = emptySet(),
     val error: String? = null
 ) {
     val isSearchActive: Boolean

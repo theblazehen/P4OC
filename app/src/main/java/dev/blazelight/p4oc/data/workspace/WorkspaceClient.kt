@@ -136,10 +136,10 @@ class WorkspaceClient(
 
     suspend fun getSessionTodos(id: String): List<TodoDto> = api.getSessionTodos(id, directory, workspace = null)
 
-    suspend fun forkSession(id: String, request: ForkSessionRequest): SessionDto =
+    override suspend fun forkSession(id: String, request: ForkSessionRequest): SessionDto =
         api.forkSession(id, request, directory, workspace = null)
 
-    suspend fun initSession(id: String, request: InitSessionRequest): Boolean =
+    override suspend fun initSession(id: String, request: InitSessionRequest): Boolean =
         api.initSession(id, request, directory, workspace = null)
 
     override suspend fun shareSession(id: String): SessionDto = api.shareSession(id, directory, workspace = null)

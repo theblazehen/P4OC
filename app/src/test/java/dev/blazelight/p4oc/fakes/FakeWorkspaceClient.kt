@@ -1,6 +1,8 @@
 package dev.blazelight.p4oc.fakes
 
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
+import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
+import dev.blazelight.p4oc.data.remote.dto.InitSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.PermissionDto
 import dev.blazelight.p4oc.data.remote.dto.PermissionToolDto
 import dev.blazelight.p4oc.data.remote.dto.PermissionV2RequestDto
@@ -53,10 +55,22 @@ class FakeWorkspaceClient(
         val limit: Int?,
     )
 
+    data class ForkSessionCall(
+        val sourceSessionId: String,
+        val request: ForkSessionRequest,
+    )
+
+    data class InitSessionCall(
+        val sessionId: String,
+        val request: InitSessionRequest,
+    )
+
     val listSessionsDirectories = mutableListOf<String?>()
     val listSessionsScopes = mutableListOf<String?>()
     val listSessionsCallsLog = mutableListOf<ListSessionsCall>()
     val getSessionStatusesDirectories = mutableListOf<String?>()
+    val forkSessionCallsLog = mutableListOf<ForkSessionCall>()
+    val initSessionCallsLog = mutableListOf<InitSessionCall>()
 
     var projects: List<ProjectDto> = emptyList()
     var listSessionsResult: List<SessionDto> = emptyList()
@@ -70,6 +84,10 @@ class FakeWorkspaceClient(
     var getSessionResults: MutableMap<String, SessionDto> = mutableMapOf()
     var getSessionFailure: Throwable? = null
     var createSessionFailure: Throwable? = null
+    var forkSessionResult: SessionDto? = null
+    var forkSessionFailure: Throwable? = null
+    var initSessionResult: Boolean = true
+    var initSessionFailure: Throwable? = null
     var deleteSessionFailure: Throwable? = null
     var sendMessageBlocker: CompletableDeferred<Unit>? = null
     var abortSessionBlocker: CompletableDeferred<Unit>? = null
@@ -130,6 +148,18 @@ class FakeWorkspaceClient(
             sessionDto(id = "created", title = request.title ?: "created", directory = workspace.directory.orEmpty())
         setSessions(session, *listSessionsResult.toTypedArray())
         return session
+    }
+
+    override suspend fun forkSession(id: String, request: ForkSessionRequest): SessionDto {
+        forkSessionCallsLog += ForkSessionCall(sourceSessionId = id, request = request)
+        forkSessionFailure?.let { throw it }
+        return forkSessionResult ?: error("No fake fork session result configured")
+    }
+
+    override suspend fun initSession(id: String, request: InitSessionRequest): Boolean {
+        initSessionCallsLog += InitSessionCall(sessionId = id, request = request)
+        initSessionFailure?.let { throw it }
+        return initSessionResult
     }
 
     override suspend fun deleteSession(id: String): Boolean {
