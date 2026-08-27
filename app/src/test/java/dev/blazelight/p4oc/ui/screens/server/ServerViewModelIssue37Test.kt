@@ -14,8 +14,8 @@ import dev.blazelight.p4oc.core.security.CredentialStore
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
-import io.mockk.match
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -109,6 +109,7 @@ class ServerViewModelIssue37Test {
         val settingsDataStore = mockk<SettingsDataStore>()
         val connectionRegistry = mockk<ServerConnectionRegistry>()
         val discoveryManager = discoveryManager()
+        val connectedServer = slot<SavedServer>()
         val config = ServerConfig(
             url = "http://saved.local:4096",
             name = "Saved server",
@@ -129,15 +130,11 @@ class ServerViewModelIssue37Test {
         verify(exactly = 1) { settingsDataStore.connectionSettings }
         coVerify(exactly = 1) { settingsDataStore.getLastConnection() }
         coVerify(exactly = 1) {
-            connectionRegistry.connectAndAwait(
-                match {
-                    it.endpoint == config.url &&
-                        it.displayName == config.name &&
-                        it.username == config.username
-                },
-                "secret",
-            )
+            connectionRegistry.connectAndAwait(capture(connectedServer), "secret")
         }
+        assertEquals(config.url, connectedServer.captured.endpoint)
+        assertEquals(config.name, connectedServer.captured.displayName)
+        assertEquals(config.username, connectedServer.captured.username)
         assertFalse(viewModel.uiState.value.isConnecting)
         assertTrue(viewModel.uiState.value.isConnected)
         assertEquals("http://saved.local:4096", viewModel.uiState.value.connectedEndpointKey)
