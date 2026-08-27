@@ -65,6 +65,55 @@ class NotificationRouteOwnershipTest {
         assertNull(manager.findTabByNotificationRoute(route.copy(workspaceKey = WorkspaceKey.Directory("/other"))))
     }
 
+    @Test
+    fun `session lookup matches endpoint workspace and session exactly`() {
+        val savedServer = ServerRef.fromEndpointKey("https://saved.example", "Saved server")
+        val renamedSavedServer = ServerRef.fromEndpointKey("https://saved.example", "Renamed server")
+        val otherServer = ServerRef.fromEndpointKey("https://other.example")
+        val targetWorkspace = WorkspaceKey.Directory("/target")
+        val otherWorkspace = WorkspaceKey.Directory("/other")
+        val manager = TabManager()
+        manager.restoreState(
+            state = PersistedTabState(
+                serverEndpointKey = savedServer.endpointKey,
+                activeTabId = null,
+                tabs = listOf(
+                    sessionTab("other-server", otherServer, targetWorkspace),
+                    sessionTab("other-workspace", savedServer, otherWorkspace),
+                    sessionTab("exact", savedServer, targetWorkspace),
+                ),
+            ),
+            availableServers = mapOf(
+                savedServer.endpointKey to savedServer,
+                otherServer.endpointKey to otherServer,
+            ),
+        )
+
+        assertEquals("exact", manager.findSessionTab(renamedSavedServer, targetWorkspace, "session")?.id)
+        assertNull(manager.findSessionTab(otherServer, otherWorkspace, "session"))
+        assertNull(
+            manager.findSessionTab(
+                ServerRef.fromEndpointKey("https://missing.example"),
+                targetWorkspace,
+                "session",
+            ),
+        )
+        assertNull(manager.findSessionTab(savedServer, WorkspaceKey.Directory("/missing"), "session"))
+        assertNull(manager.findSessionTab(savedServer, targetWorkspace, "missing-session"))
+    }
+
+    private fun sessionTab(
+        id: String,
+        serverRef: ServerRef,
+        workspaceKey: WorkspaceKey.Directory,
+    ) = PersistedTab(
+        id = id,
+        startRoute = "chat/session",
+        sessionId = "session",
+        serverEndpointKey = serverRef.endpointKey,
+        workspaceKey = PersistedWorkspaceKey(PersistedWorkspaceKey.Type.DIRECTORY, workspaceKey.value),
+    )
+
     private fun server(endpointKey: String) = SavedServer(
         id = endpointKey,
         endpoint = endpointKey,
