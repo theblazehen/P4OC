@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -161,6 +162,7 @@ fun TabNavHost(
     // Sessions tab: exits the app.
     var backPressedAt by remember { mutableLongStateOf(0L) }
     val context = LocalContext.current
+    val forkAlreadyPendingMessage = stringResource(R.string.sessions_fork_already_pending)
     val isDedicatedTab = startRoute != Screen.Sessions.route
 
     BackHandler(enabled = navController.previousBackStackEntry == null) {
@@ -314,7 +316,7 @@ fun TabNavHost(
                         if (!decision.accepted) {
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.sessions_fork_already_pending),
+                                forkAlreadyPendingMessage,
                                 Toast.LENGTH_SHORT,
                             ).show()
                             return@SessionListScreen
@@ -424,7 +426,7 @@ fun TabNavHost(
                         if (!decision.accepted) {
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.sessions_fork_already_pending),
+                                forkAlreadyPendingMessage,
                                 Toast.LENGTH_SHORT,
                             ).show()
                             return@SessionListScreen
