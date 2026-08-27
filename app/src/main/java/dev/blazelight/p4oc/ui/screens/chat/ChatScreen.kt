@@ -45,8 +45,8 @@ import dev.blazelight.p4oc.ui.components.TuiLoadingScreen
 import dev.blazelight.p4oc.ui.components.TuiSnackbar
 import dev.blazelight.p4oc.ui.components.TuiTopBar
 import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
+import dev.blazelight.p4oc.ui.components.chat.ChatJumpNavigationButtons
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
-import dev.blazelight.p4oc.ui.components.chat.JumpToBottomButton
 import dev.blazelight.p4oc.ui.components.chat.InlinePermissionPrompt
 import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
@@ -227,6 +227,7 @@ fun ChatScreen(
         saver = ChatScrollRestorationState.Saver
     ) { ChatScrollRestorationState() }
     val messageBlocks = remember(messages, uiState.isBusy) { groupMessagesIntoBlocks(messages, uiState.isBusy) }
+    val olderMessagesItemOffset = if (uiState.hasOlderMessages) 1 else 0
     // A streaming assistant is initially reported with all-zero token totals.
     // Retain the newest meaningful usage until the live reply gains real usage.
     val contextUsage = remember(messages) { latestAssistantContextUsage(messages) }
@@ -242,6 +243,17 @@ fun ChatScreen(
     // discarded, zero-item instance.
     val isAtBottom by remember(listState) {
         derivedStateOf { !listState.canScrollForward }
+    }
+    val previousUserBlockIndex by remember(listState, messageBlocks, olderMessagesItemOffset) {
+        derivedStateOf {
+            val firstVisibleBlockIndex =
+                (listState.firstVisibleItemIndex - olderMessagesItemOffset).coerceAtMost(messageBlocks.size)
+            previousUserMessageBlockIndex(
+                blocks = messageBlocks,
+                firstVisibleBlockIndex = firstVisibleBlockIndex,
+                firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset,
+            )
+        }
     }
 
     val focusManager = LocalFocusManager.current
@@ -340,7 +352,6 @@ fun ChatScreen(
             if (blockIndex != null) {
                 // Keep streaming tail updates from immediately pulling the viewport away again.
                 scrollRestorationState.shouldFollowTail = false
-                val olderMessagesItemOffset = if (uiState.hasOlderMessages) 1 else 0
                 listState.scrollToItem(blockIndex + olderMessagesItemOffset)
             } else {
                 scrollRestorationState.onJumpToBottom()
@@ -674,11 +685,19 @@ fun ChatScreen(
                     }
                 }
 
-                // Jump to bottom button - shows when scrolled away from the tail.
-                JumpToBottomButton(
-                    visible = !isAtBottom,
+                ChatJumpNavigationButtons(
+                    showPrevious = previousUserBlockIndex != null,
+                    showBottom = !isAtBottom,
                     hasNewContent = scrollRestorationState.hasNewContentWhileAway,
-                    onClick = {
+                    onPrevious = {
+                        previousUserBlockIndex?.let { blockIndex ->
+                            coroutineScope.launch {
+                                scrollRestorationState.onJumpToPreviousUser()
+                                listState.scrollToItem(blockIndex + olderMessagesItemOffset)
+                            }
+                        }
+                    },
+                    onBottom = {
                         coroutineScope.launch {
                             scrollRestorationState.onJumpToBottom()
                             listState.scrollChatToBottom()
