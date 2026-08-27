@@ -38,6 +38,11 @@ import dev.blazelight.p4oc.ui.theme.Spacing
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
+internal fun MessageWithParts.hasVisibleUserText(): Boolean =
+    message is Message.User && parts.any { part ->
+        part is Part.Text && !part.synthetic && !part.ignored && part.text.isNotBlank()
+    }
+
 @Composable
 @Suppress("LongParameterList", "FunctionNaming")
 fun ChatMessage(
@@ -122,14 +127,13 @@ private fun UserMessage(
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     var revertActionWidthPx by remember { mutableIntStateOf(0) }
+    if (!messageWithParts.hasVisibleUserText()) return
+
     // Filter out synthetic text parts (system prompts, AGENTS.md content, etc.)
     val textParts = messageWithParts.parts
         .filterIsInstance<Part.Text>()
         .filter { !it.synthetic && !it.ignored }
     val text = textParts.joinToString("\n") { it.text }
-
-    // Don't render anything if there's no visible text
-    if (text.isBlank()) return
 
     // TUI style: flat panel surface with a "you" label — matches the design's user block.
     Box(

@@ -684,6 +684,7 @@
     <string name="cd_show_branches">Show branches</string>
     <string name="cd_fork_conversation">Fork conversation from here</string>
     <string name="cd_delete_branch">Delete branch</string>
+    <string name="cd_jump_to_previous_user_message">Previous user message</string>
     <string name="cd_jump_to_bottom">Jump to bottom</string>
     <string name="cd_add_more_files">Add more files</string>
     <string name="cd_attach_files">Attach files</string>
