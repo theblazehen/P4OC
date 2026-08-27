@@ -19,6 +19,7 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -60,19 +61,25 @@ class ServerViewModelIssue37Test {
         val settingsDataStore = mockk<SettingsDataStore>()
         val connectionRegistry = mockk<ServerConnectionRegistry>()
         val discoveryManager = discoveryManager()
+        val connectionSettings = MutableSharedFlow<ConnectionSettings>()
         every { settingsDataStore.recentServers } returns flowOf(recentServers)
         every { settingsDataStore.savedServers } returns flowOf(savedServers)
-        every { settingsDataStore.connectionSettings } returns flowOf(
-            ConnectionSettings(autoReconnect = false)
-        )
+        every { settingsDataStore.connectionSettings } returns connectionSettings
         val viewModel = viewModel(settingsDataStore, connectionRegistry, discoveryManager)
 
         viewModel.start(autoReconnect = true)
         advanceUntilIdle()
 
+        // Inventory collectors are independent from the still-suspended reconnect setting read.
         assertEquals(recentServers, viewModel.uiState.value.recentServers)
         assertEquals(savedServers, viewModel.uiState.value.savedServers)
         assertFalse(viewModel.uiState.value.isConnecting)
+        coVerify(exactly = 0) { settingsDataStore.getLastConnection() }
+        coVerify(exactly = 0) { connectionRegistry.connectAndAwait(any(), any()) }
+
+        connectionSettings.emit(ConnectionSettings(autoReconnect = false))
+        advanceUntilIdle()
+
         assertFalse(viewModel.uiState.value.isConnected)
         assertNull(viewModel.uiState.value.connectingEndpointKey)
         verify(exactly = 1) { settingsDataStore.connectionSettings }
