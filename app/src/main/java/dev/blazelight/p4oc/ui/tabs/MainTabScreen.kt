@@ -1189,7 +1189,11 @@ private fun mainTabHomeContent(
             onSettings = params.onSettings,
             onFocusTab = params.deps.tabManager::focusTab,
             onResumeSession = { session ->
-                val existing = params.deps.tabManager.findTabBySessionId(session.sessionId.value)
+                val existing = params.deps.tabManager.findSessionTab(
+                    serverRef = session.serverRef,
+                    workspaceKey = session.workspaceKey,
+                    sessionId = session.sessionId.value,
+                )
                 if (existing != null) {
                     params.deps.tabManager.focusTab(existing.id)
                 } else {

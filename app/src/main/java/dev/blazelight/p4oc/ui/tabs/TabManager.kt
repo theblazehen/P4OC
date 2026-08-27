@@ -125,10 +125,6 @@ class TabManager {
         }
     }
 
-    /**
-     * Find a tab that's showing the given session.
-     */
-
     fun findFilesTab(serverRef: ServerRef, workspaceKey: WorkspaceKey): TabInstance? =
         _tabs.value.firstOrNull {
             !it.isPinnedHome &&
@@ -158,8 +154,15 @@ class TabManager {
                 it.workspaceKey == workspaceKey &&
                 it.startRoute.startsWith("terminal/")
         }
-    fun findTabBySessionId(sessionId: String): TabInstance? {
-        return _tabs.value.find { it.sessionId == sessionId }
+
+    fun findSessionTab(
+        serverRef: ServerRef,
+        workspaceKey: WorkspaceKey,
+        sessionId: String,
+    ): TabInstance? = _tabs.value.firstOrNull {
+        it.serverRef?.endpointKey == serverRef.endpointKey &&
+            it.workspaceKey == workspaceKey &&
+            it.sessionId == sessionId
     }
 
     fun findTabByNotificationRoute(route: dev.blazelight.p4oc.core.notification.NotificationRoute): TabInstance? =

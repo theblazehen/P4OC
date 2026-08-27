@@ -269,7 +269,11 @@ fun TabNavHost(
                     onSessionClick = { sessionId, directory ->
                         val selection = directory.toNavigationWorkspaceSelection()
                             ?: return@SessionListScreen
-                        val existingTab = tabManager.findTabBySessionId(sessionId)
+                        val existingTab = tabManager.findSessionTab(
+                            serverRef = serverRef,
+                            workspaceKey = selection.workspaceKey,
+                            sessionId = sessionId,
+                        )
                         if (existingTab != null && existingTab.id != tabId) {
                             tabManager.focusTab(existingTab.id)
                         } else {
@@ -379,7 +383,11 @@ fun TabNavHost(
                     onSessionClick = { sessionId, directory ->
                         val selection = directory.toNavigationWorkspaceSelection()
                             ?: return@SessionListScreen
-                        val existingTab = tabManager.findTabBySessionId(sessionId)
+                        val existingTab = tabManager.findSessionTab(
+                            serverRef = serverRef,
+                            workspaceKey = selection.workspaceKey,
+                            sessionId = sessionId,
+                        )
                         if (existingTab != null && existingTab.id != tabId) {
                             tabManager.focusTab(existingTab.id)
                         } else {
@@ -495,7 +503,11 @@ fun TabNavHost(
                     },
                     onOpenSubSession = { subSessionId ->
                         // Check if sub-session is already open in another tab
-                        val existingTab = tabManager.findTabBySessionId(subSessionId)
+                        val existingTab = tabManager.findSessionTab(
+                            serverRef = serverRef,
+                            workspaceKey = workspaceOwner.workspace.key,
+                            sessionId = subSessionId,
+                        )
                         if (existingTab != null && existingTab.id != tabId) {
                             // Focus the existing tab
                             tabManager.focusTab(existingTab.id)
