@@ -60,7 +60,7 @@ class ConnectionManagerLoggingTest {
         Dispatchers.setMain(dispatcher)
         manager = ConnectionManager(
             json = json,
-            eventMapper = EventMapper(json, MessageMapper(json)),
+            eventMapper = EventMapper(json, MessageMapper()),
             settingsDataStore = mockk<SettingsDataStore>(),
         )
     }

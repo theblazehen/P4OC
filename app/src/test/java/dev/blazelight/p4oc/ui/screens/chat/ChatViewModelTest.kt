@@ -83,7 +83,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -130,7 +129,7 @@ class ChatViewModelTest {
         every { AppLog.e(any(), any<String>()) } returns Unit
         every { AppLog.e(any(), any<String>(), any()) } returns Unit
 
-        messageMapper = MessageMapper(Json { ignoreUnknownKeys = true })
+        messageMapper = MessageMapper()
         settingsDataStore = mockk()
         events = MutableSharedFlow(extraBufferCapacity = 32)
         api = mockk(relaxed = true)

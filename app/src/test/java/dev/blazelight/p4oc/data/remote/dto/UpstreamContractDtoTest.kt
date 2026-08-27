@@ -1,12 +1,79 @@
 package dev.blazelight.p4oc.data.remote.dto
 
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UpstreamContractDtoTest {
     private val json = Json { ignoreUnknownKeys = true }
+
+    @Test
+    fun `message decoding discards multi-megabyte object summary`() {
+        val patchMarker = "summary-patch-must-not-be-retained"
+        val patch = patchMarker + "x".repeat(3 * 1024 * 1024)
+        val payload =
+            """
+            {
+              "info": {
+                "id": "msg-user",
+                "sessionID": "ses-1",
+                "time": { "created": 1 },
+                "role": "user",
+                "summary": {
+                  "title": "large diff",
+                  "diffs": [
+                    {
+                      "file": "src/Main.kt",
+                      "patch": "$patch",
+                      "additions": 1,
+                      "deletions": 0
+                    }
+                  ]
+                }
+              },
+              "parts": []
+            }
+            """.trimIndent()
+
+        val message = json.decodeFromString<MessageWrapperDto>(payload)
+        val encoded = json.encodeToString(message)
+
+        assertEquals("user", message.info.role)
+        assertFalse(encoded.contains(patchMarker))
+        assertFalse(encoded.contains("\"summary\""))
+        assertTrue(encoded.length < payload.length / 100)
+    }
+
+    @Test
+    fun `assistant message decoding ignores boolean summary`() {
+        val payload =
+            """
+            {
+              "info": {
+                "id": "msg-assistant",
+                "sessionID": "ses-1",
+                "time": { "created": 2, "completed": 3 },
+                "role": "assistant",
+                "parentID": "msg-user",
+                "modelID": "model-1",
+                "providerID": "provider-1",
+                "agent": "build",
+                "summary": true
+              },
+              "parts": []
+            }
+            """.trimIndent()
+
+        val message = json.decodeFromString<MessageWrapperDto>(payload)
+        val encoded = json.encodeToString(message)
+
+        assertEquals("assistant", message.info.role)
+        assertFalse(encoded.contains("\"summary\""))
+    }
 
     @Test
     fun `mcp add response decodes status map`() {

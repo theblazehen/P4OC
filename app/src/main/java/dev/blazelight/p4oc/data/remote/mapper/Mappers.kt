@@ -5,7 +5,6 @@ import dev.blazelight.p4oc.data.remote.dto.*
 import dev.blazelight.p4oc.domain.model.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -100,9 +99,7 @@ private fun JsonObject.intValue(key: String): Int? = (this[key] as? JsonPrimitiv
 private fun JsonObject.booleanValue(key: String): Boolean =
     (this[key] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull() ?: false
 
-class MessageMapper constructor(
-    private val json: Json
-) {
+class MessageMapper {
     fun mapToDomain(dto: MessageInfoDto): Message = when (dto.role) {
         "user" -> Message.User(
             id = dto.id,
@@ -111,7 +108,7 @@ class MessageMapper constructor(
             agent = dto.agent ?: "",
             model = dto.model?.let { ModelRef(it.providerID, it.modelID) }
                 ?: ModelRef("", ""),
-            summary = mapMessageSummaryToDomain(dto.summary),
+            summary = null,
             system = dto.system,
             tools = dto.tools?.let { jsonObj ->
                 jsonObj.mapValues { (_, v) -> v.toString().toBooleanStrictOrNull() ?: false }
@@ -132,7 +129,7 @@ class MessageMapper constructor(
             path = dto.path?.let { MessagePath(it.cwd ?: "", it.root ?: "") },
             error = dto.error?.let { mapMessageErrorToDomain(it) },
             finish = dto.finish,
-            summary = dto.summary?.toString()?.toBooleanStrictOrNull()
+            summary = null
         )
     }
 
@@ -172,29 +169,6 @@ class MessageMapper constructor(
             isRetryable = data.booleanValue("isRetryable"),
             responseBody = data.stringValue("responseBody")
         )
-    }
-
-    private fun mapMessageSummaryToDomain(summary: JsonElement?): MessageSummary? {
-        if (summary == null) return null
-        return try {
-            val obj = summary as? JsonObject ?: return null
-            val summaryDto = json.decodeFromJsonElement<MessageSummaryDto>(obj)
-            MessageSummary(
-                title = summaryDto.title,
-                body = summaryDto.body,
-                diffs = summaryDto.diffs.map { dto ->
-                    FileDiff(
-                        file = dto.file,
-                        before = dto.before,
-                        after = dto.after,
-                        additions = dto.additions,
-                        deletions = dto.deletions
-                    )
-                }
-            )
-        } catch (e: Exception) {
-            null
-        }
     }
 }
 

@@ -27,7 +27,7 @@ import org.junit.Test
 class EventMapperTest {
 
     private val json = Json { ignoreUnknownKeys = true }
-    private val messageMapper = MessageMapper(json)
+    private val messageMapper = MessageMapper()
     private val eventMapper = EventMapper(json, messageMapper)
 
     @Before
