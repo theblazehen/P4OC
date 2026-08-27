@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
@@ -216,6 +217,7 @@ private fun AssistantMessageContent(
     defaultToolWidgetState: ToolWidgetState = ToolWidgetState.COMPACT,
     pendingPermissionsByCallId: Map<String, Permission> = emptyMap(),
 ) {
+    val assistant = messageWithParts.message as? Message.Assistant
     // Build ordered groups: consecutive tools get batched, non-tools rendered individually
     // Invisible parts (StepStart, StepFinish, Snapshot, etc.) don't break tool groups
     val partGroups = buildPartGroups(messageWithParts.parts)
@@ -225,8 +227,8 @@ private fun AssistantMessageContent(
         verticalArrangement = Arrangement.spacedBy(Spacing.hairline)
     ) {
         // Per-turn attribution header: `@build · claude-sonnet-4-5` (design 05).
-        (messageWithParts.message as? Message.Assistant)?.let { assistant ->
-            val attribution = assistantAttribution(assistant.agent, assistant.modelID)
+        assistant?.let { assistantMessage ->
+            val attribution = assistantAttribution(assistantMessage.agent, assistantMessage.modelID)
             if (partGroups.isNotEmpty() && attribution != null) {
                 AssistantAttributionHeader(attribution)
             }
@@ -251,8 +253,12 @@ private fun AssistantMessageContent(
             }
         }
 
-        (messageWithParts.message as? Message.Assistant)?.error?.let { error ->
+        assistant?.error?.let { error ->
             AssistantError(error, onProviderAuthRequired)
+        }
+
+        if (assistant != null && (assistant.tokens.hasUsage() || assistant.cost > 0.0)) {
+            TokenUsageInfo(tokens = assistant.tokens, cost = assistant.cost)
         }
     }
 }
@@ -684,12 +690,29 @@ private fun CompactPatchPart(part: Part.Patch) {
     }
 }
 
+private fun TokenUsage.hasUsage(): Boolean =
+    (input or output or reasoning or cacheRead or cacheWrite) != 0
+
+private const val MINIMUM_VISIBLE_COST = 0.0001
+
 @Composable
-private fun TokenUsageInfo(tokens: TokenUsage, cost: Double) {
+@Suppress("FunctionNaming")
+private fun TokenUsageInfo(tokens: TokenUsage, cost: Double, modifier: Modifier = Modifier) {
     val theme = LocalOpenCodeTheme.current
+    val total = tokens.input.toLong() +
+        tokens.output.toLong() +
+        tokens.reasoning.toLong() +
+        tokens.cacheRead.toLong() +
+        tokens.cacheWrite.toLong()
     Row(
+        modifier = modifier.testTag("assistant_token_usage"),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
+        Text(
+            text = "$total total",
+            style = MaterialTheme.typography.labelSmall,
+            color = theme.textMuted
+        )
         Text(
             text = "${tokens.input}/${tokens.output}",
             style = MaterialTheme.typography.labelSmall,
@@ -697,7 +720,11 @@ private fun TokenUsageInfo(tokens: TokenUsage, cost: Double) {
         )
         if (cost > 0) {
             Text(
-                text = "$${String.format(java.util.Locale.US, "%.4f", cost)}",
+                text = if (cost < MINIMUM_VISIBLE_COST) {
+                    "<\$0.0001"
+                } else {
+                    "$${String.format(java.util.Locale.US, "%.4f", cost)}"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = theme.textMuted
             )

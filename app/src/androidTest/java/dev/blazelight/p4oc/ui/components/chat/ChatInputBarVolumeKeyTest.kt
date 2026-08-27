@@ -36,7 +36,7 @@ class ChatInputBarVolumeKeyTest {
                 ChatInputBar(
                     value = value,
                     onValueChange = { value = it },
-                    onSend = {},
+                    onSend = { true },
                     isLoading = false,
                     enabled = true,
                     requestFocus = true,

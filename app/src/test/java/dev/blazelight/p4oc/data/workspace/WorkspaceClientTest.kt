@@ -3,6 +3,7 @@ package dev.blazelight.p4oc.data.workspace
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.OpenCodeApi
 import dev.blazelight.p4oc.data.remote.dto.ConfigDto
+import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.ProvidersResponseDto
 import dev.blazelight.p4oc.data.remote.dto.QuestionDto
 import dev.blazelight.p4oc.data.remote.dto.QuestionOptionDto
@@ -11,6 +12,7 @@ import dev.blazelight.p4oc.data.remote.dto.QuestionRequestDto
 import dev.blazelight.p4oc.data.remote.dto.QuestionV2RequestListResponseDto
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.data.server.StaleWorkspaceClientException
+import dev.blazelight.p4oc.di.appModule
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.workspace.Workspace
@@ -19,16 +21,32 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
 import org.junit.Test
+import org.koin.dsl.koinApplication
 import retrofit2.HttpException
 import retrofit2.Response
 import java.net.SocketTimeoutException
 
 class WorkspaceClientTest {
+    @Test
+    fun `fork request omits null message id with production json`() {
+        val application = koinApplication { modules(appModule) }
+
+        try {
+            val json = application.koin.get<Json>()
+
+            assertEquals("{}", json.encodeToString(ForkSessionRequest(messageID = null)))
+        } finally {
+            application.close()
+        }
+    }
+
     @Test
     fun `question operations use legacy endpoints without v2 requests`() = runTest {
         val api = mockk<OpenCodeApi>()

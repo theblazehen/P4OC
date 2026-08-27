@@ -59,15 +59,20 @@ private data class SessionNode(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod", "FunctionNaming")
 fun SessionListScreen(
     viewModel: SessionListViewModel = koinViewModel(),
     filterProjectId: String? = null,
+    isSessionForkPending: Boolean = false,
     onSessionClick: (sessionId: String, directory: String?) -> Unit,
     onNewSession: (sessionId: String, directory: String?) -> Unit,
     onSettings: () -> Unit,
     onProjects: () -> Unit = {},
     onProjectClick: (directory: String) -> Unit = {},
     onViewChanges: (sessionId: String) -> Unit = {},
+    onForkSessionInWorkspace: (sessionId: String, directory: String?) -> Unit = { sessionId, _ ->
+        viewModel.forkSession(sessionId)
+    },
     onCreateSessionInWorkspace: (title: String?, directory: String?) -> Unit = { title, directory ->
         viewModel.createSession(title, directory)
     },
@@ -311,10 +316,16 @@ fun SessionListScreen(
                                 expandedSessionIds = uiState.expandedSessionIds,
                                 sessionStatuses = uiState.sessionStatuses,
                                 sessionPresences = uiState.sessionPresences,
+                                forkingSessionIds = uiState.forkingSessionIds,
+                                isSessionForkPending = isSessionForkPending ||
+                                    uiState.forkingSessionIds.isNotEmpty(),
                                 showProjectChip = filterProjectId == null,
                                 onSessionClick = { session -> onSessionClick(session.id, session.directory) },
                                 onDeleteSession = { showDeleteDialog = it },
                                 onRenameSession = { showRenameDialog = it },
+                                onForkSession = { session ->
+                                    onForkSessionInWorkspace(session.id, session.directory)
+                                },
                                 onShareSession = { session ->
                                     if (session.shareUrl != null) {
                                         viewModel.unshareSession(session.id)
@@ -508,16 +519,20 @@ private fun buildSessionTree(sessions: List<SessionWithProject>): List<SessionNo
 }
 
 @Composable
+@Suppress("FunctionNaming", "LongParameterList", "LongMethod")
 private fun SessionTreeNode(
     node: SessionNode,
     depth: Int,
     expandedSessionIds: Set<String>,
     sessionStatuses: Map<String, SessionStatus>,
     sessionPresences: Map<String, SessionPresence>,
+    forkingSessionIds: Set<String>,
+    isSessionForkPending: Boolean,
     showProjectChip: Boolean,
     onSessionClick: (Session) -> Unit,
     onDeleteSession: (Session) -> Unit,
     onRenameSession: (Session) -> Unit,
+    onForkSession: (Session) -> Unit,
     onShareSession: (Session) -> Unit,
     onViewChanges: (Session) -> Unit,
     onSummarizeSession: (Session) -> Unit,
@@ -538,10 +553,13 @@ private fun SessionTreeNode(
             showProjectChip = showProjectChip,
             status = sessionStatuses[session.id],
             presence = sessionPresences[session.id] ?: SessionPresence.IDLE,
+            isForking = session.id in forkingSessionIds,
+            isSessionForkPending = isSessionForkPending,
             isShared = session.shareUrl != null,
             onClick = { onSessionClick(session) },
             onDelete = { onDeleteSession(session) },
             onRename = { onRenameSession(session) },
+            onFork = { onForkSession(session) },
             onShare = { onShareSession(session) },
             onViewChanges = { onViewChanges(session) },
             onSummarize = { onSummarizeSession(session) },
@@ -568,10 +586,13 @@ private fun SessionTreeNode(
                         expandedSessionIds = expandedSessionIds,
                         sessionStatuses = sessionStatuses,
                         sessionPresences = sessionPresences,
+                        forkingSessionIds = forkingSessionIds,
+                        isSessionForkPending = isSessionForkPending,
                         showProjectChip = showProjectChip,
                         onSessionClick = onSessionClick,
                         onDeleteSession = onDeleteSession,
                         onRenameSession = onRenameSession,
+                        onForkSession = onForkSession,
                         onShareSession = onShareSession,
                         onViewChanges = onViewChanges,
                         onSummarizeSession = onSummarizeSession,
@@ -586,6 +607,7 @@ private fun SessionTreeNode(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+@Suppress("FunctionNaming", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 private fun SessionCard(
     session: Session,
     projectId: String?,
@@ -593,10 +615,13 @@ private fun SessionCard(
     showProjectChip: Boolean,
     status: SessionStatus?,
     presence: SessionPresence,
+    isForking: Boolean,
+    isSessionForkPending: Boolean,
     isShared: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
     onRename: () -> Unit,
+    onFork: () -> Unit,
     onShare: () -> Unit,
     onViewChanges: () -> Unit,
     onSummarize: () -> Unit,
@@ -617,6 +642,7 @@ private fun SessionCard(
         workspaceIdentity,
         formatDateTime(session.updatedAt),
     )
+    val forkingDescription = stringResource(R.string.sessions_forking)
 
     Surface(
         modifier = Modifier
@@ -626,6 +652,7 @@ private fun SessionCard(
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { showContextMenu = true },
+                onLongClickLabel = stringResource(R.string.sessions_open_actions),
                 role = Role.Button,
             ),
         color = when {
@@ -731,6 +758,18 @@ private fun SessionCard(
                 }
             }
 
+            if (isForking) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .size(Sizing.iconSm)
+                        .semantics {
+                            contentDescription = forkingDescription
+                        },
+                    color = theme.accent,
+                    strokeWidth = Sizing.strokeThin,
+                )
+            }
+
             // Directory chip on far right. Real projects and pseudo-project
             // directories use the same navigation model: filter by directory.
             if (showProjectChip && !projectName.isNullOrEmpty()) {
@@ -755,6 +794,15 @@ private fun SessionCard(
                 onRename()
             },
             leadingIcon = Icons.Default.Edit
+        )
+        TuiDropdownMenuItem(
+            text = stringResource(R.string.sessions_fork),
+            onClick = {
+                showContextMenu = false
+                onFork()
+            },
+            leadingIcon = Icons.Default.ContentCopy,
+            enabled = !isSessionForkPending && !isForking,
         )
         TuiDropdownMenuItem(
             text = stringResource(R.string.sessions_view_changes),

@@ -447,13 +447,14 @@ fun ChatScreen(
                     )
                     ChatInputBar(
                         value = uiState.inputText,
+                        valueSyncGeneration = uiState.inputSyncGeneration,
                         onValueChange = { text ->
                             viewModel.updateInput(text)
                             if (text.startsWith("/") && !text.contains(" ")) {
                                 viewModel.refreshCommandsIfNeeded()
                             }
                         },
-                        onSend = viewModel::sendMessage,
+                        onSend = { viewModel.sendMessage() },
                         isLoading = uiState.isSending,
                         enabled = connectionState is ConnectionState.Connected,
                         isBusy = uiState.isBusy,
@@ -717,6 +718,7 @@ fun ChatScreen(
             commands = resolvedCommands,
             isLoading = uiState.isLoadingCommands,
             error = uiState.commandLoadError,
+            executionError = uiState.error,
             onRetry = { viewModel.refreshCommandsIfNeeded(force = true) },
             onCommandSelected = { command, args ->
                 viewModel.executeCommand(command.name, args)

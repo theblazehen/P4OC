@@ -3,6 +3,8 @@ package dev.blazelight.p4oc.data.session
 import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.data.files.ofish.OfishSessionNames
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
+import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
+import dev.blazelight.p4oc.data.remote.dto.InitSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.ProjectDto
 import dev.blazelight.p4oc.data.remote.dto.QuestionRequestDto
 import dev.blazelight.p4oc.data.remote.dto.SendMessageRequest
@@ -874,6 +876,16 @@ class SessionRepositoryImpl(
         upsert(workspaceSession)
         return workspaceSession
     }
+
+    suspend fun forkSession(id: SessionId): WorkspaceSession {
+        val dto = client.forkSession(id.value, ForkSessionRequest(messageID = null))
+        val session = workspaceSession(SessionMapper.mapToDomain(dto))
+        upsert(session)
+        return session
+    }
+
+    suspend fun initSession(id: SessionId, request: InitSessionRequest): Boolean =
+        client.initSession(id.value, request)
 
     suspend fun deleteSession(id: SessionId) {
         val before = state.value.snapshot

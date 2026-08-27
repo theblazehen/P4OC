@@ -125,7 +125,7 @@ private fun nextCommandIndex(
 fun ChatInputBar(
     value: String,
     onValueChange: (String) -> Unit,
-    onSend: () -> Unit,
+    onSend: () -> Boolean,
     isLoading: Boolean,
     enabled: Boolean,
     modifier: Modifier = Modifier,
@@ -145,6 +145,7 @@ fun ChatInputBar(
     promptHistory: List<String> = emptyList(),
     promptHistorySessionId: String? = null,
     enterToSend: Boolean = false,
+    valueSyncGeneration: Long = 0,
 ) {
     val theme = LocalOpenCodeTheme.current
     val focusRequester = remember { FocusRequester() }
@@ -158,8 +159,9 @@ fun ChatInputBar(
     val currentPromptHistory by rememberUpdatedState(promptHistory)
     val currentText = textState.text.toString()
 
-    // External value changes (e.g. a programmatic set from the parent) → field.
-    LaunchedEffect(value) {
+    // External value changes (e.g. a programmatic set from the parent) → field. The generation
+    // also allows the parent to re-apply an unchanged value after the local field was cleared.
+    LaunchedEffect(value, valueSyncGeneration) {
         if (value != textState.text.toString()) {
             historyNavigator.reset(value)
             textState.setTextAndPlaceCursorAtEnd(value)
@@ -251,8 +253,9 @@ fun ChatInputBar(
     fun submitFromEnter(): Boolean = when {
         showSlashCommands -> selectActiveCommand()
         canSubmit -> {
-            onSend()
-            clearInput()
+            if (onSend()) clearInput()
+            // A refused submission is still a handled Enter/IME action. Letting it propagate
+            // would insert a newline and mutate the exact draft the caller just refused.
             true
         }
         else -> false
@@ -493,8 +496,7 @@ fun ChatInputBar(
                         size = controlSize,
                         enabled = canSubmit,
                         onClick = {
-                            onSend()
-                            clearInput()
+                            if (onSend()) clearInput()
                             focusRequester.requestFocus()
                         },
                         contentDescription = sendContentDescription,

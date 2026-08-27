@@ -253,7 +253,7 @@ private fun ChatInputBarPreview() {
             ChatInputBar(
                 value = "Review this diff and propose a fix",
                 onValueChange = {},
-                onSend = {},
+                onSend = { true },
                 isLoading = false,
                 enabled = true,
                 isBusy = true,

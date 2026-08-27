@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.ui.screens.sessions
 
 import androidx.lifecycle.SavedStateHandle
+import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
 import dev.blazelight.p4oc.fakes.FakeWorkspaceClient
@@ -48,6 +49,58 @@ class SessionListViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.uiState.value.error)
+        repository.close()
+    }
+
+    @Test
+    fun forkSession_usesUnboundedRequestAndNavigatesToReturnedSession() = runTest(dispatcher) {
+        val returned = FakeWorkspaceClient.sessionDto(
+            id = "forked-session",
+            directory = "/returned/worktree",
+            parentID = "source-session",
+        )
+        val client = FakeWorkspaceClient().apply {
+            setSessions(FakeWorkspaceClient.sessionDto("source-session", directory = "/source/worktree"))
+            forkSessionResult = returned
+        }
+        val repository = repository(client)
+        val viewModel = SessionListViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.forkSession("source-session")
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                FakeWorkspaceClient.ForkSessionCall(
+                    sourceSessionId = "source-session",
+                    request = ForkSessionRequest(messageID = null),
+                ),
+            ),
+            client.forkSessionCallsLog,
+        )
+        assertTrue(viewModel.uiState.value.sessions.any { it.session.id == "forked-session" })
+        assertEquals("forked-session", viewModel.uiState.value.newSessionId)
+        assertEquals("/returned/worktree", viewModel.uiState.value.newSessionDirectory)
+        assertFalse("source-session" in viewModel.uiState.value.forkingSessionIds)
+        repository.close()
+    }
+
+    @Test
+    fun forkSession_failureShowsReadableErrorAndClearsRowBusyState() = runTest(dispatcher) {
+        val client = FakeWorkspaceClient().apply {
+            setSessions(FakeWorkspaceClient.sessionDto("source-session"))
+            forkSessionFailure = IllegalStateException("raw server failure")
+        }
+        val repository = repository(client)
+        val viewModel = SessionListViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.forkSession("source-session")
+        advanceUntilIdle()
+
+        assertEquals("Could not fork the session. Try again.", viewModel.uiState.value.error)
+        assertFalse("source-session" in viewModel.uiState.value.forkingSessionIds)
         repository.close()
     }
 
