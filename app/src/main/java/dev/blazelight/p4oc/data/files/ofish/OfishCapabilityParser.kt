@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.data.files.ofish
 
 internal object OfishCapabilityParser {
     private val KEY_VALUE = Regex("(\\w+)=([^\\n]+?)(?=\\s+\\w+=|$)")
+    private val STATUS_LINE = Regex("^### \\d{3}(?:\\s.*)?$")
 
     fun parse(output: String): OfishProbeResult {
         val lines = output.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
@@ -9,13 +10,14 @@ internal object OfishCapabilityParser {
         if (capsLineIndex == -1) {
             return OfishProbeResult.Failed("Malformed OFISH capability probe output: missing caps line")
         }
-        val statusLineIndex = lines.indexOfLast { it.startsWith("### ") }
-        if (statusLineIndex == -1) {
+        val statusLineIndices = lines.indices.filter { STATUS_LINE.matches(lines[it]) }
+        if (statusLineIndices.isEmpty()) {
             return OfishProbeResult.Failed("Malformed OFISH capability probe output: missing status line")
         }
-        if (statusLineIndex < capsLineIndex) {
-            return OfishProbeResult.Failed("Malformed OFISH capability probe output: status line before caps line")
-        }
+        val statusLineIndex = statusLineIndices.firstOrNull { it > capsLineIndex }
+            ?: return OfishProbeResult.Failed(
+                "Malformed OFISH capability probe output: status line before caps line",
+            )
         val capsLine = lines[capsLineIndex]
         val statusLine = lines[statusLineIndex]
 
