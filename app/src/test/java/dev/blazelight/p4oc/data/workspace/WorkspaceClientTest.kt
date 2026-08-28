@@ -18,12 +18,16 @@ import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.workspace.Workspace
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
@@ -53,9 +57,10 @@ class WorkspaceClientTest {
         val question = questionRequest("ses_1")
         val otherQuestion = questionRequest("ses_other")
         val reply = QuestionReplyRequest(listOf(listOf("Yes")))
-        coEvery { api.listPendingQuestions("/repo", null) } returns Response.success(listOf(question, otherQuestion))
-        coEvery { api.respondToQuestion("que_1", reply, "/repo", null) } returns Response.success(true)
-        coEvery { api.rejectQuestion("que_1", "/repo", null) } returns Response.success(true)
+        coEvery { api.listPendingQuestions("/repo", null) } returns
+            jsonResponse(Json.Default.encodeToString(listOf(question, otherQuestion)))
+        coEvery { api.respondToQuestion("que_1", reply, "/repo", null) } returns jsonResponse("true")
+        coEvery { api.rejectQuestion("que_1", "/repo", null) } returns jsonResponse("true")
         val client = questionClient(api)
 
         assertEquals(listOf(question), client.listSessionQuestions("ses_1"))
@@ -90,6 +95,87 @@ class WorkspaceClientTest {
     }
 
     @Test
+    fun `question operations fall back for successful legacy html responses`() = runTest {
+        val api = mockk<OpenCodeApi>()
+        val question = questionRequest("ses_1")
+        val reply = QuestionReplyRequest(listOf(listOf("Yes")))
+        coEvery { api.listPendingQuestions("/repo", null) } returns htmlSuccessFromBodyContentType()
+        coEvery { api.respondToQuestion("que_1", reply, "/repo", null) } returns htmlSuccessFromHeader()
+        coEvery { api.rejectQuestion("que_1", "/repo", null) } returns htmlSuccessFromBodyContentType()
+        coEvery { api.listSessionQuestionsV2("ses_1") } returns
+            Response.success(QuestionV2RequestListResponseDto(listOf(question)))
+        coEvery { api.respondToQuestionV2("ses_1", "que_1", reply) } returns Response.success(Unit)
+        coEvery { api.rejectQuestionV2("ses_1", "que_1") } returns Response.success(Unit)
+        val client = questionClient(api)
+
+        assertEquals(listOf(question), client.listSessionQuestions("ses_1"))
+        assertEquals(true, client.respondToQuestion("ses_1", "que_1", reply))
+        assertEquals(true, client.rejectQuestion("ses_1", "que_1"))
+
+        coVerify(exactly = 1) { api.listSessionQuestionsV2("ses_1") }
+        coVerify(exactly = 1) { api.respondToQuestionV2("ses_1", "que_1", reply) }
+        coVerify(exactly = 1) { api.rejectQuestionV2("ses_1", "que_1") }
+    }
+
+    @Test
+    fun `terminal legacy routing closes fallback and error bodies`() = runTest {
+        val api = mockk<OpenCodeApi>()
+        val reply = QuestionReplyRequest(listOf(listOf("Yes")))
+        val notFoundBody = mockk<ResponseBody>(relaxed = true)
+        val successfulHtmlBody = mockk<ResponseBody>(relaxed = true)
+        val serverErrorBody = mockk<ResponseBody>(relaxed = true)
+        every { successfulHtmlBody.contentType() } returns "text/html".toMediaType()
+        every { serverErrorBody.contentType() } returns "text/html".toMediaType()
+        coEvery { api.respondToQuestion("que_1", reply, "/repo", null) } returns
+            Response.error(404, notFoundBody)
+        coEvery { api.respondToQuestionV2("ses_1", "que_1", reply) } returns Response.success(Unit)
+        coEvery { api.rejectQuestion("que_1", "/repo", null) } returns Response.success(successfulHtmlBody)
+        coEvery { api.rejectQuestionV2("ses_1", "que_1") } returns Response.success(Unit)
+        coEvery { api.listPendingQuestions("/repo", null) } returns Response.error(500, serverErrorBody)
+        val client = questionClient(api)
+
+        assertEquals(true, client.respondToQuestion("ses_1", "que_1", reply))
+        assertEquals(true, client.rejectQuestion("ses_1", "que_1"))
+        assertHttpError(500) { client.listSessionQuestions("ses_1") }
+
+        verify(exactly = 1) { notFoundBody.close() }
+        verify(exactly = 1) { successfulHtmlBody.close() }
+        verify(exactly = 1) { serverErrorBody.close() }
+    }
+
+    @Test
+    fun `direct pending question html closes body before throwing`() = runTest {
+        val api = mockk<OpenCodeApi>()
+        val successfulHtmlBody = mockk<ResponseBody>(relaxed = true)
+        every { successfulHtmlBody.contentType() } returns "text/html".toMediaType()
+        coEvery { api.listPendingQuestions("/repo", null) } returns Response.success(successfulHtmlBody)
+        val client = questionClient(api)
+
+        assertHttpError(200) { client.listPendingQuestions() }
+
+        verify(exactly = 1) { successfulHtmlBody.close() }
+        coVerify(exactly = 0) { api.listSessionQuestionsV2(any()) }
+    }
+
+    @Test
+    fun `question legacy null values preserve empty and false semantics`() = runTest {
+        val api = mockk<OpenCodeApi>()
+        val reply = QuestionReplyRequest(listOf(listOf("Yes")))
+        coEvery { api.listPendingQuestions("/repo", null) } returns jsonResponse("null")
+        coEvery { api.respondToQuestion("que_1", reply, "/repo", null) } returns jsonResponse("false")
+        coEvery { api.rejectQuestion("que_1", "/repo", null) } returns jsonResponse("null")
+        val client = questionClient(api)
+
+        assertEquals(emptyList<QuestionRequestDto>(), client.listSessionQuestions("ses_1"))
+        assertEquals(false, client.respondToQuestion("ses_1", "que_1", reply))
+        assertEquals(false, client.rejectQuestion("ses_1", "que_1"))
+
+        coVerify(exactly = 0) { api.listSessionQuestionsV2(any()) }
+        coVerify(exactly = 0) { api.respondToQuestionV2(any(), any(), any()) }
+        coVerify(exactly = 0) { api.rejectQuestionV2(any(), any()) }
+    }
+
+    @Test
     fun `question legacy http errors propagate without v2 fallback`() = runTest {
         val api = mockk<OpenCodeApi>()
         val reply = QuestionReplyRequest(listOf(listOf("Yes")))
@@ -107,6 +193,40 @@ class WorkspaceClientTest {
 
         coVerify(exactly = 0) { api.respondToQuestionV2(any(), any(), any()) }
         coVerify(exactly = 0) { api.rejectQuestionV2(any(), any()) }
+        coVerify(exactly = 0) { api.listSessionQuestionsV2(any()) }
+    }
+
+    @Test
+    fun `question legacy html server errors propagate without v2 fallback`() = runTest {
+        val api = mockk<OpenCodeApi>()
+        val reply = QuestionReplyRequest(listOf(listOf("Yes")))
+        coEvery { api.respondToQuestion("que_1", reply, "/repo", null) } returns htmlServerError()
+        coEvery { api.rejectQuestion("que_1", "/repo", null) } returns htmlServerError()
+        coEvery { api.listPendingQuestions("/repo", null) } returns htmlServerError()
+        val client = questionClient(api)
+
+        assertHttpError(500) { client.respondToQuestion("ses_1", "que_1", reply) }
+        assertHttpError(500) { client.rejectQuestion("ses_1", "que_1") }
+        assertHttpError(500) { client.listSessionQuestions("ses_1") }
+
+        coVerify(exactly = 0) { api.respondToQuestionV2(any(), any(), any()) }
+        coVerify(exactly = 0) { api.rejectQuestionV2(any(), any()) }
+        coVerify(exactly = 0) { api.listSessionQuestionsV2(any()) }
+    }
+
+    @Test
+    fun `question malformed successful json propagates without v2 fallback`() = runTest {
+        val api = mockk<OpenCodeApi>()
+        coEvery { api.listPendingQuestions("/repo", null) } returns jsonResponse("{malformed")
+        val client = questionClient(api)
+
+        try {
+            client.listSessionQuestions("ses_1")
+            fail("Expected malformed legacy JSON to fail")
+        } catch (_: SerializationException) {
+            // Expected from decoding the raw successful legacy body.
+        }
+
         coVerify(exactly = 0) { api.listSessionQuestionsV2(any()) }
     }
 
@@ -288,6 +408,29 @@ class WorkspaceClientTest {
         } catch (error: HttpException) {
             assertEquals(code, error.code())
         }
+    }
+
+    private fun jsonResponse(content: String): Response<ResponseBody> =
+        Response.success(content.toResponseBody("application/json".toMediaType()))
+
+    private fun htmlSuccessFromBodyContentType(): Response<ResponseBody> =
+        Response.success("<html>Legacy route</html>".toResponseBody("text/html".toMediaType()))
+
+    private fun htmlSuccessFromHeader(): Response<ResponseBody> {
+        val body = "<html>Legacy route</html>".toResponseBody(null)
+        val rawResponse = okhttp3.Response.Builder()
+            .request(okhttp3.Request.Builder().url("http://test.local").build())
+            .protocol(okhttp3.Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .header("Content-Type", "Text/HTML; charset=utf-8")
+            .build()
+        return Response.success(body, rawResponse)
+    }
+
+    private fun htmlServerError(): Response<ResponseBody> {
+        val mediaType = "text/html".toMediaType()
+        return Response.error(500, "<html>Server error</html>".toResponseBody(mediaType))
     }
 
     private fun questionRequest(sessionId: String) = QuestionRequestDto(

@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 class SessionRepositoryProvider(
     private val activeServerApiProvider: ActiveServerApiProvider,
@@ -24,6 +25,7 @@ class SessionRepositoryProvider(
     private val serverConnectionRegistry: ServerConnectionRegistry,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val repositoryDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val json: Json = Json.Default,
 ) {
     data class Lease(
         val workspaceClient: WorkspaceClient,
@@ -59,6 +61,7 @@ class SessionRepositoryProvider(
                 generation = generation,
                 apiProvider = activeServerApiProvider,
                 connectionState = serverConnectionRegistry.connectionState(workspace.server, generation),
+                json = json,
             )
             val repository = SessionRepositoryImpl(
                 workspaceClient,

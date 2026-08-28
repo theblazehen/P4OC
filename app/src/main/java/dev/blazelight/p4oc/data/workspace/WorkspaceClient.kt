@@ -42,7 +42,9 @@ import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.workspace.Workspace
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.serialization.SerializationException
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import okhttp3.ResponseBody
 
 import retrofit2.HttpException
 import java.io.IOException
@@ -52,6 +54,7 @@ class WorkspaceClient(
     val generation: ServerGeneration,
     private val apiProvider: ActiveServerApiProvider,
     val connectionState: StateFlow<ConnectionState>,
+    private val json: Json = Json.Default,
 ) : SessionWorkspaceClient {
     private val api: OpenCodeApi
         get() = apiProvider.apiFor(workspace.server, generation)
@@ -189,38 +192,31 @@ class WorkspaceClient(
         requestId: String,
         request: QuestionReplyRequest,
     ): Boolean {
-        try {
-            val legacy = api.respondToQuestion(requestId, request, directory, workspace = null)
-            if (legacy.isUsableQuestionResponse()) return legacy.body() == true
-            if (!legacy.isUnavailableQuestionEndpoint()) throw HttpException(legacy)
-        } catch (_: SerializationException) {
-            // Matches the bounded HTML-route endpoint-unavailable behavior used by question endpoints.
+        val legacy = api.respondToQuestion(requestId, request, directory, workspace = null)
+        when (legacy.classifyLegacyQuestionResponse()) {
+            LegacyQuestionResponseDisposition.Decode -> return legacy.decodeLegacyBoolean()
+            LegacyQuestionResponseDisposition.Fallback -> Unit
         }
 
         return api.respondToQuestionV2(sessionId, requestId, request).requireUsableV2Response()
     }
 
     suspend fun rejectQuestion(sessionId: String, requestId: String): Boolean {
-        try {
-            val legacy = api.rejectQuestion(requestId, directory, workspace = null)
-            if (legacy.isUsableQuestionResponse()) return legacy.body() == true
-            if (!legacy.isUnavailableQuestionEndpoint()) throw HttpException(legacy)
-        } catch (_: SerializationException) {
-            // Matches the bounded HTML-route endpoint-unavailable behavior used by question endpoints.
+        val legacy = api.rejectQuestion(requestId, directory, workspace = null)
+        when (legacy.classifyLegacyQuestionResponse()) {
+            LegacyQuestionResponseDisposition.Decode -> return legacy.decodeLegacyBoolean()
+            LegacyQuestionResponseDisposition.Fallback -> Unit
         }
 
         return api.rejectQuestionV2(sessionId, requestId).requireUsableV2Response()
     }
 
     override suspend fun listSessionQuestions(sessionId: String): List<QuestionRequestDto> {
-        try {
-            val legacy = api.listPendingQuestions(directory, workspace = null)
-            if (legacy.isUsableQuestionResponse()) {
-                return legacy.body().orEmpty().filter { it.sessionID == sessionId }
-            }
-            if (!legacy.isUnavailableQuestionEndpoint()) throw HttpException(legacy)
-        } catch (_: SerializationException) {
-            // Matches the bounded HTML-route endpoint-unavailable behavior used by question endpoints.
+        val legacy = api.listPendingQuestions(directory, workspace = null)
+        when (legacy.classifyLegacyQuestionResponse()) {
+            LegacyQuestionResponseDisposition.Decode ->
+                return legacy.decodeLegacyQuestions().filter { it.sessionID == sessionId }
+            LegacyQuestionResponseDisposition.Fallback -> Unit
         }
 
         val response = api.listSessionQuestionsV2(sessionId)
@@ -228,20 +224,59 @@ class WorkspaceClient(
         return response.body()?.data.orEmpty()
     }
 
-    suspend fun listPendingQuestions(): List<QuestionRequestDto> =
-        api.listPendingQuestions(directory, workspace = null).let { response ->
-            if (!response.isUsableQuestionResponse()) throw HttpException(response)
-            response.body().orEmpty()
+    suspend fun listPendingQuestions(): List<QuestionRequestDto> {
+        val response = api.listPendingQuestions(directory, workspace = null)
+        return when (response.classifyLegacyQuestionResponse()) {
+            LegacyQuestionResponseDisposition.Decode -> response.decodeLegacyQuestions()
+            LegacyQuestionResponseDisposition.Fallback -> throw HttpException(response)
         }
+    }
 
     private fun retrofit2.Response<*>.isUsableV2Response(): Boolean =
         isSuccessful && !headers()["Content-Type"].orEmpty().startsWith("text/html")
 
-    private fun retrofit2.Response<*>.isUsableQuestionResponse(): Boolean =
-        isSuccessful && !headers()["Content-Type"].orEmpty().startsWith("text/html")
+    private enum class LegacyQuestionResponseDisposition { Decode, Fallback }
 
-    private fun retrofit2.Response<*>.isUnavailableQuestionEndpoint(): Boolean =
-        code() == 404 || headers()["Content-Type"].orEmpty().startsWith("text/html")
+    private fun retrofit2.Response<ResponseBody>.classifyLegacyQuestionResponse():
+        LegacyQuestionResponseDisposition = when {
+        code() == 404 -> {
+            closeLegacyQuestionBodies()
+            LegacyQuestionResponseDisposition.Fallback
+        }
+        !isSuccessful -> {
+            closeLegacyQuestionBodies()
+            throw HttpException(this)
+        }
+        isSuccessfulHtmlQuestionResponse() -> {
+            closeLegacyQuestionBodies()
+            LegacyQuestionResponseDisposition.Fallback
+        }
+        else -> LegacyQuestionResponseDisposition.Decode
+    }
+
+    private fun retrofit2.Response<ResponseBody>.isSuccessfulHtmlQuestionResponse(): Boolean =
+        isSuccessful && (
+            headers()["Content-Type"].isHtmlContentType() ||
+                body()?.contentType()?.toString().isHtmlContentType()
+            )
+
+    private fun String?.isHtmlContentType(): Boolean =
+        this?.substringBefore(';')?.trim()?.equals("text/html", ignoreCase = true) == true
+
+    private fun retrofit2.Response<ResponseBody>.closeLegacyQuestionBodies() {
+        body()?.close()
+        errorBody()?.close()
+    }
+
+    private fun retrofit2.Response<ResponseBody>.decodeLegacyBoolean(): Boolean {
+        val content = body()?.string() ?: return false
+        return json.decodeFromString<Boolean?>(content) == true
+    }
+
+    private fun retrofit2.Response<ResponseBody>.decodeLegacyQuestions(): List<QuestionRequestDto> {
+        val content = body()?.string() ?: return emptyList()
+        return json.decodeFromString<List<QuestionRequestDto>?>(content).orEmpty()
+    }
 
     private fun retrofit2.Response<Unit>.requireUsableV2Response(): Boolean {
         if (!isUsableV2Response()) throw HttpException(this)
