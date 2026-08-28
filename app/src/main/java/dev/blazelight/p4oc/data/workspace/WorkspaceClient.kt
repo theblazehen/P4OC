@@ -41,13 +41,20 @@ import dev.blazelight.p4oc.data.remote.dto.VcsInfoDto
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.workspace.Workspace
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.ResponseBody
+import okio.Buffer
 
 import retrofit2.HttpException
 import java.io.IOException
+
+private const val BOUNDED_FILE_READ_CHUNK_BYTES = 8L * 1024
+private const val FILE_RESPONSE_TOO_LARGE_MESSAGE = "File response exceeds the allowed size"
 
 class WorkspaceClient(
     override val workspace: Workspace,
@@ -294,6 +301,53 @@ class WorkspaceClient(
     suspend fun listFiles(path: String): List<FileNodeDto> = api.listFiles(path, directory, workspace = null)
 
     suspend fun readFile(path: String): FileContentDto = api.readFile(path, directory, workspace = null)
+
+    suspend fun readFileBounded(path: String, maxResponseBytes: Long): FileContentDto {
+        require(maxResponseBytes > 0) { "maxResponseBytes must be positive" }
+        val response = api.readFileRaw(path, directory, workspace = null)
+        try {
+            if (!response.isSuccessful) throw HttpException(response)
+            val content = response.body()?.let { body ->
+                body.readUtf8BoundedCancellable(maxResponseBytes)
+            }.orEmpty()
+            return json.decodeFromString(content)
+        } finally {
+            response.body()?.close()
+            response.errorBody()?.close()
+        }
+    }
+
+    private suspend fun ResponseBody.readUtf8BoundedCancellable(maxResponseBytes: Long): String =
+        withContext(Dispatchers.IO) {
+            suspendCancellableCoroutine { continuation ->
+                continuation.invokeOnCancellation { close() }
+                continuation.resumeWith(
+                    runCatching { readUtf8Bounded(maxResponseBytes) },
+                )
+            }
+        }
+
+    private fun ResponseBody.readUtf8Bounded(maxResponseBytes: Long): String {
+        val declaredBytes = contentLength()
+        if (declaredBytes > maxResponseBytes) throw IOException(FILE_RESPONSE_TOO_LARGE_MESSAGE)
+
+        val bufferedBytes = Buffer()
+        val responseSource = source()
+        var streamedBytes = 0L
+        while (true) {
+            val remainingBytes = maxResponseBytes - streamedBytes
+            val readLimit = if (remainingBytes >= BOUNDED_FILE_READ_CHUNK_BYTES) {
+                BOUNDED_FILE_READ_CHUNK_BYTES
+            } else {
+                remainingBytes + 1L
+            }
+            val readBytes = responseSource.read(bufferedBytes, readLimit)
+            if (readBytes == -1L) break
+            if (readBytes > remainingBytes) throw IOException(FILE_RESPONSE_TOO_LARGE_MESSAGE)
+            streamedBytes += readBytes
+        }
+        return bufferedBytes.readUtf8()
+    }
 
     suspend fun getFileStatus(): List<FileStatusDto> = api.getFileStatus(directory, workspace = null)
 

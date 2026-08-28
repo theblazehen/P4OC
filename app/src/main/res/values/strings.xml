@@ -959,6 +959,13 @@
     <string name="upload_phase_failed">failed</string>
     <string name="upload_probe_failed_for">%1$s · could not read source</string>
     <string name="attachment_unavailable">unavailable</string>
+    <string name="chat_attachment_unnamed">Attachment</string>
+    <string name="chat_attachment_unknown_mime">unknown type</string>
+    <string name="chat_attachment_loading">Loading image %1$s</string>
+    <string name="chat_attachment_image_unavailable">Image preview unavailable</string>
+    <string name="chat_attachment_image_description">Image attachment: %1$s</string>
+    <string name="chat_attachment_open_image">Open full-screen image: %1$s</string>
+    <string name="chat_attachment_close_preview">Close image preview</string>
     <string name="start_work_title">Start work</string>
     <string name="start_work_in">In</string>
     <string name="start_work_change">Change</string>

@@ -41,7 +41,8 @@ import kotlinx.serialization.json.contentOrNull
 
 internal fun MessageWithParts.hasVisibleUserText(): Boolean =
     message is Message.User && parts.any { part ->
-        part is Part.Text && !part.synthetic && !part.ignored && part.text.isNotBlank()
+        (part is Part.Text && !part.synthetic && !part.ignored && part.text.isNotBlank()) ||
+            part is Part.File
     }
 
 @Composable
@@ -128,12 +129,13 @@ private fun UserMessage(
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     var revertActionWidthPx by remember { mutableIntStateOf(0) }
-    if (!messageWithParts.hasVisibleUserText()) return
 
     // Filter out synthetic text parts (system prompts, AGENTS.md content, etc.)
     val textParts = messageWithParts.parts
         .filterIsInstance<Part.Text>()
-        .filter { !it.synthetic && !it.ignored }
+        .filter { !it.synthetic && !it.ignored && it.text.isNotBlank() }
+    val fileParts = messageWithParts.parts.filterIsInstance<Part.File>()
+    if (textParts.isEmpty() && fileParts.isEmpty()) return
     val text = textParts.joinToString("\n") { it.text }
 
     // TUI style: flat panel surface with a "you" label — matches the design's user block.
@@ -146,13 +148,19 @@ private fun UserMessage(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(theme.backgroundPanel)
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        clipboardManager.setText(AnnotatedString(text))
-                    },
-                    onLongClickLabel = "Copy message"
+                .then(
+                    if (text.isNotBlank()) {
+                        Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                clipboardManager.setText(AnnotatedString(text))
+                            },
+                            onLongClickLabel = "Copy message"
+                        )
+                    } else {
+                        Modifier
+                    }
                 )
                 .padding(horizontal = Spacing.mdLg, vertical = Spacing.md)
         ) {
@@ -174,7 +182,13 @@ private fun UserMessage(
                     color = theme.textMuted,
                     modifier = Modifier.padding(bottom = Spacing.xxs)
                 )
-                StreamingMarkdown(text = text, modifier = Modifier.fillMaxWidth())
+                if (text.isNotBlank()) {
+                    StreamingMarkdown(text = text, modifier = Modifier.fillMaxWidth())
+                }
+                if (fileParts.isNotEmpty()) {
+                    if (text.isNotBlank()) Spacer(Modifier.height(Spacing.sm))
+                    ChatAttachmentList(parts = fileParts)
+                }
 
                 if (isQueued) {
                     Text(
@@ -295,7 +309,7 @@ private fun renderOtherPart(part: Part) {
     when (part) {
         is Part.Text -> TextPart(part)
         is Part.Reasoning -> ReasoningPart(part)
-        is Part.File -> FilePart(part)
+        is Part.File -> ChatAttachment(part)
         is Part.Patch -> CompactPatchPart(part)
         is Part.Subtask -> activityMarker(stringResource(R.string.chat_delegated_to, part.agent, part.description))
         is Part.Retry -> activityMarker(stringResource(R.string.chat_retry_attempt, part.attempt))
@@ -597,41 +611,6 @@ private fun String.stripReasoningTitleMarkdown(): String =
 private const val REASONING_TITLE_MAX_CHARS = 80
 private val REASONING_TITLE_METADATA_KEYS = listOf("title", "summary", "subject", "heading")
 private val REASONING_WHITESPACE_REGEX = Regex("\\s+")
-
-@Composable
-private fun FilePart(part: Part.File) {
-    val theme = LocalOpenCodeTheme.current
-    Surface(
-        color = theme.backgroundElement,
-        shape = RectangleShape,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.AttachFile,
-                contentDescription = stringResource(R.string.cd_attach_file),
-                modifier = Modifier.size(Sizing.iconXs),
-                tint = theme.textMuted
-            )
-            Column {
-                Text(
-                    text = part.filename ?: "File",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = theme.text
-                )
-                Text(
-                    text = part.mime,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = theme.textMuted
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun CompactPatchPart(part: Part.Patch) {

@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.ToolState
+import dev.blazelight.p4oc.ui.components.chat.ChatAttachmentList
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
@@ -51,6 +52,12 @@ private data class ToolGroup(
     val state: AggregateToolState,
     val tools: List<Part.Tool>
 )
+
+internal fun completedToolAttachments(state: ToolState): List<Part.File> = if (state is ToolState.Completed) {
+    state.attachments?.filterIsInstance<Part.File>().orEmpty()
+} else {
+    emptyList()
+}
 
 /**
  * Tool group widget with progressive disclosure.
@@ -196,6 +203,9 @@ fun ToolGroupWidget(
                                 onClick = { currentState = currentState.next() },
                                 modifier = Modifier.fillMaxWidth()
                             )
+                            completedToolAttachments(tool.state).takeIf { it.isNotEmpty() }?.let { attachments ->
+                                ChatAttachmentList(parts = attachments)
+                            }
 
                             // Show approval buttons for live or recovered pending permissions.
                             if (tool.callID in pendingPermissionIdsByCallId.keys) {
@@ -225,6 +235,9 @@ fun ToolGroupWidget(
                                 onOpenSubSession = onOpenSubSession,
                                 modifier = Modifier.fillMaxWidth()
                             )
+                            completedToolAttachments(tool.state).takeIf { it.isNotEmpty() }?.let { attachments ->
+                                ChatAttachmentList(parts = attachments)
+                            }
                             if (tool.callID in pendingPermissionIdsByCallId.keys) {
                                 PendingApprovalButtonsInline(
                                     requestId = pendingPermissionIdsByCallId[tool.callID] ?: tool.callID,

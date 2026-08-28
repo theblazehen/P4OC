@@ -48,6 +48,7 @@ import dev.blazelight.p4oc.ui.components.chat.ChatInputBar
 import dev.blazelight.p4oc.ui.components.chat.ChatJumpNavigationButtons
 import dev.blazelight.p4oc.ui.components.chat.FilePickerDialog
 import dev.blazelight.p4oc.ui.components.chat.InlinePermissionPrompt
+import dev.blazelight.p4oc.ui.components.chat.LocalChatMediaLoader
 import dev.blazelight.p4oc.ui.components.chat.ModelAgentSelectorBar
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.command.rememberResolvedCommandMetadata
@@ -597,17 +598,19 @@ fun ChatScreen(
                                 Modifier
                             }
                             Box(modifier = highlight) {
-                                MessageBlockView(
-                                    block = block,
-                                    onToolApprove = { viewModel.respondToPermission(it, "once") },
-                                    onToolDeny = { viewModel.respondToPermission(it, "reject") },
-                                    onToolAlways = { viewModel.respondToPermission(it, "always") },
-                                    onOpenSubSession = onOpenSubSession,
-                                    onProviderAuthRequired = onProviderAuthRequired,
-                                    defaultToolWidgetState = defaultToolWidgetState,
-                                    pendingPermissionsByCallId = pendingPermissionsByCallId,
-                                    onRevert = { messageId -> showRevertDialog = messageId }
-                                )
+                                CompositionLocalProvider(LocalChatMediaLoader provides viewModel.mediaLoader) {
+                                    MessageBlockView(
+                                        block = block,
+                                        onToolApprove = { viewModel.respondToPermission(it, "once") },
+                                        onToolDeny = { viewModel.respondToPermission(it, "reject") },
+                                        onToolAlways = { viewModel.respondToPermission(it, "always") },
+                                        onOpenSubSession = onOpenSubSession,
+                                        onProviderAuthRequired = onProviderAuthRequired,
+                                        defaultToolWidgetState = defaultToolWidgetState,
+                                        pendingPermissionsByCallId = pendingPermissionsByCallId,
+                                        onRevert = { messageId -> showRevertDialog = messageId }
+                                    )
+                                }
                             }
                         }
 

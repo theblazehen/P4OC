@@ -294,6 +294,14 @@ interface OpenCodeApi {
         @Query("workspace") workspace: String?
     ): FileContentDto
 
+    @Streaming
+    @GET("file/content")
+    suspend fun readFileRaw(
+        @Query("path") path: String,
+        @Query("directory") directory: String?,
+        @Query("workspace") workspace: String?
+    ): Response<ResponseBody>
+
     @GET("file/status")
     suspend fun getFileStatus(
         @Query("directory") directory: String?,
