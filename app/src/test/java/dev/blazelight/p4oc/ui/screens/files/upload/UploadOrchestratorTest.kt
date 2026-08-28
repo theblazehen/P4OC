@@ -11,6 +11,7 @@ import dev.blazelight.p4oc.data.files.FileWriteResult
 import dev.blazelight.p4oc.data.files.ofish.MAX_UPLOAD_SOURCE_BYTES
 import dev.blazelight.p4oc.data.files.ofish.UPLOAD_TOO_LARGE_MESSAGE
 import dev.blazelight.p4oc.domain.model.FileContent
+import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -342,6 +343,8 @@ private class FakeFileRepository(
         FileOperationResult.Ok(FileList(path = path, files = emptyList()))
     override suspend fun readFile(path: String) =
         FileOperationResult.Ok(FileContent(type = "text", content = "", diff = null, mimeType = null))
+    override suspend fun searchFiles(query: String) =
+        FileOperationResult.Ok<List<FileNode>>(emptyList())
     override suspend fun searchSymbols(query: String) =
         FileOperationResult.Ok<List<Symbol>>(emptyList())
     override suspend fun writeFile(request: FileWriteRequest) =
@@ -374,6 +377,7 @@ private class GatedFileRepository : FileRepository {
     override suspend fun listFiles(path: String) = FileOperationResult.Ok(FileList(path, emptyList()))
     override suspend fun readFile(path: String) =
         FileOperationResult.Ok(FileContent(type = "text", content = "", diff = null, mimeType = null))
+    override suspend fun searchFiles(query: String) = FileOperationResult.Ok<List<FileNode>>(emptyList())
     override suspend fun searchSymbols(query: String) = FileOperationResult.Ok<List<Symbol>>(emptyList())
     override suspend fun writeFile(request: FileWriteRequest) =
         FileOperationResult.Ok(FileWriteResult(path = request.path, hash = null))

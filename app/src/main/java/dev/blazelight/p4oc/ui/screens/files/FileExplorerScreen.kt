@@ -74,6 +74,7 @@ fun FileExplorerScreen(
 ) {
     val theme = LocalOpenCodeTheme.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val fileSearchResults by viewModel.fileSearchResults.collectAsStateWithLifecycle()
     val symbolResults by viewModel.symbolResults.collectAsStateWithLifecycle()
     val uploadState by viewModel.uploadState.collectAsStateWithLifecycle()
     val searchQuery = uiState.searchQuery
@@ -96,14 +97,8 @@ fun FileExplorerScreen(
         }
     }
 
-    val filteredFiles = remember(uiState.files, searchQuery) {
-        if (searchQuery.isBlank()) {
-            uiState.files.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
-        } else {
-            uiState.files
-                .filter { it.name.contains(searchQuery, ignoreCase = true) }
-                .sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
-        }
+    val sortedFiles = remember(uiState.files) {
+        uiState.files.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
     }
 
     Scaffold(
@@ -143,6 +138,7 @@ fun FileExplorerScreen(
                                 )
                             )
                         } else if (isSearchActive) {
+                            val searchFieldDescription = stringResource(R.string.files_search_placeholder)
                             OutlinedTextField(
                                 value = searchQuery,
                                 onValueChange = viewModel::updateSearchQuery,
@@ -153,7 +149,10 @@ fun FileExplorerScreen(
                                     )
                                 },
                                 singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { contentDescription = searchFieldDescription }
+                                    .testTag("files_search_field"),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color.Transparent,
                                     unfocusedBorderColor = Color.Transparent,
@@ -250,7 +249,7 @@ fun FileExplorerScreen(
                     }
                 )
 
-                if (uiState.currentPath.isNotBlank()) {
+                if (!isSearchActive && uiState.currentPath.isNotBlank()) {
                     BreadcrumbNavigation(
                         path = uiState.currentPath,
                         onNavigateTo = { viewModel.navigateTo(it) }
@@ -264,7 +263,7 @@ fun FileExplorerScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (uiState.pathRestoreError != null) {
+            if (!isSearchActive && uiState.pathRestoreError != null) {
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -346,6 +345,17 @@ fun FileExplorerScreen(
                         }
                     }
                 }
+            } else if (isSearchActive) {
+                FileSearchContent(
+                    state = FileSearchContentState(
+                        query = searchQuery,
+                        results = fileSearchResults,
+                        isLoading = uiState.isFileSearchLoading,
+                        hasError = uiState.fileSearchError != null,
+                    ),
+                    onRetry = viewModel::refresh,
+                    onFileClick = onFileClick,
+                )
             } else {
                 when {
                     uiState.isLoading -> {
@@ -384,31 +394,24 @@ fun FileExplorerScreen(
                             }
                         }
                     }
-                    filteredFiles.isEmpty() -> {
+                    sortedFiles.isEmpty() -> {
                         Column(
                             modifier = Modifier.align(Alignment.Center),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(Spacing.md)
                         ) {
                             Text(
-                                text = if (searchQuery.isNotBlank()) "∅" else "□",
+                                text = "□",
                                 style = MaterialTheme.typography.displayMedium,
                                 color = theme.textMuted
                             )
-                            val emptyText = if (searchQuery.isNotBlank()) {
-                                stringResource(R.string.files_no_matching_files)
-                            } else {
-                                stringResource(R.string.files_empty_folder)
-                            }
-                            Text(text = emptyText, color = theme.textMuted)
-                            if (searchQuery.isBlank()) {
-                                EmptyFolderActions(
-                                    canCreateFile = uiState.capabilities.canWrite,
-                                    canUpload = uiState.capabilities.canUpload,
-                                    onCreateFile = { createDialog = FileCreateKind.File },
-                                    onUpload = { uploadLauncher.launch(arrayOf("*/*")) },
-                                )
-                            }
+                            Text(text = stringResource(R.string.files_empty_folder), color = theme.textMuted)
+                            EmptyFolderActions(
+                                canCreateFile = uiState.capabilities.canWrite,
+                                canUpload = uiState.capabilities.canUpload,
+                                onCreateFile = { createDialog = FileCreateKind.File },
+                                onUpload = { uploadLauncher.launch(arrayOf("*/*")) },
+                            )
                         }
                     }
                     else -> {
@@ -443,7 +446,7 @@ fun FileExplorerScreen(
                                 contentPadding = PaddingValues(Spacing.md),
                                 verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
                             ) {
-                                items(filteredFiles, key = { it.path }) { file ->
+                                items(sortedFiles, key = { it.path }) { file ->
                                     TuiFileItem(
                                         file = file,
                                         actions = FileItemActions(
@@ -536,6 +539,218 @@ fun FileExplorerScreen(
         ) {
             Text(stringResource(R.string.files_operation_failed_hint), color = theme.textMuted)
         }
+    }
+}
+
+private data class FileSearchContentState(
+    val query: String,
+    val results: List<FileNode>,
+    val isLoading: Boolean,
+    val hasError: Boolean,
+)
+
+@Composable
+@Suppress("FunctionNaming")
+private fun FileSearchContent(
+    state: FileSearchContentState,
+    onRetry: () -> Unit,
+    onFileClick: (String) -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            state.query.isBlank() -> FileSearchMessage(
+                glyph = "⌕",
+                text = stringResource(R.string.files_search_blank_hint),
+                modifier = Modifier.align(Alignment.Center),
+            )
+            state.isLoading -> TuiLoadingScreen(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .testTag("files_search_loading"),
+                text = stringResource(R.string.files_search_loading),
+            )
+            state.hasError -> FileSearchFailure(
+                onRetry = onRetry,
+                modifier = Modifier.align(Alignment.Center),
+            )
+            state.results.isEmpty() -> FileSearchMessage(
+                glyph = "∅",
+                text = stringResource(R.string.files_search_no_results),
+                modifier = Modifier.align(Alignment.Center),
+            )
+            else -> FileSearchResults(state.results, onFileClick)
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun FileSearchFailure(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val theme = LocalOpenCodeTheme.current
+
+    Column(
+        modifier = modifier
+            .padding(Spacing.lg)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+            .testTag("files_search_error"),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Icon(
+            imageVector = Icons.Default.ErrorOutline,
+            contentDescription = null,
+            tint = theme.error,
+            modifier = Modifier.size(Sizing.iconLg),
+        )
+        Text(
+            text = stringResource(R.string.files_search_failed),
+            style = MaterialTheme.typography.bodyMedium,
+            color = theme.error,
+        )
+        TuiButton(
+            onClick = onRetry,
+            modifier = Modifier.testTag("files_search_retry"),
+        ) {
+            Text(stringResource(R.string.retry))
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun FileSearchResults(
+    results: List<FileNode>,
+    onFileClick: (String) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+    ) {
+        items(results, key = { it.path }) { file ->
+            FileSearchResultItem(
+                file = file,
+                onClick = { onFileClick(file.path) },
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun FileSearchMessage(
+    glyph: String,
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    val theme = LocalOpenCodeTheme.current
+
+    Column(
+        modifier = modifier.padding(Spacing.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Text(
+            text = glyph,
+            style = MaterialTheme.typography.displayMedium,
+            color = theme.textMuted,
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = theme.textMuted,
+        )
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun FileSearchResultItem(
+    file: FileNode,
+    onClick: () -> Unit,
+) {
+    val theme = LocalOpenCodeTheme.current
+    val parentPath = file.path.substringBeforeLast('/', missingDelimiterValue = "")
+    val parentLabel = parentPath.ifBlank { stringResource(R.string.files_breadcrumb_root) }
+    val itemDescription = stringResource(
+        R.string.files_search_result_description,
+        file.name,
+        parentLabel,
+    )
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {
+                role = Role.Button
+                contentDescription = itemDescription
+                onClick {
+                    onClick()
+                    true
+                }
+            }
+            .testTag("files_search_result_${file.path}"),
+        color = Color.Transparent,
+        shape = RectangleShape,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "■",
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                color = getFileIcon(file).second,
+                modifier = Modifier.width(Sizing.iconMd),
+            )
+            FileSearchResultLabels(
+                fileName = file.name,
+                parentLabel = parentLabel,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.titleMedium,
+                color = theme.border,
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun FileSearchResultLabels(
+    fileName: String,
+    parentLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    val theme = LocalOpenCodeTheme.current
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+    ) {
+        Text(
+            text = fileName,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            color = theme.text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = parentLabel,
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+            color = theme.textMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

@@ -16,6 +16,7 @@ import java.io.InputStream
 interface FileRepository {
     suspend fun listFiles(path: String): FileOperationResult<FileList>
     suspend fun readFile(path: String): FileOperationResult<FileContent>
+    suspend fun searchFiles(query: String): FileOperationResult<List<FileNode>>
     suspend fun searchSymbols(query: String): FileOperationResult<List<Symbol>>
     suspend fun writeFile(request: FileWriteRequest): FileOperationResult<FileWriteResult>
     suspend fun createDirectory(path: String): FileOperationResult<Unit>
@@ -117,6 +118,16 @@ class WorkspaceFileRepository internal constructor(
         }
     }
 
+    override suspend fun searchFiles(query: String): FileOperationResult<List<FileNode>> {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return FileOperationResult.Ok(emptyList())
+
+        return when (val result = safeApiCall { client.searchFiles(normalizedQuery) }) {
+            is ApiResult.Success -> FileOperationResult.Ok(result.data.toFileNodes())
+            is ApiResult.Error -> FileOperationResult.Failed(result.message, result.throwable)
+        }
+    }
+
     override suspend fun searchSymbols(query: String): FileOperationResult<List<Symbol>> {
         val normalizedQuery = query.trim()
         if (normalizedQuery.isBlank()) return FileOperationResult.Ok(emptyList())
@@ -177,6 +188,22 @@ class WorkspaceFileRepository internal constructor(
         encoding = encoding,
     )
 
+    private fun List<String>.toFileNodes(): List<FileNode> = buildList(size) {
+        val seenPaths = HashSet<String>(size)
+        for (path in this@toFileNodes) {
+            val normalizedPath = FilePathValidator.normalizeForReadOrList(path).getOrNull()
+            if (normalizedPath.isNullOrEmpty() || !seenPaths.add(normalizedPath)) continue
+
+            add(
+                FileNode(
+                    name = normalizedPath.substringAfterLast('/'),
+                    path = normalizedPath,
+                    type = "file",
+                )
+            )
+        }
+    }
+
     private companion object {
         const val ROOT_API_PATH = "."
         const val INVALID_PATH_MESSAGE = "Invalid file path"
@@ -188,6 +215,7 @@ internal interface FileWorkspaceClient {
     suspend fun listFiles(path: String): List<FileNodeDto>
     suspend fun readFile(path: String): FileContentDto
     suspend fun getFileStatus(): List<FileStatusDto>
+    suspend fun searchFiles(query: String): List<String>
     suspend fun searchSymbols(query: String): List<SymbolDto>
 }
 
@@ -199,6 +227,8 @@ private class WorkspaceClientFileAdapter(
     override suspend fun readFile(path: String): FileContentDto = workspaceClient.readFile(path)
 
     override suspend fun getFileStatus(): List<FileStatusDto> = workspaceClient.getFileStatus()
+
+    override suspend fun searchFiles(query: String): List<String> = workspaceClient.searchFiles(query)
 
     override suspend fun searchSymbols(query: String): List<SymbolDto> = workspaceClient.searchSymbols(query)
 }

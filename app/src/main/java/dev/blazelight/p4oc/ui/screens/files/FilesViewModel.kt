@@ -13,6 +13,7 @@ import dev.blazelight.p4oc.ui.screens.files.upload.UploadCoordinator
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadQueueState
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadSource
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,7 +34,8 @@ class FilesViewModel constructor(
         FilesUiState(
             currentPath = savedStateHandle[KEY_CURRENT_PATH] ?: ROOT_PATH,
             searchQuery = savedStateHandle[KEY_SEARCH_QUERY] ?: "",
-            isSearchActive = savedStateHandle[KEY_SEARCH_ACTIVE] ?: false,
+            isSearchActive = (savedStateHandle[KEY_SEARCH_ACTIVE] ?: false) &&
+                !(savedStateHandle[KEY_SYMBOL_MODE] ?: false),
             isSymbolMode = savedStateHandle[KEY_SYMBOL_MODE] ?: false,
             symbolQuery = savedStateHandle[KEY_SYMBOL_QUERY] ?: "",
         )
@@ -45,11 +47,18 @@ class FilesViewModel constructor(
     private val _symbolResults = MutableStateFlow<List<Symbol>>(emptyList())
     val symbolResults: StateFlow<List<Symbol>> = _symbolResults.asStateFlow()
 
+    private val _fileSearchResults = MutableStateFlow<List<FileNode>>(emptyList())
+    val fileSearchResults: StateFlow<List<FileNode>> = _fileSearchResults.asStateFlow()
+
     private val pathStack = savedStateHandle.get<ArrayList<String>>(KEY_PATH_STACK)?.toMutableList() ?: mutableListOf()
     private var loadFilesJob: Job? = null
     private var loadContentJob: Job? = null
     private var saveJob: Job? = null
     private var mutationJob: Job? = null
+    private var fileSearchJob: Job? = null
+    private var symbolSearchJob: Job? = null
+    private var fileSearchGeneration = 0L
+    private var symbolSearchGeneration = 0L
 
     private val _editState = MutableStateFlow(restoredEditState())
     val editState: StateFlow<FileEditState> = _editState.asStateFlow()
@@ -59,7 +68,16 @@ class FilesViewModel constructor(
     init {
         loadCapabilities()
         loadFiles(savedStateHandle[KEY_CURRENT_PATH] ?: ROOT_PATH)
-        savedStateHandle.get<String>(KEY_SYMBOL_QUERY)?.takeIf { it.isNotBlank() }?.let(::searchSymbols)
+        when {
+            _uiState.value.isSymbolMode -> {
+                _uiState.value.symbolQuery.takeIf { it.isNotBlank() }?.let(::searchSymbols)
+            }
+            _uiState.value.isSearchActive -> {
+                _uiState.value.searchQuery.takeIf { it.isNotBlank() }?.let {
+                    searchFiles(it, debounce = true)
+                }
+            }
+        }
     }
 
     private fun restoredEditState(): FileEditState {
@@ -119,7 +137,12 @@ class FilesViewModel constructor(
     }
 
     fun refresh() {
-        loadFiles(_uiState.value.currentPath)
+        val state = _uiState.value
+        when {
+            state.isSymbolMode -> searchSymbols(state.symbolQuery)
+            state.isSearchActive -> searchFiles(state.searchQuery, debounce = false)
+            else -> loadFiles(state.currentPath)
+        }
     }
 
     fun navigateTo(path: String) {
@@ -137,32 +160,79 @@ class FilesViewModel constructor(
 
     fun setSearchActive(active: Boolean) {
         savedStateHandle[KEY_SEARCH_ACTIVE] = active
-        _uiState.update { it.copy(isSearchActive = active) }
+        if (active) {
+            savedStateHandle[KEY_SYMBOL_MODE] = false
+            cancelSymbolSearch()
+            _symbolResults.value = emptyList()
+            _uiState.update {
+                it.copy(
+                    isSearchActive = true,
+                    isSymbolMode = false,
+                    symbolError = null,
+                )
+            }
+            searchFiles(_uiState.value.searchQuery, debounce = true)
+        } else {
+            cancelFileSearch()
+            _fileSearchResults.value = emptyList()
+            _uiState.update {
+                it.copy(
+                    isSearchActive = false,
+                    isFileSearchLoading = false,
+                    fileSearchError = null,
+                )
+            }
+        }
     }
 
     fun updateSearchQuery(query: String) {
         val bounded = query.take(MAX_PERSISTED_QUERY_CHARS)
         savedStateHandle[KEY_SEARCH_QUERY] = bounded
         _uiState.update { it.copy(searchQuery = bounded) }
+        if (_uiState.value.isSearchActive) {
+            searchFiles(bounded, debounce = true)
+        }
     }
 
     fun setSymbolMode(active: Boolean) {
         savedStateHandle[KEY_SYMBOL_MODE] = active
-        _uiState.update { it.copy(isSymbolMode = active) }
+        if (active) {
+            savedStateHandle[KEY_SEARCH_ACTIVE] = false
+            cancelFileSearch()
+            _fileSearchResults.value = emptyList()
+            _uiState.update {
+                it.copy(
+                    isSearchActive = false,
+                    isSymbolMode = true,
+                    isFileSearchLoading = false,
+                    fileSearchError = null,
+                )
+            }
+            searchSymbols(_uiState.value.symbolQuery)
+        } else {
+            cancelSymbolSearch()
+            _symbolResults.value = emptyList()
+            _uiState.update { it.copy(isSymbolMode = false, symbolError = null) }
+        }
     }
 
     fun updateSymbolQuery(query: String) {
         val bounded = query.take(MAX_PERSISTED_QUERY_CHARS)
         savedStateHandle[KEY_SYMBOL_QUERY] = bounded
         _uiState.update { it.copy(symbolQuery = bounded) }
-        searchSymbols(bounded)
+        if (_uiState.value.isSymbolMode) {
+            searchSymbols(bounded)
+        }
     }
 
     fun clearFilters() {
+        cancelFileSearch()
+        cancelSymbolSearch()
         savedStateHandle[KEY_SEARCH_ACTIVE] = false
         savedStateHandle[KEY_SYMBOL_MODE] = false
         savedStateHandle[KEY_SEARCH_QUERY] = ""
         savedStateHandle[KEY_SYMBOL_QUERY] = ""
+        _fileSearchResults.value = emptyList()
         _symbolResults.value = emptyList()
         _uiState.update {
             it.copy(
@@ -170,6 +240,8 @@ class FilesViewModel constructor(
                 isSymbolMode = false,
                 searchQuery = "",
                 symbolQuery = "",
+                isFileSearchLoading = false,
+                fileSearchError = null,
                 symbolError = null,
             )
         }
@@ -228,13 +300,56 @@ class FilesViewModel constructor(
         }
     }
 
-    fun searchSymbols(query: String) {
-        viewModelScope.launch {
-            _symbolResults.value = emptyList()
-            _uiState.update { it.copy(symbolError = null) }
-            if (query.isBlank()) return@launch
+    private fun searchFiles(query: String, debounce: Boolean) {
+        cancelFileSearch()
+        val generation = fileSearchGeneration
+        _fileSearchResults.value = emptyList()
+        if (query.isBlank()) {
+            _uiState.update {
+                it.copy(isFileSearchLoading = false, fileSearchError = null)
+            }
+            return
+        }
 
-            when (val result = fileRepository.searchSymbols(query)) {
+        _uiState.update {
+            it.copy(isFileSearchLoading = true, fileSearchError = null)
+        }
+        fileSearchJob = viewModelScope.launch {
+            if (debounce) delay(FILE_SEARCH_DEBOUNCE_MS)
+            val result = fileRepository.searchFiles(query)
+            if (!isCurrentFileSearch(generation, query)) return@launch
+            when (result) {
+                is FileOperationResult.Ok -> {
+                    _fileSearchResults.value = result.data
+                    _uiState.update {
+                        it.copy(isFileSearchLoading = false, fileSearchError = null)
+                    }
+                }
+                is FileOperationResult.Conflict -> {
+                    _uiState.update {
+                        it.copy(isFileSearchLoading = false, fileSearchError = result.message)
+                    }
+                }
+                is FileOperationResult.Failed -> {
+                    _uiState.update {
+                        it.copy(isFileSearchLoading = false, fileSearchError = result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    fun searchSymbols(query: String) {
+        cancelSymbolSearch()
+        val generation = symbolSearchGeneration
+        _symbolResults.value = emptyList()
+        _uiState.update { it.copy(symbolError = null) }
+        if (query.isBlank()) return
+
+        symbolSearchJob = viewModelScope.launch {
+            val result = fileRepository.searchSymbols(query)
+            if (!isCurrentSymbolSearch(generation, query)) return@launch
+            when (result) {
                 is FileOperationResult.Ok -> {
                     _symbolResults.value = result.data
                 }
@@ -242,6 +357,32 @@ class FilesViewModel constructor(
                 is FileOperationResult.Failed -> _uiState.update { it.copy(symbolError = result.message) }
             }
         }
+    }
+
+    private fun cancelFileSearch() {
+        fileSearchGeneration++
+        fileSearchJob?.cancel()
+        fileSearchJob = null
+    }
+
+    private fun cancelSymbolSearch() {
+        symbolSearchGeneration++
+        symbolSearchJob?.cancel()
+        symbolSearchJob = null
+    }
+
+    private fun isCurrentFileSearch(generation: Long, query: String): Boolean {
+        val state = _uiState.value
+        return generation == fileSearchGeneration &&
+            state.isSearchActive &&
+            state.searchQuery == query
+    }
+
+    private fun isCurrentSymbolSearch(generation: Long, query: String): Boolean {
+        val state = _uiState.value
+        return generation == symbolSearchGeneration &&
+            state.isSymbolMode &&
+            state.symbolQuery == query
     }
 
     fun loadFileContent(path: String) {
@@ -522,6 +663,7 @@ class FilesViewModel constructor(
     }
 
     companion object {
+        private const val FILE_SEARCH_DEBOUNCE_MS = 250L
         private const val MAX_PERSISTED_QUERY_CHARS = 1_024
         private const val MAX_PERSISTED_PATH_DEPTH = 128
         const val ROOT_PATH = ""
@@ -552,6 +694,8 @@ data class FilesUiState(
     val error: String? = null,
     val pathRestoreError: String? = null,
     val symbolError: String? = null,
+    val fileSearchError: String? = null,
+    val isFileSearchLoading: Boolean = false,
     val searchQuery: String = "",
     val isSearchActive: Boolean = false,
     val isSymbolMode: Boolean = false,

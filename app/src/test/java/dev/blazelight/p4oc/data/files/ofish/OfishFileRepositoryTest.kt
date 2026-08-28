@@ -17,6 +17,7 @@ import dev.blazelight.p4oc.data.remote.dto.SessionDto
 import dev.blazelight.p4oc.data.remote.dto.ShellCommandRequest
 import dev.blazelight.p4oc.data.remote.dto.TimeDto
 import dev.blazelight.p4oc.domain.model.FileContent
+import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
 import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.workspace.Workspace
@@ -175,6 +176,9 @@ class OfishFileRepositoryTest {
             FileOperationResult.Ok(FileList(path, emptyList()))
 
         override suspend fun readFile(path: String): FileOperationResult<FileContent> = readResult
+
+        override suspend fun searchFiles(query: String): FileOperationResult<List<FileNode>> =
+            FileOperationResult.Ok(emptyList())
 
         override suspend fun searchSymbols(query: String): FileOperationResult<List<Symbol>> =
             FileOperationResult.Ok(emptyList())
