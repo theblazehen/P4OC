@@ -32,4 +32,4 @@
 - [x] 3.4 Run `./gradlew :app:detekt`.
 - [x] 3.5 Run `./gradlew :app:testDebugUnitTest`.
 - [x] 3.6 Obtain an independent Sol review of the final permission-reply classifier, body ownership, mutation count, cancellation, and workspace routing.
-- [ ] 3.7 Verify GitHub Actions succeeds for the branch before merge.
+- [x] 3.7 Verify GitHub Actions succeeds for the branch before merge.
