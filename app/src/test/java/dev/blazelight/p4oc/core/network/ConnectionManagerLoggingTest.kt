@@ -3,6 +3,7 @@ package dev.blazelight.p4oc.core.network
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
+import dev.blazelight.p4oc.domain.server.ServerGeneration
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,6 +63,7 @@ class ConnectionManagerLoggingTest {
             json = json,
             eventMapper = EventMapper(json, MessageMapper()),
             settingsDataStore = mockk<SettingsDataStore>(),
+            generationIssuer = { ServerGeneration(1L) },
         )
     }
 

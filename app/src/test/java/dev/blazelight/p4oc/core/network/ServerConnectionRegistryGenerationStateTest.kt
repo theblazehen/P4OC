@@ -106,7 +106,7 @@ class ServerConnectionRegistryGenerationStateTest {
             server = server,
             connection = managerConnection,
             state = managerState,
-            registry = ServerConnectionRegistry(settings, { manager }, scope),
+            registry = ServerConnectionRegistry(settings, { _, _ -> manager }, scope),
         )
     }
 

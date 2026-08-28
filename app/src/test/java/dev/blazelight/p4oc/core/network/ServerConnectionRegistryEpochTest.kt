@@ -239,7 +239,7 @@ class ServerConnectionRegistryEpochTest {
             server = server,
             connection = managerConnection,
             manager = manager,
-            registry = ServerConnectionRegistry(settings, { manager }, scope),
+            registry = ServerConnectionRegistry(settings, { _, _ -> manager }, scope),
         )
     }
 

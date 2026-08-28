@@ -1,5 +1,6 @@
 package dev.blazelight.p4oc.ui.screens.files
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -34,6 +35,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -74,6 +76,7 @@ fun FileExplorerScreen(
 ) {
     val theme = LocalOpenCodeTheme.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val changesState by viewModel.changesState.collectAsStateWithLifecycle()
     val fileSearchResults by viewModel.fileSearchResults.collectAsStateWithLifecycle()
     val symbolResults by viewModel.symbolResults.collectAsStateWithLifecycle()
     val uploadState by viewModel.uploadState.collectAsStateWithLifecycle()
@@ -101,6 +104,10 @@ fun FileExplorerScreen(
         uiState.files.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
     }
 
+    BackHandler(enabled = changesState.isActive) {
+        viewModel.exitChanges()
+    }
+
     Scaffold(
         containerColor = theme.background,
         topBar = {
@@ -108,7 +115,9 @@ fun FileExplorerScreen(
                 TuiTopBar(
                     title = "",
                     onNavigateBack = {
-                        if (isSearchActive || isSymbolMode) {
+                        if (changesState.isActive) {
+                            viewModel.exitChanges()
+                        } else if (isSearchActive || isSymbolMode) {
                             viewModel.clearFilters()
                         } else if (uiState.currentPath.isNotBlank()) {
                             viewModel.navigateUp()
@@ -117,7 +126,16 @@ fun FileExplorerScreen(
                         }
                     },
                     titleContent = {
-                        if (isSymbolMode) {
+                        if (changesState.isActive) {
+                            Text(
+                                text = stringResource(R.string.files_changes_title),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = theme.text,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.semantics { heading() },
+                            )
+                        } else if (isSymbolMode) {
                             OutlinedTextField(
                                 value = symbolQuery,
                                 onValueChange = viewModel::updateSymbolQuery,
@@ -189,37 +207,82 @@ fun FileExplorerScreen(
                         }
                     },
                     actions = {
-                        if (!isSearchActive && !isSymbolMode) {
-                            FileCreateMenu(
-                                canCreateFile = uiState.capabilities.canWrite,
-                                canCreateFolder = uiState.capabilities.canCreateDirectory,
-                                onCreateFile = { createDialog = FileCreateKind.File },
-                                onCreateFolder = { createDialog = FileCreateKind.Folder },
-                            )
+                        if (changesState.isActive) {
                             IconButton(
-                                onClick = { viewModel.setSearchActive(true) },
-                                modifier = Modifier.size(Sizing.iconButtonMd)
+                                onClick = viewModel::refreshChanges,
+                                enabled = !changesState.isRefreshing,
+                                modifier = Modifier
+                                    .size(Sizing.minTouchTarget)
+                                    .testTag("files_changes_refresh"),
                             ) {
                                 Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = stringResource(R.string.cd_search),
+                                    Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.files_changes_refresh),
                                     tint = theme.textMuted,
-                                    modifier = Modifier.size(Sizing.iconAction)
+                                    modifier = Modifier.size(Sizing.iconAction),
                                 )
                             }
                             IconButton(
-                                onClick = { viewModel.setSymbolMode(true) },
-                                modifier = Modifier.size(Sizing.iconButtonMd)
+                                onClick = viewModel::exitChanges,
+                                modifier = Modifier
+                                    .size(Sizing.minTouchTarget)
+                                    .testTag("files_changes_exit"),
                             ) {
                                 Icon(
-                                    Icons.Default.Code,
-                                    contentDescription = stringResource(R.string.cd_symbol_search),
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.files_changes_exit),
                                     tint = theme.textMuted,
-                                    modifier = Modifier.size(Sizing.iconAction)
+                                    modifier = Modifier.size(Sizing.iconAction),
                                 )
+                            }
+                        } else {
+                            if (!isSearchActive && !isSymbolMode) {
+                                FileCreateMenu(
+                                    canCreateFile = uiState.capabilities.canWrite,
+                                    canCreateFolder = uiState.capabilities.canCreateDirectory,
+                                    onCreateFile = { createDialog = FileCreateKind.File },
+                                    onCreateFolder = { createDialog = FileCreateKind.Folder },
+                                )
+                            }
+                            IconButton(
+                                onClick = viewModel::enterChanges,
+                                modifier = Modifier
+                                    .size(Sizing.minTouchTarget)
+                                    .testTag("files_changes_action"),
+                            ) {
+                                Icon(
+                                    Icons.Default.Difference,
+                                    contentDescription = stringResource(R.string.files_changes_action),
+                                    tint = theme.textMuted,
+                                    modifier = Modifier.size(Sizing.iconAction),
+                                )
+                            }
+                            if (!isSearchActive && !isSymbolMode) {
+                                IconButton(
+                                    onClick = { viewModel.setSearchActive(true) },
+                                    modifier = Modifier.size(Sizing.iconButtonMd)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Search,
+                                        contentDescription = stringResource(R.string.cd_search),
+                                        tint = theme.textMuted,
+                                        modifier = Modifier.size(Sizing.iconAction)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { viewModel.setSymbolMode(true) },
+                                    modifier = Modifier.size(Sizing.iconButtonMd)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Code,
+                                        contentDescription = stringResource(R.string.cd_symbol_search),
+                                        tint = theme.textMuted,
+                                        modifier = Modifier.size(Sizing.iconAction)
+                                    )
+                                }
                             }
                         }
-                        if (!isSearchActive && !isSymbolMode) {
+                        if (!changesState.isActive && !isSearchActive && !isSymbolMode) {
                             IconButton(
                                 onClick = { uploadLauncher.launch(arrayOf("*/*")) },
                                 enabled = uiState.capabilities.canUpload,
@@ -235,21 +298,23 @@ fun FileExplorerScreen(
                                 )
                             }
                         }
-                        IconButton(
-                            onClick = viewModel::refresh,
-                            modifier = Modifier.size(Sizing.iconButtonMd)
-                        ) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = stringResource(R.string.cd_refresh),
-                                tint = theme.textMuted,
-                                modifier = Modifier.size(Sizing.iconAction)
-                            )
+                        if (!changesState.isActive) {
+                            IconButton(
+                                onClick = viewModel::refresh,
+                                modifier = Modifier.size(Sizing.iconButtonMd)
+                            ) {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.cd_refresh),
+                                    tint = theme.textMuted,
+                                    modifier = Modifier.size(Sizing.iconAction)
+                                )
+                            }
                         }
                     }
                 )
 
-                if (!isSearchActive && uiState.currentPath.isNotBlank()) {
+                if (!changesState.isActive && !isSearchActive && uiState.currentPath.isNotBlank()) {
                     BreadcrumbNavigation(
                         path = uiState.currentPath,
                         onNavigateTo = { viewModel.navigateTo(it) }
@@ -263,7 +328,7 @@ fun FileExplorerScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (!isSearchActive && uiState.pathRestoreError != null) {
+            if (!changesState.isActive && !isSearchActive && uiState.pathRestoreError != null) {
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -279,7 +344,14 @@ fun FileExplorerScreen(
                 }
             }
 
-            if (isSymbolMode) {
+            if (changesState.isActive) {
+                workspaceChangesContent(
+                    state = changesState,
+                    onRefresh = viewModel::refreshChanges,
+                    onToggle = viewModel::toggleChange,
+                    onRetryPatch = viewModel::retrySelectedPatch,
+                )
+            } else if (isSymbolMode) {
                 // Symbol search results
                 if (symbolQuery.isBlank()) {
                     Column(
@@ -470,7 +542,7 @@ fun FileExplorerScreen(
                 }
             }
 
-            if (!uploadState.isEmpty) {
+            if (!changesState.isActive && !uploadState.isEmpty) {
                 UploadProgressSheet(
                     state = uploadState,
                     onCancel = { viewModel.cancelUploads() },
@@ -479,65 +551,73 @@ fun FileExplorerScreen(
                 )
             }
 
-            if (uiState.isMutating) {
+            if (!changesState.isActive && uiState.isMutating) {
                 TuiLoadingScreen(modifier = Modifier.align(Alignment.Center))
             }
         }
     }
 
-    createDialog?.let { kind ->
-        TuiInputDialog(
-            onDismissRequest = { createDialog = null },
-            onConfirm = { name ->
-                when (kind) {
-                    FileCreateKind.File -> viewModel.createFile(name)
-                    FileCreateKind.Folder -> viewModel.createFolder(name)
-                }
-            },
-            title = when (kind) {
-                FileCreateKind.File -> stringResource(R.string.files_new_file)
-                FileCreateKind.Folder -> stringResource(R.string.files_new_folder)
-            },
-            placeholder = when (kind) {
-                FileCreateKind.File -> stringResource(R.string.files_new_file_placeholder)
-                FileCreateKind.Folder -> stringResource(R.string.files_new_folder_placeholder)
-            },
-            confirmText = stringResource(R.string.files_create),
-        )
+    if (!changesState.isActive) {
+        createDialog?.let { kind ->
+            TuiInputDialog(
+                onDismissRequest = { createDialog = null },
+                onConfirm = { name ->
+                    when (kind) {
+                        FileCreateKind.File -> viewModel.createFile(name)
+                        FileCreateKind.Folder -> viewModel.createFolder(name)
+                    }
+                },
+                title = when (kind) {
+                    FileCreateKind.File -> stringResource(R.string.files_new_file)
+                    FileCreateKind.Folder -> stringResource(R.string.files_new_folder)
+                },
+                placeholder = when (kind) {
+                    FileCreateKind.File -> stringResource(R.string.files_new_file_placeholder)
+                    FileCreateKind.Folder -> stringResource(R.string.files_new_folder_placeholder)
+                },
+                confirmText = stringResource(R.string.files_create),
+            )
+        }
     }
 
-    renameTarget?.let { file ->
-        TuiInputDialog(
-            onDismissRequest = { renameTarget = null },
-            onConfirm = { name -> viewModel.renameFile(file, name) },
-            title = stringResource(R.string.files_rename_title, file.name),
-            initialValue = file.name,
-            confirmText = stringResource(R.string.files_rename),
-        )
+    if (!changesState.isActive) {
+        renameTarget?.let { file ->
+            TuiInputDialog(
+                onDismissRequest = { renameTarget = null },
+                onConfirm = { name -> viewModel.renameFile(file, name) },
+                title = stringResource(R.string.files_rename_title, file.name),
+                initialValue = file.name,
+                confirmText = stringResource(R.string.files_rename),
+            )
+        }
     }
 
-    deleteTarget?.let { file ->
-        TuiConfirmDialog(
-            onDismissRequest = { deleteTarget = null },
-            onConfirm = { viewModel.deleteFile(file) },
-            title = stringResource(R.string.files_delete_title),
-            message = stringResource(R.string.files_delete_confirm, file.name),
-            confirmText = stringResource(R.string.files_delete),
-            isDestructive = true,
-        )
+    if (!changesState.isActive) {
+        deleteTarget?.let { file ->
+            TuiConfirmDialog(
+                onDismissRequest = { deleteTarget = null },
+                onConfirm = { viewModel.deleteFile(file) },
+                title = stringResource(R.string.files_delete_title),
+                message = stringResource(R.string.files_delete_confirm, file.name),
+                confirmText = stringResource(R.string.files_delete),
+                isDestructive = true,
+            )
+        }
     }
 
-    uiState.mutationMessage?.let {
-        TuiAlertDialog(
-            onDismissRequest = viewModel::clearMutationMessage,
-            title = stringResource(R.string.files_operation_failed),
-            confirmButton = {
-                TuiButton(onClick = viewModel::clearMutationMessage) {
-                    Text(stringResource(android.R.string.ok))
-                }
-            },
-        ) {
-            Text(stringResource(R.string.files_operation_failed_hint), color = theme.textMuted)
+    if (!changesState.isActive) {
+        uiState.mutationMessage?.let {
+            TuiAlertDialog(
+                onDismissRequest = viewModel::clearMutationMessage,
+                title = stringResource(R.string.files_operation_failed),
+                confirmButton = {
+                    TuiButton(onClick = viewModel::clearMutationMessage) {
+                        Text(stringResource(android.R.string.ok))
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.files_operation_failed_hint), color = theme.textMuted)
+            }
         }
     }
 }

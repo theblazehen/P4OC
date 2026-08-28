@@ -339,6 +339,7 @@ class FilesViewModelSearchTest {
         savedStateHandle: SavedStateHandle = SavedStateHandle(),
     ) = FilesViewModel(
         fileRepository = repository,
+        workspaceChangesRepository = NoOpWorkspaceChangesRepository,
         uploadCoordinator = UploadCoordinator(
             scope = CoroutineScope(Dispatchers.Main),
             repositoryFactory = { repository },

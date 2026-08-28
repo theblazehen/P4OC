@@ -38,6 +38,7 @@ class ConnectionManager constructor(
     private val json: Json,
     private val eventMapper: EventMapper,
     private val settingsDataStore: SettingsDataStore,
+    private val generationIssuer: () -> ServerGeneration,
 ) {
     companion object {
         private const val TAG = "ConnectionManager"
@@ -48,7 +49,6 @@ class ConnectionManager constructor(
     private val connectionLifecycleLock = Any()
     private var sseForwardingJob: Job? = null
     private var sseEscalationJob: Job? = null
-    private var generationCounter: Long = 0L
     private val sharedConnectionPool = ConnectionPool(
         maxIdleConnections = 10,
         keepAliveDuration = 5,
@@ -160,7 +160,7 @@ class ConnectionManager constructor(
             // Build and store the auth-aware WebSocket client (shares pool with base)
             _authOkHttpClient.value = buildWebSocketOkHttpClient(baseClient)
 
-            val generation = ServerGeneration(++generationCounter)
+            val generation = generationIssuer()
             val connection = Connection(config, generation, api, eventSource)
             synchronized(connectionLifecycleLock) {
                 _connection.value = connection

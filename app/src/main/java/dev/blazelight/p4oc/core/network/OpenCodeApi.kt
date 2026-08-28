@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.core.network
 
 import dev.blazelight.p4oc.data.remote.dto.*
+import dev.blazelight.p4oc.data.vcs.VcsDiffMode
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
@@ -33,6 +34,29 @@ interface OpenCodeApi {
         @Query("directory") directory: String?,
         @Query("workspace") workspace: String?
     ): VcsInfoDto
+
+    @Streaming
+    @GET("vcs")
+    suspend fun getVcsInfoRaw(
+        @Query("directory") directory: String?,
+        @Query("workspace") workspace: String?
+    ): Response<ResponseBody>
+
+    @Streaming
+    @GET("vcs/status")
+    suspend fun getVcsStatusRaw(
+        @Query("directory") directory: String?,
+        @Query("workspace") workspace: String?
+    ): Response<ResponseBody>
+
+    @Streaming
+    @GET("vcs/diff")
+    suspend fun getVcsDiffRaw(
+        @Query("mode") mode: VcsDiffMode,
+        @Query("context") context: Int,
+        @Query("directory") directory: String?,
+        @Query("workspace") workspace: String?
+    ): Response<ResponseBody>
 
     @GET("session")
     @Suppress("LongParameterList")

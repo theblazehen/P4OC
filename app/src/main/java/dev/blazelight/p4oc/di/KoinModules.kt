@@ -17,6 +17,7 @@ import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.data.server.StaleWorkspaceClientException
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
 import dev.blazelight.p4oc.data.session.SessionRepositoryProvider
+import dev.blazelight.p4oc.data.vcs.WorkspaceChangesRepository
 import dev.blazelight.p4oc.ui.screens.chat.ChatViewModel
 import dev.blazelight.p4oc.ui.screens.chat.ModelSelectionCoordinator
 import dev.blazelight.p4oc.ui.screens.files.FilesViewModel
@@ -81,23 +82,18 @@ val networkModule = module {
     single {
         ServerConnectionRegistry(
             settingsDataStore = get(),
-            connectionManagerFactory = { ConnectionManager(get(), get(), get()) },
+            connectionManagerFactory = { _, generationIssuer ->
+                ConnectionManager(
+                    json = get(),
+                    eventMapper = get(),
+                    settingsDataStore = get(),
+                    generationIssuer = generationIssuer,
+                )
+            },
         )
     }
     single<ActiveServerApiProvider> {
-        val registry: ServerConnectionRegistry = get()
-        ActiveServerApiProvider { serverRef, generation ->
-            val activeGeneration = registry.generation(serverRef)
-            if (activeGeneration != generation) {
-                throw StaleWorkspaceClientException(
-                    "Workspace generation ${generation.value} does not match server " +
-                        "${serverRef.endpointKey} generation ${activeGeneration?.value ?: "<none>"}",
-                )
-            }
-            registry.api(serverRef) ?: throw StaleWorkspaceClientException(
-                "No connected API for workspace server ${serverRef.endpointKey} generation=${generation.value}",
-            )
-        }
+        activeServerApiProvider(get())
     }
     single { SessionRepositoryProvider(get(), get(), get(), json = get()) }
 }
@@ -151,7 +147,14 @@ val viewModelModule = module {
     viewModel { params ->
         SessionListViewModel(params.get<SessionRepositoryImpl>(), get<SavedStateHandle>())
     }
-    viewModel { params -> FilesViewModel(params.get<FileRepository>(), params.get(), get<SavedStateHandle>()) }
+    viewModel { params ->
+        FilesViewModel(
+            fileRepository = params.get<FileRepository>(),
+            workspaceChangesRepository = params.get<WorkspaceChangesRepository>(),
+            uploadCoordinator = params.get(),
+            savedStateHandle = get<SavedStateHandle>(),
+        )
+    }
     viewModel { params ->
         val owner = params.get<WorkspaceRepositoryOwner>()
         TerminalViewModel(
@@ -169,3 +172,10 @@ val allModules = listOf(
     networkModule,
     viewModelModule
 )
+
+internal fun activeServerApiProvider(registry: ServerConnectionRegistry): ActiveServerApiProvider =
+    ActiveServerApiProvider { serverRef, generation ->
+        registry.api(serverRef, generation) ?: throw StaleWorkspaceClientException(
+            "No connected API for workspace server ${serverRef.endpointKey} generation=${generation.value}",
+        )
+    }
