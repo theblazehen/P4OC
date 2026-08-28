@@ -72,6 +72,9 @@ object Sizing {
     // Scrollable embedded content (e.g. inline full-text blocks)
     val embeddedScrollMaxHeight: Dp = 360.dp
 
+    // Chat media
+    val chatAttachmentPreviewMaxHeight: Dp = 240.dp
+
     // Component-specific
     // Knob-slider switch (design): 36x20 track, 14x14 sliding knob, 2dp inset
     val switchTrackWidth: Dp = 36.dp

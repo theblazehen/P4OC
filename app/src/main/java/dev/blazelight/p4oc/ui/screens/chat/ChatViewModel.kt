@@ -13,6 +13,8 @@ import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.ServerConnectionRegistry
 import dev.blazelight.p4oc.core.network.safeApiCall
+import dev.blazelight.p4oc.data.media.ChatMediaLoader
+import dev.blazelight.p4oc.data.media.WorkspaceChatMediaLoader
 import dev.blazelight.p4oc.data.remote.dto.ExecuteCommandRequest
 import dev.blazelight.p4oc.data.remote.dto.InitSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.PartInputDto
@@ -80,6 +82,7 @@ class ChatViewModel constructor(
         serverConnectionRegistry,
     )
     val filePickerManager = FilePickerManager(workspaceClient, viewModelScope, uploadCoordinator, settingsDataStore)
+    val mediaLoader: ChatMediaLoader = WorkspaceChatMediaLoader(workspaceClient, serverConnectionRegistry)
 
     // --- Core state ---
     private val _uiState = MutableStateFlow(ChatUiState(inputText = restoredInputText()))
