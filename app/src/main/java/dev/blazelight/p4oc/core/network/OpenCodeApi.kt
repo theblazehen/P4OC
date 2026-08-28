@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.core.network
 
 import dev.blazelight.p4oc.data.remote.dto.*
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -258,20 +259,20 @@ interface OpenCodeApi {
         @Body request: QuestionReplyRequest,
         @Query("directory") directory: String?,
         @Query("workspace") workspace: String?
-    ): Response<Boolean>
+    ): Response<ResponseBody>
 
     @POST("question/{requestId}/reject")
     suspend fun rejectQuestion(
         @Path("requestId") requestId: String,
         @Query("directory") directory: String?,
         @Query("workspace") workspace: String?
-    ): Response<Boolean>
+    ): Response<ResponseBody>
 
     @GET("question")
     suspend fun listPendingQuestions(
         @Query("directory") directory: String?,
         @Query("workspace") workspace: String?
-    ): Response<List<QuestionRequestDto>>
+    ): Response<ResponseBody>
 
     @GET("command")
     suspend fun listCommands(

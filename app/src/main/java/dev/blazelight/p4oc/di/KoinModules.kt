@@ -99,7 +99,7 @@ val networkModule = module {
             )
         }
     }
-    single { SessionRepositoryProvider(get(), get(), get()) }
+    single { SessionRepositoryProvider(get(), get(), get(), json = get()) }
 }
 
 val viewModelModule = module {

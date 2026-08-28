@@ -38,11 +38,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import retrofit2.Response
 
 class SessionRepositoryProviderTest {
     private val server = ServerRef.fromEndpointKey("http://fake.test")
@@ -130,6 +134,7 @@ class SessionRepositoryProviderTest {
         fun provider(
             scopedEvents: Flow<ScopedEvent> = this.scopedEvents,
             dispatcher: CoroutineDispatcher = StandardTestDispatcher(),
+            json: Json = Json.Default,
         ): SessionRepositoryProvider {
             // Ensure the default (server, generation) binding exists so a relaxed registry mock
             // never returns Nothing for connectionEpoch/connectionState.
@@ -144,7 +149,45 @@ class SessionRepositoryProviderTest {
                 serverConnectionRegistry = registry,
                 dispatcher = dispatcher,
                 repositoryDispatcher = dispatcher,
+                json = json,
             )
+        }
+    }
+
+    @Test
+    fun `provider forwards configured json to workspace client legacy question decoding`() = runTest {
+        val harness = harness()
+        val bound = harness.bind()
+        val provider = harness.provider(json = Json { ignoreUnknownKeys = true })
+        val response = """
+            [
+              {
+                "id": "question-1",
+                "sessionID": "session-1",
+                "questions": [
+                  {
+                    "header": "Confirm",
+                    "question": "Continue?",
+                    "options": [],
+                    "unknownQuestionField": "ignored"
+                  }
+                ],
+                "unknownRequestField": "ignored"
+              }
+            ]
+        """.trimIndent()
+        coEvery { bound.api.listPendingQuestions("/repo", null) } returns Response.success(
+            response.toResponseBody("application/json".toMediaType()),
+        )
+
+        val lease = provider.acquire(workspace, generation)
+        try {
+            val questions = lease.workspaceClient.listSessionQuestions("session-1")
+
+            assertEquals(listOf("question-1"), questions.map { it.id })
+            assertEquals("Continue?", questions.single().questions.single().question)
+        } finally {
+            provider.release(workspace, generation)
         }
     }
 
