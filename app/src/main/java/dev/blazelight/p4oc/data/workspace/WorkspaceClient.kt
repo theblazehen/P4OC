@@ -235,12 +235,13 @@ class WorkspaceClient(
     suspend fun respondToPermission(
         sessionId: String,
         requestId: String,
-        request: PermissionResponseRequest
+        request: PermissionResponseRequest,
     ): Boolean {
         val response = api.respondToPermissionV2(sessionId, requestId, request)
-        val contentType = response.headers()["Content-Type"].orEmpty()
-        if (response.isSuccessful && !contentType.startsWith("text/html")) return true
-        if (response.code() != 404 && !contentType.startsWith("text/html")) throw HttpException(response)
+        when (response.classifyPermissionResponse()) {
+            PermissionResponseDisposition.Success -> return true
+            PermissionResponseDisposition.Fallback -> Unit
+        }
 
         return respondToPermissionLegacy(requestId, request)
     }
@@ -295,6 +296,38 @@ class WorkspaceClient(
 
     private fun retrofit2.Response<*>.isUsableV2Response(): Boolean =
         isSuccessful && !headers()["Content-Type"].orEmpty().startsWith("text/html")
+
+    private enum class PermissionResponseDisposition { Success, Fallback }
+
+    private fun retrofit2.Response<Unit>.classifyPermissionResponse(): PermissionResponseDisposition = when {
+        code() == 404 -> {
+            closePermissionResponseBodies()
+            PermissionResponseDisposition.Fallback
+        }
+        !isSuccessful -> {
+            closePermissionResponseBodies()
+            throw HttpException(this)
+        }
+        isHtmlPermissionResponse() -> {
+            closePermissionResponseBodies()
+            PermissionResponseDisposition.Fallback
+        }
+        else -> {
+            closePermissionResponseBodies()
+            PermissionResponseDisposition.Success
+        }
+    }
+
+    private fun retrofit2.Response<Unit>.isHtmlPermissionResponse(): Boolean =
+        headers()["Content-Type"].isHtmlContentType() ||
+            raw().body.contentType()?.toString().isHtmlContentType()
+
+    private fun retrofit2.Response<Unit>.closePermissionResponseBodies() {
+        // Retrofit's Unit converter closes the original successful response body before returning.
+        // raw().body is a metadata-only NoContentResponseBody whose close() attempts to read its
+        // unavailable source and throws. Only the buffered error body remains ours to close.
+        errorBody()?.close()
+    }
 
     private enum class LegacyQuestionResponseDisposition { Decode, Fallback }
 
