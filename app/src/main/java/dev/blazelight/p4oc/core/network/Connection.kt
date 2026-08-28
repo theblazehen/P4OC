@@ -33,3 +33,8 @@ data class Connection(
         eventSource.shutdown()
     }
 }
+
+internal fun Connection?.apiForGeneration(generation: ServerGeneration): OpenCodeApi? {
+    val connection = this ?: return null
+    return connection.api.takeIf { connection.generation == generation }
+}

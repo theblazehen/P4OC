@@ -7,11 +7,16 @@ import dev.blazelight.p4oc.data.files.FileCapabilities
 import dev.blazelight.p4oc.data.files.FileOperationResult
 import dev.blazelight.p4oc.data.files.FileRepository
 import dev.blazelight.p4oc.data.files.FileWriteRequest
+import dev.blazelight.p4oc.data.vcs.WorkspaceChangesRepository
+import dev.blazelight.p4oc.data.vcs.WorkspaceChangesResult
+import dev.blazelight.p4oc.data.vcs.WorkspaceChangesSnapshot
+import dev.blazelight.p4oc.data.vcs.WorkspacePatch
 import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadCoordinator
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadQueueState
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadSource
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +31,7 @@ internal const val MAX_SAVED_EDIT_CONTENT_CHARS = 64 * 1024
 @Suppress("TooManyFunctions")
 class FilesViewModel constructor(
     private val fileRepository: FileRepository,
+    workspaceChangesRepository: WorkspaceChangesRepository,
     private val uploadCoordinator: UploadCoordinator,
     private val savedStateHandle: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
@@ -59,6 +65,11 @@ class FilesViewModel constructor(
     private var symbolSearchJob: Job? = null
     private var fileSearchGeneration = 0L
     private var symbolSearchGeneration = 0L
+    private val workspaceChanges = WorkspaceChangesStateHolder(
+        repository = workspaceChangesRepository,
+        scope = viewModelScope,
+    )
+    val changesState: StateFlow<WorkspaceChangesUiState> = workspaceChanges.state
 
     private val _editState = MutableStateFlow(restoredEditState())
     val editState: StateFlow<FileEditState> = _editState.asStateFlow()
@@ -143,6 +154,21 @@ class FilesViewModel constructor(
             state.isSearchActive -> searchFiles(state.searchQuery, debounce = false)
             else -> loadFiles(state.currentPath)
         }
+    }
+
+    fun enterChanges() = workspaceChanges.enter()
+
+    fun exitChanges() = workspaceChanges.exit()
+
+    fun refreshChanges() = workspaceChanges.refresh()
+
+    fun toggleChange(path: String) = workspaceChanges.toggle(path)
+
+    fun retrySelectedPatch() = workspaceChanges.retrySelectedPatch()
+
+    override fun onCleared() {
+        workspaceChanges.release()
+        super.onCleared()
     }
 
     fun navigateTo(path: String) {
@@ -686,6 +712,296 @@ class FilesViewModel constructor(
     }
 }
 
+private class WorkspaceChangesStateHolder(
+    private val repository: WorkspaceChangesRepository,
+    private val scope: CoroutineScope,
+) {
+    private var snapshotJob: Job? = null
+    private var selectionJob: Job? = null
+    private var snapshotGeneration = 0L
+    private var selectionGeneration = 0L
+    private var publishedSnapshotGeneration: Long? = null
+    private var diffCache: ChangesDiffCache? = null
+
+    private val mutableState = MutableStateFlow(WorkspaceChangesUiState())
+    val state: StateFlow<WorkspaceChangesUiState> = mutableState.asStateFlow()
+
+    fun enter() {
+        if (!mutableState.value.isActive) {
+            cancelSelection()
+            diffCache = null
+            publishedSnapshotGeneration = null
+            mutableState.value = WorkspaceChangesUiState(
+                isActive = true,
+                isLoading = true,
+            )
+            loadSnapshot()
+        }
+    }
+
+    fun exit() {
+        release()
+        mutableState.value = WorkspaceChangesUiState()
+    }
+
+    fun release() {
+        snapshotGeneration++
+        snapshotJob?.cancel()
+        snapshotJob = null
+        cancelSelection()
+        diffCache = null
+        publishedSnapshotGeneration = null
+    }
+
+    fun refresh() {
+        if (mutableState.value.isActive) {
+            loadSnapshot()
+        }
+    }
+
+    fun toggle(path: String) {
+        val current = mutableState.value
+        val canSelect = current.isActive && current.snapshot?.changes?.any { it.file == path } == true
+        when {
+            !canSelect -> Unit
+            current.selectedPath == path -> collapseSelection()
+            else -> loadSelectedPatch(path = path, useCache = true)
+        }
+    }
+
+    /** Retries only a retryable diff failure; stale, unavailable, and bounded states require refresh. */
+    fun retrySelectedPatch() {
+        val current = mutableState.value
+        val failure = retryableFailure(current)
+        if (failure != null) {
+            loadSelectedPatch(path = checkNotNull(failure.path), useCache = false)
+        }
+    }
+
+    private fun retryableFailure(current: WorkspaceChangesUiState): WorkspaceChangesPatchState? {
+        val failure = current.patchState.takeIf(WorkspaceChangesPatchState::isRetryable)
+        val failurePath = failure?.path
+        val ownsSnapshot = current.isActive && current.snapshot != null
+        return failure?.takeIf { ownsSnapshot && current.selectedPath == failurePath }
+    }
+
+    private fun collapseSelection() {
+        cancelSelection()
+        mutableState.update {
+            it.copy(
+                selectedPath = null,
+                patchState = WorkspaceChangesPatchState.None,
+            )
+        }
+    }
+
+    private fun loadSnapshot() {
+        snapshotGeneration++
+        val generation = snapshotGeneration
+        snapshotJob?.cancel()
+        val retainingSnapshot = mutableState.value.snapshot != null
+        mutableState.update {
+            it.copy(
+                isLoading = !retainingSnapshot,
+                isRefreshing = retainingSnapshot,
+                failure = if (retainingSnapshot) it.failure else null,
+                refreshFailed = null,
+            )
+        }
+        snapshotJob = scope.launch {
+            val result = repository.loadSnapshot()
+            if (!isCurrentSnapshotLoad(generation)) return@launch
+
+            when (result) {
+                is WorkspaceChangesResult.Success -> publishSnapshot(
+                    generation = generation,
+                    snapshot = result.data,
+                )
+                WorkspaceChangesResult.Unsupported -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.Unsupported,
+                )
+                WorkspaceChangesResult.TooLarge -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.TooLarge,
+                )
+                WorkspaceChangesResult.Malformed -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.Malformed,
+                )
+                WorkspaceChangesResult.Stale -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.Stale,
+                )
+                WorkspaceChangesResult.AuthorizationFailure -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.AuthorizationFailure,
+                )
+                WorkspaceChangesResult.HttpFailure -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.HttpFailure,
+                )
+                WorkspaceChangesResult.NetworkFailure -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.NetworkFailure,
+                )
+                WorkspaceChangesResult.Failure -> publishSnapshotFailure(
+                    generation,
+                    WorkspaceChangesFailureKind.Failure,
+                )
+            }
+        }
+    }
+
+    private fun publishSnapshot(
+        generation: Long,
+        snapshot: WorkspaceChangesSnapshot,
+    ) {
+        if (isCurrentSnapshotLoad(generation)) {
+            cancelSelection()
+            diffCache = null
+            publishedSnapshotGeneration = generation
+            mutableState.update {
+                it.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    snapshot = snapshot,
+                    failure = null,
+                    refreshFailed = null,
+                    selectedPath = null,
+                    patchState = WorkspaceChangesPatchState.None,
+                )
+            }
+        }
+    }
+
+    private fun publishSnapshotFailure(
+        generation: Long,
+        failure: WorkspaceChangesFailureKind,
+    ) {
+        if (isCurrentSnapshotLoad(generation)) {
+            mutableState.update { current ->
+                if (current.snapshot == null) {
+                    current.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        failure = failure,
+                        refreshFailed = null,
+                    )
+                } else {
+                    current.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        failure = null,
+                        refreshFailed = failure,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isCurrentSnapshotLoad(generation: Long): Boolean =
+        generation == snapshotGeneration && mutableState.value.isActive
+
+    private fun loadSelectedPatch(path: String, useCache: Boolean) {
+        val currentSnapshotGeneration = publishedSnapshotGeneration ?: return
+        cancelSelection()
+        val currentSelectionGeneration = selectionGeneration
+        mutableState.update {
+            it.copy(
+                selectedPath = path,
+                patchState = WorkspaceChangesPatchState.Loading,
+            )
+        }
+
+        val cached = diffCache?.takeIf {
+            useCache && it.snapshotGeneration == currentSnapshotGeneration
+        }
+        if (cached != null) {
+            publishSelectedPatch(path, patchFrom(cached.patches, path))
+        } else {
+            loadDiff(
+                path = path,
+                selectionGeneration = currentSelectionGeneration,
+                snapshotGeneration = currentSnapshotGeneration,
+            )
+        }
+    }
+
+    private fun loadDiff(
+        path: String,
+        selectionGeneration: Long,
+        snapshotGeneration: Long,
+    ) {
+        selectionJob = scope.launch {
+            val result = repository.loadDiff()
+            if (!isCurrentSelection(selectionGeneration, snapshotGeneration, path)) {
+                return@launch
+            }
+
+            val patchState = when (result) {
+                is WorkspaceChangesResult.Success -> {
+                    diffCache = ChangesDiffCache(
+                        snapshotGeneration = snapshotGeneration,
+                        patches = result.data,
+                    )
+                    patchFrom(result.data, path)
+                }
+                WorkspaceChangesResult.TooLarge -> WorkspaceChangesPatchState.TooLarge(path)
+                WorkspaceChangesResult.Stale -> WorkspaceChangesPatchState.Stale(path)
+                WorkspaceChangesResult.Unsupported -> WorkspaceChangesPatchState.Unsupported(path)
+                WorkspaceChangesResult.Malformed -> WorkspaceChangesPatchState.Malformed(path)
+                WorkspaceChangesResult.AuthorizationFailure ->
+                    WorkspaceChangesPatchState.AuthorizationFailure(path)
+                WorkspaceChangesResult.HttpFailure -> WorkspaceChangesPatchState.HttpFailure(path)
+                WorkspaceChangesResult.NetworkFailure -> WorkspaceChangesPatchState.NetworkFailure(path)
+                WorkspaceChangesResult.Failure -> WorkspaceChangesPatchState.Failure(path)
+            }
+            if (isCurrentSelection(selectionGeneration, snapshotGeneration, path)) {
+                publishSelectedPatch(path, patchState)
+            }
+        }
+    }
+
+    private fun isCurrentSelection(
+        selectionGeneration: Long,
+        snapshotGeneration: Long,
+        path: String,
+    ): Boolean {
+        val current = mutableState.value
+        return selectionGeneration == this.selectionGeneration &&
+            snapshotGeneration == publishedSnapshotGeneration &&
+            current.isActive &&
+            current.selectedPath == path
+    }
+
+    private fun publishSelectedPatch(path: String, patchState: WorkspaceChangesPatchState) {
+        mutableState.update { current ->
+            if (current.isActive && current.selectedPath == path) {
+                current.copy(patchState = patchState)
+            } else {
+                current
+            }
+        }
+    }
+
+    private fun patchFrom(
+        patches: Map<String, WorkspacePatch>,
+        path: String,
+    ): WorkspaceChangesPatchState = when (val patch = patches[path] ?: WorkspacePatch.Stale) {
+        is WorkspacePatch.Content -> WorkspaceChangesPatchState.Content(path, patch.text)
+        WorkspacePatch.Unavailable -> WorkspaceChangesPatchState.Unavailable(path)
+        WorkspacePatch.TooLarge -> WorkspaceChangesPatchState.TooLarge(path)
+        WorkspacePatch.Stale -> WorkspaceChangesPatchState.Stale(path)
+    }
+
+    private fun cancelSelection() {
+        selectionGeneration++
+        selectionJob?.cancel()
+        selectionJob = null
+    }
+}
+
 data class FilesUiState(
     val isLoading: Boolean = false,
     val files: List<FileNode> = emptyList(),
@@ -704,6 +1020,93 @@ data class FilesUiState(
     val capabilitiesLoaded: Boolean = false,
     val isMutating: Boolean = false,
     val mutationMessage: String? = null,
+)
+
+data class WorkspaceChangesUiState(
+    val isActive: Boolean = false,
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val snapshot: WorkspaceChangesSnapshot? = null,
+    val failure: WorkspaceChangesFailureKind? = null,
+    val refreshFailed: WorkspaceChangesFailureKind? = null,
+    val selectedPath: String? = null,
+    val patchState: WorkspaceChangesPatchState = WorkspaceChangesPatchState.None,
+)
+
+enum class WorkspaceChangesFailureKind {
+    Unsupported,
+    TooLarge,
+    Malformed,
+    Stale,
+    AuthorizationFailure,
+    HttpFailure,
+    NetworkFailure,
+    Failure,
+}
+
+sealed interface WorkspaceChangesPatchState {
+    data object None : WorkspaceChangesPatchState
+
+    data object Loading : WorkspaceChangesPatchState
+
+    data class Content(
+        val path: String,
+        val text: String,
+    ) : WorkspaceChangesPatchState
+
+    data class Unavailable(val path: String) : WorkspaceChangesPatchState
+
+    data class TooLarge(val path: String) : WorkspaceChangesPatchState
+
+    data class Stale(val path: String) : WorkspaceChangesPatchState
+
+    data class Unsupported(val path: String) : WorkspaceChangesPatchState
+
+    data class Malformed(val path: String) : WorkspaceChangesPatchState
+
+    data class AuthorizationFailure(val path: String) : WorkspaceChangesPatchState
+
+    data class HttpFailure(val path: String) : WorkspaceChangesPatchState
+
+    data class NetworkFailure(val path: String) : WorkspaceChangesPatchState
+
+    data class Failure(val path: String) : WorkspaceChangesPatchState
+}
+
+private val WorkspaceChangesPatchState.path: String?
+    get() = when (this) {
+        WorkspaceChangesPatchState.None,
+        WorkspaceChangesPatchState.Loading -> null
+        is WorkspaceChangesPatchState.Content -> path
+        is WorkspaceChangesPatchState.Unavailable -> path
+        is WorkspaceChangesPatchState.TooLarge -> path
+        is WorkspaceChangesPatchState.Stale -> path
+        is WorkspaceChangesPatchState.Unsupported -> path
+        is WorkspaceChangesPatchState.Malformed -> path
+        is WorkspaceChangesPatchState.AuthorizationFailure -> path
+        is WorkspaceChangesPatchState.HttpFailure -> path
+        is WorkspaceChangesPatchState.NetworkFailure -> path
+        is WorkspaceChangesPatchState.Failure -> path
+    }
+
+private fun WorkspaceChangesPatchState.isRetryable(): Boolean = when (this) {
+    is WorkspaceChangesPatchState.Malformed,
+    is WorkspaceChangesPatchState.Stale,
+    is WorkspaceChangesPatchState.AuthorizationFailure,
+    is WorkspaceChangesPatchState.HttpFailure,
+    is WorkspaceChangesPatchState.NetworkFailure,
+    is WorkspaceChangesPatchState.Failure -> true
+    WorkspaceChangesPatchState.None,
+    WorkspaceChangesPatchState.Loading,
+    is WorkspaceChangesPatchState.Content,
+    is WorkspaceChangesPatchState.Unavailable,
+    is WorkspaceChangesPatchState.TooLarge,
+    is WorkspaceChangesPatchState.Unsupported -> false
+}
+
+private data class ChangesDiffCache(
+    val snapshotGeneration: Long,
+    val patches: Map<String, WorkspacePatch>,
 )
 
 /**

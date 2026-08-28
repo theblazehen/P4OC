@@ -770,9 +770,22 @@ private fun rememberCloseTab(
             tabMaps.routes.remove(tabId)
             tabMaps.ptyIds.remove(tabId)
             tabMaps.connectionStates.remove(tabId)
-            deps.tabManager.closeTab(tabId)
+            closeTabWorkspaceOwner(
+                tabId = tabId,
+                workspaceOwners = tabMaps.workspaceOwners,
+                closeTab = deps.tabManager::closeTab,
+            )
         }
     }
+}
+
+internal fun closeTabWorkspaceOwner(
+    tabId: String,
+    workspaceOwners: MutableMap<String, WorkspaceRepositoryOwner>,
+    closeTab: (String) -> Unit,
+) {
+    workspaceOwners.remove(tabId)?.close()
+    closeTab(tabId)
 }
 
 @Composable

@@ -28,6 +28,7 @@ import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.core.network.ServerConnectionRegistry
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
+import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.server.WorkspaceKey
 import dev.blazelight.p4oc.ui.navigation.Screen
@@ -102,7 +103,14 @@ internal fun pendingSessionForkStep(
     )
 }
 
-private fun workspaceGraphRoute(tabId: String, revision: Int): String = "workspace/$tabId/$revision"
+internal fun workspaceGraphRoute(tabId: String, revision: Int): String = "workspace/$tabId/$revision"
+
+internal fun filesViewModelKey(
+    tabId: String,
+    workspaceKey: WorkspaceKey,
+    generation: ServerGeneration,
+    keySuffix: String,
+): String = "$tabId:$workspaceKey:${generation.value}:$keySuffix"
 
 /**
  * Per-tab navigation host.
@@ -938,8 +946,19 @@ private fun filesViewModelForRoute(
     keySuffix: String,
 ): FilesViewModel = koinViewModel(
     viewModelStoreOwner = owner,
-    key = "${workspaceViewModel.tabId}:${workspaceViewModel.workspace.key}:$keySuffix",
-    parameters = { parametersOf(workspaceViewModel.fileRepository, workspaceViewModel.uploadCoordinator) },
+    key = filesViewModelKey(
+        tabId = workspaceViewModel.tabId,
+        workspaceKey = workspaceViewModel.workspace.key,
+        generation = workspaceViewModel.generation,
+        keySuffix = keySuffix,
+    ),
+    parameters = {
+        parametersOf(
+            workspaceViewModel.fileRepository,
+            workspaceViewModel.workspaceChangesRepository,
+            workspaceViewModel.uploadCoordinator,
+        )
+    },
 )
 
 private sealed interface NavigationWorkspaceSelection {

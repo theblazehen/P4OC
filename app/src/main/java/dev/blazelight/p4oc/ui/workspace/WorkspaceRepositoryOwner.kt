@@ -5,6 +5,8 @@ import dev.blazelight.p4oc.data.files.FileRepository
 import dev.blazelight.p4oc.data.files.FileRepositoryFactory
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
 import dev.blazelight.p4oc.data.session.SessionRepositoryProvider
+import dev.blazelight.p4oc.data.vcs.WorkspaceChangesRepository
+import dev.blazelight.p4oc.data.vcs.WorkspaceChangesRepositoryImpl
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.workspace.Workspace
@@ -25,6 +27,7 @@ class WorkspaceRepositoryOwner(
     val workspaceClient: WorkspaceClient = repositoryLease.workspaceClient
     val sessionRepository: SessionRepositoryImpl = repositoryLease.repository
     val fileRepository: FileRepository = FileRepositoryFactory.create(workspaceClient)
+    val workspaceChangesRepository: WorkspaceChangesRepository = WorkspaceChangesRepositoryImpl(workspaceClient)
     private val uploadScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val uploadCoordinator = UploadCoordinator(
         scope = uploadScope,

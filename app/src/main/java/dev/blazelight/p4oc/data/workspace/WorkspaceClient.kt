@@ -38,7 +38,11 @@ import dev.blazelight.p4oc.data.remote.dto.SymbolDto
 import dev.blazelight.p4oc.data.remote.dto.TodoDto
 import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.VcsInfoDto
+import dev.blazelight.p4oc.data.remote.dto.WorkspaceVcsDiffDto
+import dev.blazelight.p4oc.data.remote.dto.WorkspaceVcsInfoDto
+import dev.blazelight.p4oc.data.remote.dto.WorkspaceVcsStatusDto
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
+import dev.blazelight.p4oc.data.vcs.VcsDiffMode
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.workspace.Workspace
 import kotlinx.coroutines.Dispatchers
@@ -52,9 +56,20 @@ import okio.Buffer
 
 import retrofit2.HttpException
 import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 
 private const val BOUNDED_FILE_READ_CHUNK_BYTES = 8L * 1024
 private const val FILE_RESPONSE_TOO_LARGE_MESSAGE = "File response exceeds the allowed size"
+private const val VCS_RESPONSE_TOO_LARGE_MESSAGE = "VCS response exceeds the allowed size"
+private const val INVALID_UTF8_RESPONSE_MESSAGE = "Response body is not valid UTF-8"
+internal const val VCS_INFO_RESPONSE_LIMIT_BYTES = 64L * 1024
+internal const val VCS_STATUS_RESPONSE_LIMIT_BYTES = 2L * 1024 * 1024
+internal const val VCS_DIFF_RESPONSE_LIMIT_BYTES = 12L * 1024 * 1024
+
+internal class BoundedResponseTooLargeException(message: String) : IOException(message)
 
 class WorkspaceClient(
     override val workspace: Workspace,
@@ -66,6 +81,11 @@ class WorkspaceClient(
     private val api: OpenCodeApi
         get() = apiProvider.apiFor(workspace.server, generation)
     private val directory: String? = workspace.directory
+    private val strictVcsJson = Json {
+        ignoreUnknownKeys = true
+        isLenient = false
+        coerceInputValues = false
+    }
 
     override suspend fun listProjects(): List<ProjectDto> = api.listProjects(directory = null, workspace = null)
 
@@ -97,6 +117,40 @@ class WorkspaceClient(
     override suspend fun getSession(id: String): SessionDto = api.getSession(id, directory, workspace = null)
 
     suspend fun getVcsInfo(): VcsInfoDto = api.getVcsInfo(directory, workspace = null)
+
+    internal suspend fun loadWorkspaceVcsInfo(): WorkspaceVcsInfoDto =
+        api.getVcsInfoRaw(directory, workspace = null).decodeBoundedJson(
+            maxResponseBytes = VCS_INFO_RESPONSE_LIMIT_BYTES,
+            tooLargeMessage = VCS_RESPONSE_TOO_LARGE_MESSAGE,
+        ) { content ->
+            strictVcsJson.decodeFromString(content)
+        }
+
+    internal suspend fun loadWorkspaceVcsStatus(): List<WorkspaceVcsStatusDto> =
+        api.getVcsStatusRaw(directory, workspace = null).decodeBoundedJson(
+            maxResponseBytes = VCS_STATUS_RESPONSE_LIMIT_BYTES,
+            tooLargeMessage = VCS_RESPONSE_TOO_LARGE_MESSAGE,
+        ) { content ->
+            strictVcsJson.decodeFromString(content)
+        }
+
+    internal suspend fun loadWorkspaceVcsDiff(
+        mode: VcsDiffMode,
+        context: Int,
+    ): List<WorkspaceVcsDiffDto> {
+        require(context >= 0) { "context must be non-negative" }
+        return api.getVcsDiffRaw(
+            mode = mode,
+            context = context,
+            directory = directory,
+            workspace = null,
+        ).decodeBoundedJson(
+            maxResponseBytes = VCS_DIFF_RESPONSE_LIMIT_BYTES,
+            tooLargeMessage = VCS_RESPONSE_TOO_LARGE_MESSAGE,
+        ) { content ->
+            strictVcsJson.decodeFromString(content)
+        }
+    }
 
     suspend fun getAgents(): List<AgentDto> = api.getAgents(directory, workspace = null)
 
@@ -304,32 +358,43 @@ class WorkspaceClient(
 
     suspend fun readFileBounded(path: String, maxResponseBytes: Long): FileContentDto {
         require(maxResponseBytes > 0) { "maxResponseBytes must be positive" }
-        val response = api.readFileRaw(path, directory, workspace = null)
-        try {
-            if (!response.isSuccessful) throw HttpException(response)
-            val content = response.body()?.let { body ->
-                body.readUtf8BoundedCancellable(maxResponseBytes)
-            }.orEmpty()
-            return json.decodeFromString(content)
-        } finally {
-            response.body()?.close()
-            response.errorBody()?.close()
+        return api.readFileRaw(path, directory, workspace = null).decodeBoundedJson(
+            maxResponseBytes = maxResponseBytes,
+            tooLargeMessage = FILE_RESPONSE_TOO_LARGE_MESSAGE,
+        ) { content ->
+            json.decodeFromString(content)
         }
     }
 
-    private suspend fun ResponseBody.readUtf8BoundedCancellable(maxResponseBytes: Long): String =
+    private suspend fun <T> retrofit2.Response<ResponseBody>.decodeBoundedJson(
+        maxResponseBytes: Long,
+        tooLargeMessage: String,
+        decode: (String) -> T,
+    ): T = try {
+        if (!isSuccessful) throw HttpException(this)
+        val responseBody = body() ?: throw kotlinx.serialization.SerializationException("Missing response body")
+        decode(responseBody.readUtf8BoundedCancellable(maxResponseBytes, tooLargeMessage))
+    } finally {
+        body()?.close()
+        errorBody()?.close()
+    }
+
+    private suspend fun ResponseBody.readUtf8BoundedCancellable(
+        maxResponseBytes: Long,
+        tooLargeMessage: String,
+    ): String =
         withContext(Dispatchers.IO) {
             suspendCancellableCoroutine { continuation ->
                 continuation.invokeOnCancellation { close() }
                 continuation.resumeWith(
-                    runCatching { readUtf8Bounded(maxResponseBytes) },
+                    runCatching { readUtf8Bounded(maxResponseBytes, tooLargeMessage) },
                 )
             }
         }
 
-    private fun ResponseBody.readUtf8Bounded(maxResponseBytes: Long): String {
+    private fun ResponseBody.readUtf8Bounded(maxResponseBytes: Long, tooLargeMessage: String): String {
         val declaredBytes = contentLength()
-        if (declaredBytes > maxResponseBytes) throw IOException(FILE_RESPONSE_TOO_LARGE_MESSAGE)
+        if (declaredBytes > maxResponseBytes) throw BoundedResponseTooLargeException(tooLargeMessage)
 
         val bufferedBytes = Buffer()
         val responseSource = source()
@@ -343,10 +408,20 @@ class WorkspaceClient(
             }
             val readBytes = responseSource.read(bufferedBytes, readLimit)
             if (readBytes == -1L) break
-            if (readBytes > remainingBytes) throw IOException(FILE_RESPONSE_TOO_LARGE_MESSAGE)
+            if (readBytes > remainingBytes) throw BoundedResponseTooLargeException(tooLargeMessage)
             streamedBytes += readBytes
         }
-        return bufferedBytes.readUtf8()
+        return decodeStrictUtf8(bufferedBytes.readByteArray())
+    }
+
+    private fun decodeStrictUtf8(bytes: ByteArray): String = try {
+        StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
+    } catch (_: CharacterCodingException) {
+        throw kotlinx.serialization.SerializationException(INVALID_UTF8_RESPONSE_MESSAGE)
     }
 
     suspend fun getFileStatus(): List<FileStatusDto> = api.getFileStatus(directory, workspace = null)

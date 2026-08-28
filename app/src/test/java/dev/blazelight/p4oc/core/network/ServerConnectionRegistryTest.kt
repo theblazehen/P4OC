@@ -436,7 +436,7 @@ class ServerConnectionRegistryTest {
         val settings = mockk<SettingsDataStore>()
         coEvery { settings.getSavedServerPassword(server) } returns "persisted-password"
         val manager = successfulManager(server)
-        val registry = ServerConnectionRegistry(settings, { manager }, backgroundScope)
+        val registry = ServerConnectionRegistry(settings, { _, _ -> manager }, backgroundScope)
 
         registry.connect(server)
         runCurrent()
@@ -449,7 +449,7 @@ class ServerConnectionRegistryTest {
         val server = SavedServerRegistry.fromConnection("http://authenticated.example.com", "Authenticated")
         val settings = mockk<SettingsDataStore>()
         val manager = successfulManager(server)
-        val registry = ServerConnectionRegistry(settings, { manager }, backgroundScope)
+        val registry = ServerConnectionRegistry(settings, { _, _ -> manager }, backgroundScope)
 
         registry.connect(server, "explicit-password")
         runCurrent()
@@ -469,7 +469,7 @@ class ServerConnectionRegistryTest {
         coEvery { settings.getSavedServerPassword(beta) } returns "beta-pass"
         val alphaManager = successfulManager(alpha)
         val betaManager = successfulManager(beta)
-        val registry = ServerConnectionRegistry(settings, { config ->
+        val registry = ServerConnectionRegistry(settings, { config, _ ->
             when (config.url) {
                 alpha.endpoint -> alphaManager
                 beta.endpoint -> betaManager
@@ -492,7 +492,7 @@ class ServerConnectionRegistryTest {
     ): ServerConnectionRegistry {
         val settings = mockk<SettingsDataStore>()
         coEvery { settings.getSavedServerPassword(any()) } returns null
-        return ServerConnectionRegistry(settings, factory, scope)
+        return ServerConnectionRegistry(settings, { config, _ -> factory(config) }, scope)
     }
 
     private fun successfulManager(server: dev.blazelight.p4oc.core.datastore.SavedServer): ConnectionManager {

@@ -44,9 +44,10 @@ import kotlin.coroutines.coroutineContext
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerConnectionRegistry constructor(
     private val settingsDataStore: SettingsDataStore,
-    private val connectionManagerFactory: (ServerConfig) -> ConnectionManager,
+    private val connectionManagerFactory: (ServerConfig, () -> ServerGeneration) -> ConnectionManager,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
+    private val generationSequence = ServerGenerationSequence
     private val states = ConcurrentHashMap<String, MutableStateFlow<ConnectionState>>()
     private val managers = ConcurrentHashMap<String, ConnectionManager>()
     private val connections = ConcurrentHashMap<String, MutableStateFlow<Connection?>>()
@@ -117,8 +118,10 @@ class ServerConnectionRegistry constructor(
      * Resolves the REST API owned by one exact server connection generation.
      * A workspace owner must never silently move to a newer connection after reconnect.
      */
-    fun api(serverRef: ServerRef, generation: dev.blazelight.p4oc.domain.server.ServerGeneration): OpenCodeApi? =
-        managerForGeneration(serverRef, generation)?.getApi()
+    fun api(serverRef: ServerRef, generation: dev.blazelight.p4oc.domain.server.ServerGeneration): OpenCodeApi? {
+        val connection = managers[serverRef.endpointKey]?.connection?.value
+        return connection.apiForGeneration(generation)
+    }
 
     /** Resolves the connection and auth-aware client from the same registry-owned manager. */
     fun terminalTransport(
@@ -160,7 +163,7 @@ class ServerConnectionRegistry constructor(
         val state = stateFlow(server.endpointKey)
         state.value = ConnectionState.Connecting
         val manager = managers.getOrPut(server.endpointKey) {
-            connectionManagerFactory(server.toServerConfig())
+            connectionManagerFactory(server.toServerConfig(), generationSequence::next)
         }
         stateCollectors.computeIfAbsent(server.endpointKey) {
             scope.launch {

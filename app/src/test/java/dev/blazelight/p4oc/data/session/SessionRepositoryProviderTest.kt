@@ -487,7 +487,7 @@ class SessionRepositoryProviderTest {
         )
         val settings = mockk<SettingsDataStore>()
         coEvery { settings.getSavedServerPassword(any()) } returns null
-        val registry = ServerConnectionRegistry(settings, { manager }, backgroundScope)
+        val registry = ServerConnectionRegistry(settings, { _, _ -> manager }, backgroundScope)
         val api = mockk<OpenCodeApi>(relaxed = true)
         val provider = SessionRepositoryProvider(
             activeServerApiProvider = ActiveServerApiProvider { _, _ -> api },
