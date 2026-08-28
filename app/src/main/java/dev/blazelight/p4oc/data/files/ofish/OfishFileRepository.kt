@@ -9,6 +9,7 @@ import dev.blazelight.p4oc.data.files.FileUploadResult
 import dev.blazelight.p4oc.data.files.FileWriteRequest
 import dev.blazelight.p4oc.data.files.FileWriteResult
 import dev.blazelight.p4oc.domain.model.FileContent
+import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
 
 internal class OfishFileRepository(
@@ -37,6 +38,8 @@ internal class OfishFileRepository(
         val hash = mutationClient.hashFile(path)
         return FileOperationResult.Ok(content.copy(hash = hash))
     }
+
+    override suspend fun searchFiles(query: String): FileOperationResult<List<FileNode>> = delegate.searchFiles(query)
 
     override suspend fun searchSymbols(query: String): FileOperationResult<List<Symbol>> = delegate.searchSymbols(query)
 

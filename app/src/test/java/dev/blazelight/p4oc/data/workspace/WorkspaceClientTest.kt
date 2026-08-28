@@ -156,6 +156,44 @@ class WorkspaceClientTest {
     }
 
     @Test
+    fun `file search forwards query and exact workspace file scope at server limit`() = runTest {
+        val api = mockk<OpenCodeApi>()
+        val expected = listOf("app/src/Main.kt", "README.md")
+        coEvery {
+            api.searchFiles(
+                query = "main",
+                directory = "/repo/exact-workspace",
+                workspace = null,
+                dirs = "false",
+                type = "file",
+                limit = 200,
+            )
+        } returns expected
+        val client = WorkspaceClient(
+            workspace = Workspace(
+                server = ServerRef.fromEndpointKey("http://test.local"),
+                directory = "/repo/exact-workspace",
+            ),
+            generation = ServerGeneration(1L),
+            apiProvider = ActiveServerApiProvider { _, _ -> api },
+            connectionState = MutableStateFlow(ConnectionState.Connected),
+        )
+
+        assertEquals(expected, client.searchFiles("main"))
+
+        coVerify(exactly = 1) {
+            api.searchFiles(
+                query = "main",
+                directory = "/repo/exact-workspace",
+                workspace = null,
+                dirs = "false",
+                type = "file",
+                limit = 200,
+            )
+        }
+    }
+
+    @Test
     fun `clients with identical session ids keep distinct api and connection authority`() = runTest {
         val firstApi = mockk<OpenCodeApi>()
         val secondApi = mockk<OpenCodeApi>()

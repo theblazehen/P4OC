@@ -102,6 +102,38 @@ class ChatViewModel constructor(
     val hasUnreadResponse: StateFlow<Boolean> = _hasUnreadResponse.asStateFlow()
     private val _isActiveTab = MutableStateFlow(false)
 
+    // Repository emissions may be collected immediately from init, so every field read by
+    // applyRepositorySessionState must be initialized before any collector can launch.
+    private var lastResponseCompletedToken = 0L
+    private var hasResponseTokenBaseline = false
+    private var responseReconciliationJob: Job? = null
+    private var initOperationGeneration = 0L
+    private var currentInitOperationGeneration: Long? = null
+    private var currentInitCommandDispatchOwner: Long? = null
+    private var initRequestJob: Job? = null
+    private var initTerminalTokenBaseline: Long? = null
+    private val commandDispatchGeneration = AtomicLong(NO_COMMAND_DISPATCH_OWNER)
+    private val commandDispatchOwner = AtomicLong(NO_COMMAND_DISPATCH_OWNER)
+    private var composerSubmissionGeneration = 0L
+    private var pendingComposerSubmission: PendingComposerSubmission? = null
+
+    private data class ComposerSubmission(
+        val generation: Long,
+        val draft: String,
+    )
+
+    private data class PendingComposerSubmission(
+        val submission: ComposerSubmission,
+        val clearAcknowledged: Boolean = false,
+        val failed: Boolean = false,
+    )
+
+    // True from the moment a send clears the previous run's UI error until the run is confirmed
+    // active (Busy/Retry) or reaches a genuine terminal boundary. While set, repository emissions
+    // that still carry the previous run's error (todos, permissions, session updates arriving
+    // before the synthetic Busy clears it) must not flicker that stale error back into the UI.
+    private var suppressStaleRunErrors = false
+
     init {
         serverConnectionRegistry?.let(::observeCommandCatalogEvents)
     }
@@ -426,36 +458,6 @@ class ChatViewModel constructor(
             repositorySessionState.collect { state -> applyRepositorySessionState(state) }
         }
     }
-
-    private var lastResponseCompletedToken = 0L
-    private var hasResponseTokenBaseline = false
-    private var responseReconciliationJob: Job? = null
-    private var initOperationGeneration = 0L
-    private var currentInitOperationGeneration: Long? = null
-    private var currentInitCommandDispatchOwner: Long? = null
-    private var initRequestJob: Job? = null
-    private var initTerminalTokenBaseline: Long? = null
-    private val commandDispatchGeneration = AtomicLong(NO_COMMAND_DISPATCH_OWNER)
-    private val commandDispatchOwner = AtomicLong(NO_COMMAND_DISPATCH_OWNER)
-    private var composerSubmissionGeneration = 0L
-    private var pendingComposerSubmission: PendingComposerSubmission? = null
-
-    private data class ComposerSubmission(
-        val generation: Long,
-        val draft: String,
-    )
-
-    private data class PendingComposerSubmission(
-        val submission: ComposerSubmission,
-        val clearAcknowledged: Boolean = false,
-        val failed: Boolean = false,
-    )
-
-    // True from the moment a send clears the previous run's UI error until the run is confirmed
-    // active (Busy/Retry) or reaches a genuine terminal boundary. While set, repository emissions
-    // that still carry the previous run's error (todos, permissions, session updates arriving
-    // before the synthetic Busy clears it) must not flicker that stale error back into the UI.
-    private var suppressStaleRunErrors = false
 
     @Suppress("CyclomaticComplexMethod")
     private fun applyRepositorySessionState(state: dev.blazelight.p4oc.data.session.SessionUiState) {

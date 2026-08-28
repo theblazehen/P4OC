@@ -95,6 +95,78 @@ class WorkspaceFileRepositoryTest {
     }
 
     @Test
+    fun `searchFiles trims query and returns empty without a client call for blank query`() = runTest {
+        val client = FakeFileWorkspaceClient(searchPaths = listOf("src/Main.kt"))
+        val repository = WorkspaceFileRepository(client)
+
+        val blankResult = repository.searchFiles("   \t\n") as FileOperationResult.Ok
+        assertTrue(blankResult.data.isEmpty())
+        assertTrue(client.fileSearchQueries.isEmpty())
+
+        val result = repository.searchFiles("  Main  ") as FileOperationResult.Ok
+        assertEquals(listOf("Main"), client.fileSearchQueries)
+        assertEquals(listOf("src/Main.kt"), result.data.map { it.path })
+    }
+
+    @Test
+    fun `searchFiles preserves relevance order and maps paths to file nodes`() = runTest {
+        val client = FakeFileWorkspaceClient(
+            searchPaths = listOf(
+                "feature/LeastAlphabetical.kt",
+                "app/src/MostRelevant.kt",
+                "README.md",
+            )
+        )
+        val repository = WorkspaceFileRepository(client)
+
+        val result = repository.searchFiles("kt") as FileOperationResult.Ok
+
+        assertEquals(
+            listOf("feature/LeastAlphabetical.kt", "app/src/MostRelevant.kt", "README.md"),
+            result.data.map { it.path },
+        )
+        assertEquals(listOf("LeastAlphabetical.kt", "MostRelevant.kt", "README.md"), result.data.map { it.name })
+        assertTrue(result.data.all { it.type == "file" })
+    }
+
+    @Test
+    fun `searchFiles normalizes and deduplicates paths while discarding unsafe and root results`() = runTest {
+        val client = FakeFileWorkspaceClient(
+            searchPaths = listOf(
+                "src//./Main.kt",
+                "../secret.txt",
+                "src/Main.kt",
+                ".",
+                "/absolute.txt",
+                "safe/../escape.txt",
+                "src//Second.kt",
+                "https://example.com/file.kt",
+                "~/.private",
+                " / ",
+            )
+        )
+        val repository = WorkspaceFileRepository(client)
+
+        val result = repository.searchFiles("src") as FileOperationResult.Ok
+
+        assertEquals(listOf("src/Main.kt", "src/Second.kt"), result.data.map { it.path })
+    }
+
+    @Test
+    fun `searchFiles propagates client failure as human readable failed result`() = runTest {
+        val failure = IllegalStateException("file search unavailable")
+        val client = FakeFileWorkspaceClient().apply { searchFileFailure = failure }
+        val repository = WorkspaceFileRepository(client)
+
+        val result = repository.searchFiles("Main")
+
+        assertTrue(result is FileOperationResult.Failed)
+        result as FileOperationResult.Failed
+        assertEquals("file search unavailable", result.message)
+        assertEquals(failure, result.cause)
+    }
+
+    @Test
     fun `searchSymbols trims query and returns empty for blank query`() = runTest {
         val client = FakeFileWorkspaceClient(symbols = listOf(symbolDto("Main")))
         val repository = WorkspaceFileRepository(client)
@@ -159,12 +231,15 @@ class WorkspaceFileRepositoryTest {
         var files: List<FileNodeDto> = emptyList(),
         var content: FileContentDto = FileContentDto(type = "text", content = ""),
         var statuses: List<FileStatusDto> = emptyList(),
+        var searchPaths: List<String> = emptyList(),
         var symbols: List<SymbolDto> = emptyList(),
         var filesFailure: Throwable? = null,
     ) : FileWorkspaceClient {
         var statusFailure: Throwable? = null
+        var searchFileFailure: Throwable? = null
         val listFilesPaths = mutableListOf<String>()
         val readFilePaths = mutableListOf<String>()
+        val fileSearchQueries = mutableListOf<String>()
         val searchQueries = mutableListOf<String>()
 
         override suspend fun listFiles(path: String): List<FileNodeDto> {
@@ -181,6 +256,12 @@ class WorkspaceFileRepositoryTest {
         override suspend fun getFileStatus(): List<FileStatusDto> {
             statusFailure?.let { throw it }
             return statuses
+        }
+
+        override suspend fun searchFiles(query: String): List<String> {
+            fileSearchQueries += query
+            searchFileFailure?.let { throw it }
+            return searchPaths
         }
 
         override suspend fun searchSymbols(query: String): List<SymbolDto> {

@@ -262,5 +262,14 @@ class WorkspaceClient(
 
     suspend fun getFileStatus(): List<FileStatusDto> = api.getFileStatus(directory, workspace = null)
 
+    suspend fun searchFiles(query: String): List<String> = api.searchFiles(
+        query = query,
+        directory = workspace.directory,
+        workspace = null,
+        dirs = "false",
+        type = "file",
+        limit = 200,
+    )
+
     suspend fun searchSymbols(query: String): List<SymbolDto> = api.searchSymbols(query, directory, workspace = null)
 }

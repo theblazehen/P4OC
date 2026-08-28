@@ -76,6 +76,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -906,6 +907,22 @@ class ChatViewModelTest {
         emitEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
         flushMessages()
         assertNull(vm.uiState.value.runNotice)
+        assertTrue(vm.uiState.value.isBusy)
+    }
+
+    @Test
+    fun constructor_withImmediateRepositoryState_adoptsInitialStateWithoutCrash() = runTest {
+        val repo = SessionRepositoryImpl(
+            workspaceClient,
+            messageMapper,
+            dispatcher = StandardTestDispatcher(testScheduler),
+        )
+        repo.acceptEvent(OpenCodeEvent.SessionStatusChanged("session-1", SessionStatus.Busy))
+        assertTrue(repo.sessionUiState(SessionId("session-1")).value.status is SessionStatus.Busy)
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+
+        val vm = createViewModel(repository = repo)
+
         assertTrue(vm.uiState.value.isBusy)
     }
 

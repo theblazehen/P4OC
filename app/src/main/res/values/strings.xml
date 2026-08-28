@@ -346,7 +346,12 @@
     <string name="open_sub_agent">Open Sub-Agent</string>
     
     <!-- File Explorer Screen -->
-    <string name="files_search_placeholder">Search files…</string>
+    <string name="files_search_placeholder">Search workspace files…</string>
+    <string name="files_search_blank_hint">Search filenames across this workspace.</string>
+    <string name="files_search_loading">Searching workspace…</string>
+    <string name="files_search_failed">Could not search workspace files. Check the connection and try again.</string>
+    <string name="files_search_no_results">No files found in this workspace.</string>
+    <string name="files_search_result_description">%1$s, file in %2$s</string>
     <string name="files_workspace_global">Global workspace</string>
     <string name="files_breadcrumb_root">Workspace root</string>
     <string name="files_copy_path">Copy Path</string>
@@ -355,7 +360,7 @@
     <string name="files_type_folder">Folder</string>
     <string name="files_item_description">%1$s, %2$s, path %3$s</string>
     <string name="files_item_description_git">%1$s, %2$s, path %3$s, Git status %4$s</string>
-    <string name="files_no_matching_files">-- no matching files --</string>
+
     <string name="files_empty_folder">-- empty folder --</string>
     <string name="files_symbol_search_failed">Could not search symbols. Check the connection and try again.</string>
     <string name="files_restored_path_unavailable">Restored path is unavailable; showing workspace root.</string>

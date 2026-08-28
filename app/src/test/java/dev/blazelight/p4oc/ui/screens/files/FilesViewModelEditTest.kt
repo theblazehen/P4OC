@@ -10,6 +10,7 @@ import dev.blazelight.p4oc.data.files.FileUploadResult
 import dev.blazelight.p4oc.data.files.FileWriteRequest
 import dev.blazelight.p4oc.data.files.FileWriteResult
 import dev.blazelight.p4oc.domain.model.FileContent
+import dev.blazelight.p4oc.domain.model.FileNode
 import dev.blazelight.p4oc.domain.model.Symbol
 import dev.blazelight.p4oc.ui.screens.files.upload.UploadCoordinator
 import kotlinx.coroutines.CoroutineScope
@@ -289,7 +290,7 @@ class FilesViewModelEditTest {
         val recreated = FilesViewModel(repo, testUploadCoordinator(repo), savedStateHandle)
 
         assertEquals("src/main", recreated.uiState.value.currentPath)
-        assertTrue(recreated.uiState.value.isSearchActive)
+        assertFalse(recreated.uiState.value.isSearchActive)
         assertEquals("view", recreated.uiState.value.searchQuery)
         assertTrue(recreated.uiState.value.isSymbolMode)
         assertEquals("Main", recreated.uiState.value.symbolQuery)
@@ -374,6 +375,9 @@ class FilesViewModelEditTest {
 
         override suspend fun readFile(path: String): FileOperationResult<FileContent> =
             FileOperationResult.Ok(FileContent(content = content, hash = hash))
+
+        override suspend fun searchFiles(query: String): FileOperationResult<List<FileNode>> =
+            FileOperationResult.Ok(emptyList())
 
         override suspend fun searchSymbols(query: String): FileOperationResult<List<Symbol>> {
             symbolQueries += query
