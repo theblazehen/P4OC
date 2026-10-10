@@ -86,6 +86,11 @@ internal fun serverScreen(
         viewModel.start(config.autoReconnect)
     }
 
+    // The TLS toggle lives in the connect form; reveal the form when an attempt fails TLS validation.
+    LaunchedEffect(uiState.showTlsOptions) {
+        if (uiState.showTlsOptions) showManualForm = true
+    }
+
     // Start/stop mDNS discovery with screen lifecycle
     DisposableEffect(Unit) {
         viewModel.startDiscovery()

@@ -401,8 +401,11 @@ class ServerViewModel constructor(
                 serverNameCandidate = server.serviceName,
                 username = ServerUrl.DEFAULT_USERNAME,
                 password = savedPassword,
-                allowInsecure = server.allowInsecure,
-                showTlsOptions = server.allowInsecure,
+                // A one-tap network result always verifies TLS, even when a seed for the same
+                // host:port was trusted earlier (#67). If verification fails, the TLS toggle is
+                // shown so turning checks off stays an explicit choice in the form.
+                allowInsecure = false,
+                showTlsOptions = false,
             )
         }
         connectToRemote()
