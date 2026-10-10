@@ -14,6 +14,7 @@ import dev.blazelight.p4oc.domain.server.ServerIdentity
 import dev.blazelight.p4oc.domain.server.WorkspaceKey
 import dev.blazelight.p4oc.domain.session.SessionId
 import dev.blazelight.p4oc.domain.workspace.Workspace
+import dev.blazelight.p4oc.terminal.TerminalFontSize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -181,6 +182,7 @@ class SettingsDataStore constructor(
         private val KEY_LINE_SPACING = floatPreferencesKey("line_spacing")
         private val KEY_FONT_FAMILY = stringPreferencesKey("font_family")
         private val KEY_CODE_BLOCK_FONT_SIZE = intPreferencesKey("code_block_font_size")
+        private val KEY_TERMINAL_FONT_SIZE = intPreferencesKey("terminal_font_size")
         private val KEY_SHOW_LINE_NUMBERS = booleanPreferencesKey("show_line_numbers")
         private val KEY_WORD_WRAP = booleanPreferencesKey("word_wrap")
         private val KEY_COMPACT_MODE = booleanPreferencesKey("compact_mode")
@@ -590,6 +592,7 @@ class SettingsDataStore constructor(
             lineSpacing = prefs[KEY_LINE_SPACING] ?: 1.5f,
             fontFamily = prefs[KEY_FONT_FAMILY] ?: "System",
             codeBlockFontSize = prefs[KEY_CODE_BLOCK_FONT_SIZE] ?: 12,
+            terminalFontSize = TerminalFontSize.clamp(prefs[KEY_TERMINAL_FONT_SIZE] ?: TerminalFontSize.DEFAULT_SP),
             showLineNumbers = prefs[KEY_SHOW_LINE_NUMBERS] ?: true,
             wordWrap = prefs[KEY_WORD_WRAP] ?: false,
             compactMode = prefs[KEY_COMPACT_MODE] ?: false,
@@ -607,6 +610,7 @@ class SettingsDataStore constructor(
             prefs[KEY_LINE_SPACING] = settings.lineSpacing
             prefs[KEY_FONT_FAMILY] = settings.fontFamily
             prefs[KEY_CODE_BLOCK_FONT_SIZE] = settings.codeBlockFontSize
+            prefs[KEY_TERMINAL_FONT_SIZE] = TerminalFontSize.clamp(settings.terminalFontSize)
             prefs[KEY_SHOW_LINE_NUMBERS] = settings.showLineNumbers
             prefs[KEY_WORD_WRAP] = settings.wordWrap
             prefs[KEY_COMPACT_MODE] = settings.compactMode
@@ -616,6 +620,11 @@ class SettingsDataStore constructor(
             prefs[KEY_TOOL_WIDGET_DEFAULT_STATE] = settings.toolWidgetDefaultState
             prefs[KEY_OPEN_SUB_AGENT_NEW_TAB] = settings.openSubAgentInNewTab
         }
+    }
+
+    /** Writes only the terminal size, so pinch-to-zoom never overwrites other visual settings. */
+    suspend fun setTerminalFontSize(sizeSp: Int) {
+        context.dataStore.edit { prefs -> prefs[KEY_TERMINAL_FONT_SIZE] = TerminalFontSize.clamp(sizeSp) }
     }
 
     // ── Notification settings ──
@@ -1081,6 +1090,7 @@ data class VisualSettings(
     val lineSpacing: Float = 1.5f,
     val fontFamily: String = "System",
     val codeBlockFontSize: Int = 12,
+    val terminalFontSize: Int = TerminalFontSize.DEFAULT_SP,
     val showLineNumbers: Boolean = true,
     val wordWrap: Boolean = false,
     val compactMode: Boolean = false,

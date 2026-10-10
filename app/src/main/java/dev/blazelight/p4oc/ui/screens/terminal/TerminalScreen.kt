@@ -15,13 +15,17 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.termux.view.TerminalView
 import dev.blazelight.p4oc.R
+import dev.blazelight.p4oc.core.datastore.SettingsDataStore
+import dev.blazelight.p4oc.core.datastore.VisualSettings
 import dev.blazelight.p4oc.ui.components.TermuxExtraKeysBar
 import dev.blazelight.p4oc.ui.components.TermuxTerminalView
 import dev.blazelight.p4oc.ui.components.TuiLoadingIndicator
 import dev.blazelight.p4oc.ui.theme.LocalOpenCodeTheme
 import dev.blazelight.p4oc.ui.theme.SemanticColors
 import dev.blazelight.p4oc.ui.theme.Spacing
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @Composable
 fun TerminalScreen(
@@ -34,6 +38,11 @@ fun TerminalScreen(
     val terminalReconnectingState = stringResource(R.string.terminal_accessibility_reconnecting)
     var terminalView by remember { mutableStateOf<TerminalView?>(null) }
     val currentTerminalView by rememberUpdatedState(terminalView)
+    val settingsDataStore: SettingsDataStore = koinInject()
+    val visualSettings by settingsDataStore.visualSettings.collectAsStateWithLifecycle(
+        initialValue = VisualSettings(),
+    )
+    val settingsScope = rememberCoroutineScope()
 
     // Modifier key state (hoisted for use by both keyboard and extra keys bar)
     var ctrlActive by remember { mutableStateOf(false) }
@@ -109,6 +118,10 @@ fun TerminalScreen(
                         emulator = viewModel.getTerminalEmulator(),
                         accessibleScreenText = accessibleScreenText,
                         onKeyInput = wrappedKeyInput,
+                        textSizeSp = visualSettings.terminalFontSize,
+                        onTextSizeChange = { size ->
+                            settingsScope.launch { settingsDataStore.setTerminalFontSize(size) }
+                        },
                         modifier = Modifier.fillMaxSize(),
                         onTerminalViewReady = { view -> terminalView = view },
                         onTerminalSizeChanged = viewModel::onTerminalSizeChanged,

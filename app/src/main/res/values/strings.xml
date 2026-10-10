@@ -502,6 +502,7 @@
     <string name="visual_settings_shows_full_output">Shows full output/diffs</string>
     <string name="visual_settings_message_font_size">Message Font Size</string>
     <string name="visual_settings_code_font_size">Code Block Font Size</string>
+    <string name="visual_settings_terminal_font_size">Terminal Font Size</string>
     <string name="visual_settings_show_line_numbers">Show Line Numbers</string>
     <string name="visual_settings_show_line_numbers_desc">Display line numbers in code blocks</string>
     <string name="visual_settings_word_wrap">Word Wrap</string>

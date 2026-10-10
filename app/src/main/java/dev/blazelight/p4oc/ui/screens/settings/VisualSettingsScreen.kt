@@ -22,6 +22,7 @@ import androidx.lifecycle.viewModelScope
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.datastore.SettingsDataStore
 import dev.blazelight.p4oc.core.datastore.VisualSettings
+import dev.blazelight.p4oc.terminal.TerminalFontSize
 import dev.blazelight.p4oc.ui.components.TuiStepper
 import dev.blazelight.p4oc.ui.components.TuiSwitch
 import dev.blazelight.p4oc.ui.components.TuiTopBar
@@ -122,6 +123,10 @@ class VisualSettingsViewModel constructor(
         persistSettings(_settings.value.copy(codeBlockFontSize = size.coerceIn(8, 20)))
     }
 
+    fun updateTerminalFontSize(size: Int) {
+        persistSettings(_settings.value.copy(terminalFontSize = TerminalFontSize.clamp(size)))
+    }
+
     fun toggleLineNumbers() {
         persistSettings(_settings.value.copy(showLineNumbers = !_settings.value.showLineNumbers))
     }
@@ -213,6 +218,13 @@ fun VisualSettingsScreen(
                     value = settings.codeBlockFontSize,
                     onValueChange = viewModel::updateCodeBlockFontSize,
                     range = 8..20
+                )
+
+                FontSizeSlider(
+                    label = stringResource(R.string.visual_settings_terminal_font_size),
+                    value = settings.terminalFontSize,
+                    onValueChange = viewModel::updateTerminalFontSize,
+                    range = TerminalFontSize.MIN_SP..TerminalFontSize.MAX_SP
                 )
             }
 
