@@ -169,6 +169,33 @@ class SessionRepositoryMessageStateTest {
     }
 
     @Test
+    fun `v2 content streams into exact part and ended snapshot repairs missed fragments`() = runTest {
+        val repository = repository()
+        val textId = "p4oc.v2.m1.text.0"
+        val reasoningId = "p4oc.v2.m1.reasoning.0"
+        fun frame(id: String, kind: String, text: String, phase: String) =
+            OpenCodeEvent.V2ContentChanged("s1", "m1", id, kind, text, phase)
+
+        repository.acceptEvent(frame(textId, "text", "", "started"))
+        repository.acceptEvent(frame(textId, "text", "Hel", "delta"))
+        repository.acceptEvent(frame(reasoningId, "reasoning", "Think", "delta"))
+        repository.acceptEvent(frame(textId, "text", "lo", "delta"))
+        val streaming = repository.messages(sessionId).value.single().parts
+        assertEquals(listOf(textId, reasoningId), streaming.map { it.id })
+        assertEquals("Hello", (streaming[0] as Part.Text).text)
+        assertTrue((streaming[0] as Part.Text).isStreaming)
+        assertEquals("Think", (streaming[1] as Part.Reasoning).text)
+
+        repository.acceptEvent(frame(textId, "text", "Hello!", "ended"))
+        repository.acceptEvent(frame(reasoningId, "reasoning", "Thinking", "ended"))
+        val finished = repository.messages(sessionId).value.single().parts
+        assertEquals("Hello!", (finished[0] as Part.Text).text)
+        assertFalse((finished[0] as Part.Text).isStreaming)
+        assertEquals("Thinking", (finished[1] as Part.Reasoning).text)
+        assertEquals(2, finished.size)
+    }
+
+    @Test
     fun `clear streaming flags sets all text parts non-streaming`() = runTest {
         val repository = repository()
         repository.acceptEvent(OpenCodeEvent.MessageUpdated(assistantMessage(id = "m1", createdAt = 100)))

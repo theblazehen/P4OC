@@ -1,4 +1,4 @@
-@file:Suppress("ImportOrdering")
+@file:Suppress("ImportOrdering", "DEPRECATION")
 
 package dev.blazelight.p4oc.ui.screens.chat
 
@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -32,6 +33,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.data.remote.dto.ModelInput
@@ -59,6 +62,8 @@ import dev.blazelight.p4oc.ui.components.chat.PhoneAttachmentSheet
 import dev.blazelight.p4oc.ui.components.command.CommandPalette
 import dev.blazelight.p4oc.ui.components.command.rememberResolvedCommandMetadata
 import dev.blazelight.p4oc.ui.components.question.InlineQuestionCard
+import dev.blazelight.p4oc.ui.components.form.InlineV2FormCard
+import dev.blazelight.p4oc.ui.components.form.InlineV2FormStatusCard
 import dev.blazelight.p4oc.ui.components.status.SessionStatusDot
 import dev.blazelight.p4oc.ui.components.todo.TodoTrackerSheet
 import dev.blazelight.p4oc.ui.components.toolwidgets.ToolWidgetState
@@ -173,6 +178,7 @@ fun ChatScreen(
 
     // Sub-manager state
     val pendingQuestion by viewModel.dialogManager.pendingQuestion.collectAsStateWithLifecycle()
+    val pendingV2Forms by viewModel.pendingV2Forms.collectAsStateWithLifecycle()
     val pendingPermissionsByCallId by viewModel.dialogManager.pendingPermissionsByCallId.collectAsStateWithLifecycle()
     val sessionPendingPermissions = remember(messages, pendingPermissionsByCallId) {
         unmatchedPendingPermissions(messages, pendingPermissionsByCallId)
@@ -246,6 +252,18 @@ fun ChatScreen(
         } else {
             viewModel.markInactive()
         }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, isActiveTab) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && isActiveTab) viewModel.refreshPendingForms()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (isActiveTab && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            viewModel.refreshPendingForms()
+        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(Unit) {
@@ -361,16 +379,33 @@ fun ChatScreen(
     } ?: 0
     val isBusy = uiState.isBusy
     val pendingQuestionId = pendingQuestion?.id
+    val hasRenderableFormContent = pendingV2Forms.forms.isNotEmpty() ||
+        pendingV2Forms.isLoading || pendingV2Forms.error != null
+    val pendingFormVersion = buildString {
+        append(pendingV2Forms.isLoading)
+        append(pendingV2Forms.error != null)
+        pendingV2Forms.forms.forEach { item ->
+            append(item.id)
+            append(':')
+            append(item.form != null)
+            append(item.isLoading)
+            append(item.error != null)
+        }
+    }
     val pendingPermissionCallIds = pendingPermissionsByCallId.keys
     val pendingPermissionVersion = pendingPermissionAttentionVersion(pendingPermissionCallIds)
-    val hasRenderableTail = !uiState.isLoading && (messages.isNotEmpty() || pendingQuestionId != null)
+    val hasRenderableTail = !uiState.isLoading &&
+        (messages.isNotEmpty() || pendingQuestionId != null || hasRenderableFormContent)
     var previouslyPendingPermissionCallIds by remember(uiState.session?.id) {
         mutableStateOf(emptySet<String>())
     }
 
     // Scroll on new messages, new parts, or streaming text/reasoning growth.
-    LaunchedEffect(messageCount, tailContentVersion, isBusy, pendingQuestionId) {
-        if (scrollRestorationState.onTailContentChanged(messages.isNotEmpty() || pendingQuestionId != null)) {
+    LaunchedEffect(messageCount, tailContentVersion, isBusy, pendingQuestionId, pendingFormVersion) {
+        if (scrollRestorationState.onTailContentChanged(
+                messages.isNotEmpty() || pendingQuestionId != null || hasRenderableFormContent,
+            )
+        ) {
             listState.scrollChatToBottom()
         }
     }
@@ -432,7 +467,7 @@ fun ChatScreen(
     }
 
     // The loading screen hides the list; once the session content is visible, land at the tail.
-    LaunchedEffect(uiState.session?.id, uiState.isLoading, messageCount, pendingQuestionId) {
+    LaunchedEffect(uiState.session?.id, uiState.isLoading, messageCount, pendingQuestionId, pendingFormVersion) {
         when (scrollRestorationState.onContentReady(hasRenderableTail)) {
             InitialTailDecision.ScrollToTail -> {
                 snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
@@ -446,7 +481,8 @@ fun ChatScreen(
     Scaffold(
         topBar = {
             ChatTopBar(
-                title = uiState.session?.title ?: "Chat",
+                // v2 sessions start without a title; match Home's fallback instead of rendering an empty header.
+                title = uiState.session?.title?.ifBlank { "Untitled session" } ?: "Chat",
                 connectionState = connectionState,
                 onBack = onNavigateBack,
                 onTerminal = onOpenTerminal,
@@ -463,7 +499,11 @@ fun ChatScreen(
                     uiState.session?.id?.let { onViewSessionDiff?.invoke(it) }
                 },
                 branchName = branchName,
-                todoCount = uiState.todos.count { it.status == "in_progress" || it.status == "pending" },
+                todoCount = if (viewModel.supportsSessionTodos) {
+                    uiState.todos.count { it.status == "in_progress" || it.status == "pending" }
+                } else {
+                    0
+                },
                 onTodos = {
                     viewModel.loadTodos()
                     showTodoTracker = true
@@ -630,7 +670,7 @@ fun ChatScreen(
                     isBusy = uiState.isBusy,
                     hasPendingQuestion = pendingQuestion != null,
                     hasSessionPendingPermissions = sessionPendingPermissions.isNotEmpty(),
-                )
+                ) || hasRenderableFormContent
 
                 if (!hasContent && !uiState.isLoading) {
                     EmptyChatView(modifier = Modifier.align(Alignment.Center))
@@ -721,6 +761,41 @@ fun ChatScreen(
                                     modifier = Modifier.padding(vertical = Spacing.xs)
                                 )
                             }
+                        }
+
+                        if (pendingV2Forms.isLoading && pendingV2Forms.forms.isEmpty()) {
+                            item(key = "pending_forms_loading") {
+                                InlineV2FormStatusCard(
+                                    message = stringResource(R.string.v2_form_checking_pending),
+                                    isLoading = true,
+                                    modifier = Modifier.padding(vertical = Spacing.xs),
+                                )
+                            }
+                        }
+                        pendingV2Forms.error?.let { error ->
+                            item(key = "pending_forms_error") {
+                                InlineV2FormStatusCard(
+                                    message = error,
+                                    isLoading = false,
+                                    onRetry = viewModel::refreshPendingForms,
+                                    modifier = Modifier.padding(vertical = Spacing.xs),
+                                )
+                            }
+                        }
+                        itemsIndexed(
+                            items = pendingV2Forms.forms,
+                            key = { _, item -> "pending_v2_form_${item.id}" },
+                        ) { _, item ->
+                            InlineV2FormCard(
+                                form = item.form,
+                                isLoading = item.isLoading,
+                                isSubmitting = item.isSubmitting,
+                                error = item.error,
+                                onSubmit = { answer -> viewModel.respondToForm(item.id, answer) },
+                                onReject = { viewModel.rejectPendingForm(item.id) },
+                                onRetry = { viewModel.retryPendingForm(item.id) },
+                                modifier = Modifier.padding(vertical = Spacing.xs),
+                            )
                         }
                     }
                 }

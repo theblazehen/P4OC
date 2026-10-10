@@ -5,6 +5,19 @@ import kotlinx.serialization.Serializable
 sealed class OpenCodeEvent {
     data class MessageUpdated(val message: Message) : OpenCodeEvent()
     data class MessagePartUpdated(val part: Part, val delta: String?) : OpenCodeEvent()
+
+    /** V2 publishes message projections; refresh the owned REST window instead of fabricating parts. */
+    data class MessageRefreshRequested(val sessionID: String) : OpenCodeEvent()
+
+    /** Ephemeral v2 text/reasoning content, keyed by the REST projection's per-type ordinal. */
+    data class V2ContentChanged(
+        val sessionID: String,
+        val messageID: String,
+        val partID: String,
+        val kind: String,
+        val text: String,
+        val phase: String,
+    ) : OpenCodeEvent()
     data class MessagePartDelta(
         val sessionID: String?,
         val messageID: String,
@@ -17,6 +30,9 @@ sealed class OpenCodeEvent {
     data class SessionCreated(val session: Session) : OpenCodeEvent()
     data class SessionUpdated(val session: Session) : OpenCodeEvent()
     data class SessionDeleted(val session: Session) : OpenCodeEvent()
+
+    /** V2 events carry IDs and deltas, not a complete legacy Session snapshot. */
+    data class SessionRefreshRequested(val sessionID: String, val removed: Boolean = false) : OpenCodeEvent()
     data class SessionStatusChanged(val sessionID: String, val status: SessionStatus) : OpenCodeEvent()
     data class SessionDiff(val sessionID: String, val diffs: List<FileDiff>) : OpenCodeEvent()
     data class SessionError(val sessionID: String?, val error: MessageError?) : OpenCodeEvent()
@@ -31,6 +47,9 @@ sealed class OpenCodeEvent {
         val answers: List<List<String>>,
     ) : OpenCodeEvent()
     data class QuestionRejected(val sessionID: String, val requestID: String) : OpenCodeEvent()
+
+    /** V2 forms are read from their session rather than adapted into legacy questions. */
+    data class FormRefreshRequested(val sessionID: String) : OpenCodeEvent()
     data class TodoUpdated(val sessionID: String, val todos: List<Todo>) : OpenCodeEvent()
     data class CommandExecuted(
         val name: String,
@@ -44,6 +63,9 @@ sealed class OpenCodeEvent {
 
     // Project and catalog events (aligned with SDK)
     data class ProjectUpdated(val project: Project) : OpenCodeEvent()
+
+    /** V2 project projections require a fresh REST read for local workspace metadata. */
+    data class ProjectRefreshRequested(val projectID: String) : OpenCodeEvent()
     data class ProjectDirectoriesUpdated(val projectID: String) : OpenCodeEvent()
     data object ModelsRefreshed : OpenCodeEvent()
     data object CatalogUpdated : OpenCodeEvent()
@@ -51,6 +73,9 @@ sealed class OpenCodeEvent {
 
     // Global lifecycle events (aligned with SDK)
     data object GlobalDisposed : OpenCodeEvent()
+
+    /** The server rebuilt this location; all volatile pending UI state must be reconciled. */
+    data class LocationShutdown(val directory: String?) : OpenCodeEvent()
 
     data object Connected : OpenCodeEvent()
     data class Disconnected(val reason: String?) : OpenCodeEvent()

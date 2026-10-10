@@ -12,6 +12,7 @@ import dev.blazelight.p4oc.core.mime.FilenameMimeType
 import dev.blazelight.p4oc.core.network.ApiResult
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.ServerConnectionRegistry
+import dev.blazelight.p4oc.core.network.V2FormInfo
 import dev.blazelight.p4oc.core.network.safeApiCall
 import dev.blazelight.p4oc.data.media.ChatMediaLoader
 import dev.blazelight.p4oc.data.media.WorkspaceChatMediaLoader
@@ -30,6 +31,7 @@ import dev.blazelight.p4oc.data.session.SessionUiState
 import dev.blazelight.p4oc.data.session.presence
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.model.*
+import dev.blazelight.p4oc.domain.server.affectsCatalogIn
 import dev.blazelight.p4oc.domain.session.SessionId
 import dev.blazelight.p4oc.ui.components.chat.SelectedFile
 import dev.blazelight.p4oc.ui.components.chat.toOpenCodeFileUrl
@@ -44,6 +46,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
@@ -89,12 +92,18 @@ class ChatViewModel constructor(
     private val _sessionMissing = MutableSharedFlow<Unit>(replay = 1)
     val sessionMissing: SharedFlow<Unit> = _sessionMissing.asSharedFlow()
 
+    private val _pendingV2Forms = MutableStateFlow(PendingV2FormsUiState())
+    val pendingV2Forms: StateFlow<PendingV2FormsUiState> = _pendingV2Forms.asStateFlow()
+    private var pendingV2FormsRefreshJob: Job? = null
+    private var pendingV2FormsRefreshRequested = false
+
     /** Convenience alias — ChatScreen reads this directly. */
     val messages: StateFlow<List<MessageWithParts>> = sessionRepository.messages(SessionId(sessionId))
     private val repositorySessionState: StateFlow<dev.blazelight.p4oc.data.session.SessionUiState> =
         sessionRepository.sessionUiState(SessionId(sessionId))
 
     val connectionState: StateFlow<ConnectionState> = workspaceClient.connectionState
+    val supportsSessionTodos: Boolean get() = workspaceClient.supportsSessionTodos
 
     private val _branchName = MutableStateFlow<String?>(null)
     val branchName: StateFlow<String?> = _branchName.asStateFlow()
@@ -137,7 +146,10 @@ class ChatViewModel constructor(
     private var suppressStaleRunErrors = false
 
     init {
-        serverConnectionRegistry?.let(::observeCommandCatalogEvents)
+        serverConnectionRegistry?.let { registry ->
+            observeCommandCatalogEvents(registry)
+            observeV2FormEvents(registry)
+        }
     }
 
     @OptIn(FlowPreview::class)
@@ -149,12 +161,25 @@ class ChatViewModel constructor(
                     val refreshesCommands = event is OpenCodeEvent.ModelsRefreshed ||
                         event is OpenCodeEvent.CatalogUpdated ||
                         event is OpenCodeEvent.McpToolsChanged
-                    scopedEvent.generation == workspaceClient.generation &&
-                        scopedEvent.workspaceKey == workspaceClient.workspace.key &&
+                    scopedEvent.affectsCatalogIn(workspaceClient.workspace, workspaceClient.generation) &&
                         refreshesCommands
                 }
                 .debounce(COMMAND_CATALOG_REFRESH_DEBOUNCE_MS)
                 .collect { refreshCommandsInBackground() }
+        }
+    }
+
+    @OptIn(FlowPreview::class)
+    private fun observeV2FormEvents(registry: ServerConnectionRegistry) {
+        viewModelScope.launch {
+            registry.events(workspaceClient.workspace.server)
+                .filter { scopedEvent ->
+                    scopedEvent.generation == workspaceClient.generation &&
+                        scopedEvent.workspaceKey == workspaceClient.workspace.key &&
+                        (scopedEvent.event as? OpenCodeEvent.FormRefreshRequested)?.sessionID == sessionId
+                }
+                .debounce(COMMAND_CATALOG_REFRESH_DEBOUNCE_MS)
+                .collect { refreshPendingForms() }
         }
     }
 
@@ -167,12 +192,13 @@ class ChatViewModel constructor(
         dialogManager.pendingQuestion,
         dialogManager.pendingPermissionsByCallId,
         _hasUnreadResponse,
-        messages
+        messages,
     ) { repositoryState: SessionUiState,
         pendingQuestion: QuestionRequest?,
         pendingPermissionsByCallId: Map<String, Permission>,
         hasUnread: Boolean,
-        msgs: List<MessageWithParts> ->
+        msgs: List<MessageWithParts>,
+        ->
         val hasRunningTools = msgs.any { msg ->
             msg.parts.any { part -> part is Part.Tool && part.state is ToolState.Running }
         }
@@ -188,6 +214,12 @@ class ChatViewModel constructor(
             hasStreamingText = hasStreamingText,
             hasRunningTools = hasRunningTools,
         )
+    }.combine(_pendingV2Forms) { presence, forms ->
+        if (forms.forms.isNotEmpty() && presence != SessionPresence.ERROR && presence != SessionPresence.RETRYING) {
+            SessionPresence.AWAITING_INPUT
+        } else {
+            presence
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SessionPresence.IDLE)
 
     val visualSettings = settingsDataStore.visualSettings
@@ -213,6 +245,8 @@ class ChatViewModel constructor(
         private const val INITIAL_HISTORY_LIMIT = 100
         private const val HISTORY_PAGE_SIZE = 100
         private const val HTTP_TOO_MANY_REQUESTS = 429
+        private const val HTTP_NOT_FOUND = 404
+        private const val HTTP_CONFLICT = 409
         private const val KEY_DRAFT_TEXT = "chat_draft_text"
         private const val KEY_ATTACHED_FILES = "chat_attached_files"
         private const val COMMAND_CATALOG_REFRESH_DEBOUNCE_MS = 150L
@@ -302,6 +336,10 @@ class ChatViewModel constructor(
         modelAgentManager.loadAgents()
         modelAgentManager.loadModels()
         observeEvents()
+        refreshPendingForms()
+        viewModelScope.launch {
+            connectionState.filter { it.isConnected }.collect { refreshPendingForms() }
+        }
         loadVcsInfo()
     }
 
@@ -316,6 +354,7 @@ class ChatViewModel constructor(
     fun markAsRead() {
         _isActiveTab.value = true
         _hasUnreadResponse.value = false
+        refreshPendingForms()
     }
 
     fun markInactive() {
@@ -622,7 +661,7 @@ class ChatViewModel constructor(
             parts = parts,
             agent = selectedAgent,
             model = selectedModel,
-            variant = selectedVariant
+            variant = selectedVariant,
         )
 
         val result = sessionRepository.sendMessageAsync(SessionId(sessionId), request).await().toApiResult()
@@ -631,7 +670,7 @@ class ChatViewModel constructor(
                 completeComposerSubmission(submission)
                 modelAgentManager.markComposerSelectionSent(selectedModel, selectedVariant)
                 sessionRepository.acceptEvent(
-                    OpenCodeEvent.SessionStatusChanged(sessionId, SessionStatus.Busy)
+                    OpenCodeEvent.SessionStatusChanged(sessionId, SessionStatus.Busy),
                 )
                 _uiState.update { it.copy(isSending = false, isBusy = true, runNotice = null) }
                 startResponseReconciliation(knownMessageIds)
@@ -642,7 +681,7 @@ class ChatViewModel constructor(
                 _uiState.update {
                     it.copy(
                         isSending = false,
-                        error = "Could not send the message. Check the connection and try again."
+                        error = "Could not send the message. Check the connection and try again.",
                     )
                 }
                 failComposerSubmission(submission)
@@ -829,8 +868,8 @@ class ChatViewModel constructor(
                     type = "file",
                     filename = file.name,
                     mime = file.mimeType ?: FilenameMimeType.resolveOrOctetStream(file.name),
-                    url = file.toOpenCodeFileUrl(requireNotNull(workspaceClient.workspace.directory))
-                )
+                    url = file.toOpenCodeFileUrl(requireNotNull(workspaceClient.workspace.directory)),
+                ),
             )
         }
         return parts
@@ -841,7 +880,11 @@ class ChatViewModel constructor(
     fun respondToPermission(permissionId: String, response: String) {
         viewModelScope.launch {
             val request = PermissionResponseRequest(reply = response)
-            when (val result = safeApiCall { workspaceClient.respondToPermission(sessionId, permissionId, request) }) {
+            // A subagent's permission is shown here but belongs to the child session; v2 validates that owner.
+            val owningSessionId = dialogManager.pendingPermissionsByCallId.value.values
+                .firstOrNull { it.id == permissionId }?.sessionID ?: sessionId
+            val result = safeApiCall { workspaceClient.respondToPermission(owningSessionId, permissionId, request) }
+            when (result) {
                 is ApiResult.Success -> {
                     dialogManager.clearPermission(permissionId)
                     sessionRepository.clearPermission(SessionId(sessionId), permissionId)
@@ -866,7 +909,7 @@ class ChatViewModel constructor(
                 is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId), requestId)
                 is ApiResult.Error -> _uiState.update {
                     it.copy(
-                        error = "Could not answer the question. Try again."
+                        error = "Could not answer the question. Try again.",
                     )
                 }
             }
@@ -880,6 +923,7 @@ class ChatViewModel constructor(
             // goes idle). The local modal is cleared optimistically; the matching
             // question.rejected SSE event (handled in SessionRepositoryImpl) will
             // also reconcile any other attached client.
+
             when (val result = safeApiCall { workspaceClient.rejectQuestion(sessionId, requestId) }) {
                 is ApiResult.Success -> sessionRepository.clearQuestion(SessionId(sessionId), requestId)
                 is ApiResult.Error -> {
@@ -892,6 +936,200 @@ class ChatViewModel constructor(
         }
     }
 
+    /** Reconcile v2-only pending forms after opening or returning to this session. */
+    fun refreshPendingForms() {
+        if (!workspaceClient.supportsV2Forms) return
+        if (pendingV2FormsRefreshJob?.isActive == true) {
+            pendingV2FormsRefreshRequested = true
+            return
+        }
+        pendingV2FormsRefreshRequested = false
+        pendingV2FormsRefreshJob = viewModelScope.launch {
+            var refreshAgain: Boolean
+            do {
+                _pendingV2Forms.update { it.copy(isLoading = true, error = null) }
+                when (val result = safeApiCall { workspaceClient.listPendingForms(sessionId) }) {
+                    is ApiResult.Success -> {
+                        val summaries = result.data.orEmpty()
+                        val hasForeignForm = summaries.any { it.sessionID != sessionId }
+                        val pending = summaries.filter { it.sessionID == sessionId }.distinctBy(V2FormInfo::id)
+                        _pendingV2Forms.update { current ->
+                            val previous = current.forms.associateBy(PendingV2FormUi::id)
+                            current.copy(
+                                isLoading = false,
+                                error = if (hasForeignForm) {
+                                    "The server returned a form for a different chat. Refresh to try again."
+                                } else {
+                                    null
+                                },
+                                forms = pending.map { summary ->
+                                    val existing = previous[summary.id]
+                                    if (existing == null) {
+                                        PendingV2FormUi(id = summary.id)
+                                    } else {
+                                        existing.copy(isLoading = !existing.isSubmitting)
+                                    }
+                                },
+                            )
+                        }
+                        pending.forEach { summary ->
+                            val item = _pendingV2Forms.value.forms.firstOrNull { it.id == summary.id }
+                            if (item?.isSubmitting != true) loadPendingForm(summary.id, preserveError = true)
+                        }
+                    }
+                    is ApiResult.Error -> {
+                        AppLog.w(TAG, "Failed to load pending v2 forms")
+                        _pendingV2Forms.update {
+                            it.copy(
+                                isLoading = false,
+                                error = "Could not check for pending forms. Check the connection and try again.",
+                            )
+                        }
+                    }
+                }
+                refreshAgain = pendingV2FormsRefreshRequested
+                pendingV2FormsRefreshRequested = false
+            } while (refreshAgain)
+        }
+    }
+
+    fun retryPendingForm(formId: String) {
+        if (workspaceClient.supportsV2Forms) loadPendingForm(formId, preserveError = false)
+    }
+
+    private fun loadPendingForm(formId: String, preserveError: Boolean) {
+        val current = _pendingV2Forms.value.forms.firstOrNull { it.id == formId } ?: return
+        if (current.isSubmitting) return
+        markPendingFormLoading(formId, preserveError)
+        viewModelScope.launch {
+            when (val result = safeApiCall { workspaceClient.getPendingForm(sessionId, formId) }) {
+                is ApiResult.Success -> {
+                    val form = result.data
+                    if (form.id != formId || form.sessionID != sessionId) {
+                        updatePendingForm(formId) {
+                            it.copy(
+                                isLoading = false,
+                                form = null,
+                                error = "This form does not belong to the current chat.",
+                            )
+                        }
+                    } else {
+                        when (form.state?.status) {
+                            "pending" -> updatePendingForm(formId) { item ->
+                                item.copy(
+                                    isLoading = false,
+                                    form = form,
+                                    error = if (preserveError) item.error else null,
+                                )
+                            }
+                            "answered", "cancelled" -> removePendingForm(formId)
+                            else -> updatePendingForm(formId) {
+                                it.copy(
+                                    isLoading = false,
+                                    form = null,
+                                    error = "Could not verify that this form is still pending. Refresh to try again.",
+                                )
+                            }
+                        }
+                    }
+                }
+                is ApiResult.Error -> {
+                    AppLog.w(TAG, "Failed to load pending v2 form")
+                    if (result.isFormSettled()) {
+                        removePendingForm(formId)
+                    } else {
+                        updatePendingForm(formId) {
+                            it.copy(isLoading = false, error = "Could not load this form. Refresh to try again.")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun markPendingFormLoading(formId: String, preserveError: Boolean) {
+        _pendingV2Forms.update { state ->
+            state.copy(
+                forms = state.forms.map { item ->
+                    if (item.id == formId) {
+                        item.copy(
+                            isLoading = true,
+                            error = if (preserveError) item.error else null,
+                        )
+                    } else {
+                        item
+                    }
+                },
+            )
+        }
+    }
+
+    fun respondToForm(formId: String, answer: JsonObject) {
+        val current = _pendingV2Forms.value.forms.firstOrNull { it.id == formId } ?: return
+        if (current.isSubmitting || current.form == null) return
+        updatePendingForm(formId) { it.copy(isSubmitting = true, error = null) }
+        viewModelScope.launch {
+            when (val result = safeApiCall { workspaceClient.replyToForm(sessionId, formId, answer) }) {
+                is ApiResult.Success -> {
+                    removePendingForm(formId)
+                    refreshPendingForms()
+                }
+                is ApiResult.Error -> {
+                    AppLog.w(TAG, "Failed to submit pending v2 form")
+                    if (result.isFormSettled()) {
+                        removePendingForm(formId)
+                    } else {
+                        updatePendingForm(formId) {
+                            it.copy(
+                                isSubmitting = false,
+                                error = "Could not submit this form. Check the connection and try again.",
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun rejectPendingForm(formId: String) {
+        val current = _pendingV2Forms.value.forms.firstOrNull { it.id == formId } ?: return
+        if (current.isSubmitting || current.form == null) return
+        updatePendingForm(formId) { it.copy(isSubmitting = true, error = null) }
+        viewModelScope.launch {
+            when (val result = safeApiCall { workspaceClient.rejectForm(sessionId, formId) }) {
+                is ApiResult.Success -> {
+                    removePendingForm(formId)
+                    refreshPendingForms()
+                }
+                is ApiResult.Error -> {
+                    AppLog.w(TAG, "Failed to reject pending v2 form")
+                    if (result.isFormSettled()) {
+                        removePendingForm(formId)
+                    } else {
+                        updatePendingForm(formId) {
+                            it.copy(
+                                isSubmitting = false,
+                                error = "Could not reject this form. Check the connection and try again.",
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updatePendingForm(formId: String, transform: (PendingV2FormUi) -> PendingV2FormUi) {
+        _pendingV2Forms.update { state ->
+            state.copy(forms = state.forms.map { item -> if (item.id == formId) transform(item) else item })
+        }
+    }
+
+    private fun removePendingForm(formId: String) {
+        _pendingV2Forms.update { state -> state.copy(forms = state.forms.filterNot { it.id == formId }) }
+    }
+
+    private fun ApiResult.Error.isFormSettled(): Boolean = code == HTTP_NOT_FOUND || code == HTTP_CONFLICT
+
     // --- Commands & Todos ---
 
     fun loadCommands() {
@@ -900,7 +1138,7 @@ class ChatViewModel constructor(
                 it.copy(
                     isLoadingCommands = true,
                     commandLoadError = null,
-                    commands = it.commands.ifEmpty { BUILTIN_COMMANDS }
+                    commands = it.commands.ifEmpty { BUILTIN_COMMANDS },
                 )
             }
             beginLoadStep("Loading slash commands")
@@ -916,7 +1154,7 @@ class ChatViewModel constructor(
                             commands = allCommands,
                             isLoadingCommands = false,
                             hasLoadedWorkspaceCommands = true,
-                            commandLoadError = null
+                            commandLoadError = null,
                         )
                     }
                 }
@@ -927,7 +1165,7 @@ class ChatViewModel constructor(
                             commands = it.commands.ifEmpty { BUILTIN_COMMANDS },
                             isLoadingCommands = false,
                             hasLoadedWorkspaceCommands = false,
-                            commandLoadError = "Could not load workspace commands. Try again."
+                            commandLoadError = "Could not load workspace commands. Try again.",
                         )
                     }
                 }
@@ -1126,7 +1364,7 @@ class ChatViewModel constructor(
 
         if (!isCurrentInitOperation(operationGeneration)) return
         sessionRepository.acceptEvent(
-            OpenCodeEvent.SessionStatusChanged(sessionId, SessionStatus.Busy)
+            OpenCodeEvent.SessionStatusChanged(sessionId, SessionStatus.Busy),
         )
         if (!isCurrentInitOperation(operationGeneration)) return
         initTerminalTokenBaseline = repositorySessionState.value.responseCompletedToken
@@ -1225,7 +1463,7 @@ class ChatViewModel constructor(
             try {
                 val request = ExecuteCommandRequest(
                     command = commandName,
-                    arguments = arguments
+                    arguments = arguments,
                 )
                 val result = safeApiCall { workspaceClient.executeCommand(sessionId, request) }
                 when (result) {
@@ -1443,7 +1681,7 @@ class ChatViewModel constructor(
 
     private fun <T> Result<T>.toApiResult(): ApiResult<T> = fold(
         onSuccess = { ApiResult.Success(it) },
-        onFailure = { ApiResult.Error(message = it.message ?: "Unknown error", throwable = it) }
+        onFailure = { ApiResult.Error(message = it.message ?: "Unknown error", throwable = it) },
     )
 }
 
@@ -1480,5 +1718,19 @@ data class ChatUiState(
     val hasLoadedWorkspaceCommands: Boolean = false,
     val commandLoadError: String? = null,
     val todos: List<Todo> = emptyList(),
-    val isLoadingTodos: Boolean = false
+    val isLoadingTodos: Boolean = false,
+)
+
+data class PendingV2FormsUiState(
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val forms: List<PendingV2FormUi> = emptyList(),
+)
+
+data class PendingV2FormUi(
+    val id: String,
+    val form: V2FormInfo? = null,
+    val isLoading: Boolean = true,
+    val isSubmitting: Boolean = false,
+    val error: String? = null,
 )

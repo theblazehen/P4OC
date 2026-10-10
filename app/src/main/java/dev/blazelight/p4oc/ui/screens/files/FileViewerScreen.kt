@@ -12,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,12 +53,20 @@ fun FileViewerScreen(
 
     /** Pending discard prompt; routes to either "exit edit" or "navigate back". */
     var pendingDiscard by remember { mutableStateOf<DiscardIntent?>(null) }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    fun releaseEditorFocus() {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+    }
 
     LaunchedEffect(path) {
+        if (editMode) releaseEditorFocus()
         viewModel.loadFileContent(path)
     }
     LaunchedEffect(uiState.capabilitiesLoaded, uiState.capabilities.canWrite) {
         if (uiState.capabilitiesLoaded && !uiState.capabilities.canWrite && editMode) {
+            releaseEditorFocus()
             editMode = false
             pendingDiscard = null
             viewModel.discardEdits()
@@ -72,7 +82,14 @@ fun FileViewerScreen(
 
     val isDirty = editState.isDirty && editMode
 
-    BackHandler(enabled = isDirty) { pendingDiscard = DiscardIntent.NavigateBack }
+    BackHandler {
+        if (isDirty) {
+            pendingDiscard = DiscardIntent.NavigateBack
+        } else {
+            releaseEditorFocus()
+            onNavigateBack()
+        }
+    }
 
     Scaffold(
         containerColor = theme.background,
@@ -83,6 +100,7 @@ fun FileViewerScreen(
                     if (isDirty) {
                         pendingDiscard = DiscardIntent.NavigateBack
                     } else {
+                        releaseEditorFocus()
                         onNavigateBack()
                     }
                 },
@@ -150,6 +168,7 @@ fun FileViewerScreen(
                                 if (editState.isDirty) {
                                     pendingDiscard = DiscardIntent.ExitEdit
                                 } else {
+                                    releaseEditorFocus()
                                     editMode = false
                                 }
                             },
@@ -271,7 +290,10 @@ fun FileViewerScreen(
     editState.conflict?.let { conflict ->
         ConflictDialog(
             message = conflict.message,
-            onReload = { viewModel.reloadFromServer() },
+            onReload = {
+                releaseEditorFocus()
+                viewModel.reloadFromServer()
+            },
             onOverwrite = { viewModel.overwriteAnyway() },
             onDismiss = { viewModel.dismissConflict() }
         )
@@ -280,6 +302,7 @@ fun FileViewerScreen(
     pendingDiscard?.let { intent ->
         DiscardChangesDialog(
             onConfirm = {
+                releaseEditorFocus()
                 pendingDiscard = null
                 viewModel.discardEdits()
                 when (intent) {

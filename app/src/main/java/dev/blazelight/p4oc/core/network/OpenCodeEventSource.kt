@@ -36,6 +36,7 @@ class OpenCodeEventSource(
     private val json: Json,
     private val baseUrl: String,
     private val eventMapper: EventMapper,
+    private val useV2: Boolean = false,
 ) {
     data class DirectoryEvent(
         val directory: String?,
@@ -81,6 +82,7 @@ class OpenCodeEventSource(
     private var isShutdown = false
 
     private val consecutiveErrors = AtomicInteger(0)
+    private val v2EventMapper = V2EventMapper(json, eventMapper)
 
     init {
         eventPumpScope.launch {
@@ -188,7 +190,9 @@ class OpenCodeEventSource(
     }
 
     private fun createBackgroundEventSource(gen: Long): BackgroundEventSource {
-        val eventUrl = "$baseUrl/global/event"
+        // V2 /api/event is live-only: events during a disconnect are missed. Each successful
+        // onOpen advances the connection epoch so repositories can recover through REST.
+        val eventUrl = if (useV2) "$baseUrl/api/event" else "$baseUrl/global/event"
         AppLog.d(TAG, "Creating SSE event source")
 
         val connectStrategy = ConnectStrategy.http(URI(eventUrl))
@@ -229,10 +233,19 @@ class OpenCodeEventSource(
         !isShutdown && generation == gen
 
     private fun parseAndEmitEvent(data: String, gen: Long) {
-        if (data.length > MAX_EVENT_DATA_CHARS) {
-            rejectOversizedEvent(data.length, gen)
-            return
+        when {
+            data.length > MAX_EVENT_DATA_CHARS -> rejectOversizedEvent(data.length, gen)
+            useV2 -> {
+                v2EventMapper.map(data)?.let { mapped ->
+                    enqueueMappedEvent(mapped.event, mapped.directory, gen)
+                    AppLog.d(TAG, "V2 event queued: ${mapped.event::class.simpleName}")
+                }
+            }
+            else -> parseV1Event(data, gen)
         }
+    }
+
+    private fun parseV1Event(data: String, gen: Long) {
         try {
             val globalEvent = json.decodeFromString<GlobalEventDto>(data)
             val event = eventMapper.mapToEvent(globalEvent.payload)

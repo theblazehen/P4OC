@@ -564,6 +564,7 @@
     <string name="provider_disconnected">Disconnected Providers</string>
     <string name="provider_current_model">Current Model</string>
     <string name="provider_not_configured">Not configured</string>
+    <string name="v2_model_settings_info">OpenCode v2 manages provider credentials and default models on the server. Select a model in a chat to use it for that session.</string>
     <string name="provider_requires_api_key">Requires API key</string>
     <string name="provider_auth_title">Authenticate provider</string>
     <string name="provider_auth_open_browser">Open browser</string>
@@ -666,6 +667,37 @@
     <string name="other_custom_answer">Other (provide custom answer)</string>
     <string name="question_x_of_y">Question %1$d of %2$d</string>
     
+    <!-- OpenCode v2 Form Components -->
+    <string name="v2_form_pending">Form response required</string>
+    <string name="v2_form_loading">Loading form…</string>
+    <string name="v2_form_checking_pending">Checking for pending forms…</string>
+    <string name="v2_form_refresh">Refresh</string>
+    <string name="v2_form_reject">Reject</string>
+    <string name="v2_form_external_open">Open link</string>
+    <string name="v2_form_external_error">Could not open this link on this device.</string>
+    <string name="v2_form_yes">Yes</string>
+    <string name="v2_form_no">No</string>
+    <string name="v2_form_add_custom">Add</string>
+    <string name="v2_form_custom_value">Custom value</string>
+    <string name="v2_form_required_error">This field is required.</string>
+    <string name="v2_form_min_length_error">Use at least %1$d characters.</string>
+    <string name="v2_form_max_length_error">Use no more than %1$d characters.</string>
+    <string name="v2_form_number_error">Enter a valid number.</string>
+    <string name="v2_form_integer_error">Enter a whole number.</string>
+    <string name="v2_form_minimum_error">Enter a value of at least %1$s.</string>
+    <string name="v2_form_maximum_error">Enter a value no greater than %1$s.</string>
+    <string name="v2_form_email_error">Enter a valid email address.</string>
+    <string name="v2_form_uri_error">Enter a valid absolute URI.</string>
+    <string name="v2_form_date_error">Enter a valid date.</string>
+    <string name="v2_form_datetime_error">Enter a valid date and time.</string>
+    <string name="v2_form_pattern_error">This value does not match the required format.</string>
+    <string name="v2_form_invalid_pattern">This field has an invalid validation rule. Refresh the form or reject it.</string>
+    <string name="v2_form_min_items_error">Select at least %1$d options.</string>
+    <string name="v2_form_max_items_error">Select no more than %1$d options.</string>
+    <string name="v2_form_unsupported_field">This form has a field type this app cannot answer. You can reject the form.</string>
+    <string name="v2_form_missing_choices">This required selection field has no available choices.</string>
+    <string name="v2_form_remove_custom">Remove</string>
+    <string name="v2_form_choose_option">Choose one of the available options.</string>
     <!-- Command Palette -->
     <string name="command_palette">Command Palette</string>
     <string name="search_commands">Search commands…</string>

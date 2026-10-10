@@ -26,7 +26,7 @@ data class SessionDto(
     val path: String? = null,
     @SerialName("parentID") val parentID: String? = null,
     val title: String,
-    val version: String,
+    val version: String? = null,
     val time: TimeDto,
     val summary: SessionSummaryDto? = null,
     val cost: Double? = null,

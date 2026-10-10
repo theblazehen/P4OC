@@ -176,6 +176,16 @@ fun ProviderConfigScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+                    if (!uiState.canSetDefaultModel) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.v2_model_settings_info),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = theme.textMuted,
+                                modifier = Modifier.padding(vertical = Spacing.sm),
+                            )
+                        }
+                    }
 
                     val connectedProviders = uiState.providers.filter {
                         it.id in uiState.connectedProviderIds
@@ -199,6 +209,7 @@ fun ProviderConfigScreen(
                             provider = provider,
                             isExpanded = uiState.selectedProviderId == provider.id,
                             currentModel = uiState.currentModel,
+                            canSetDefaultModel = uiState.canSetDefaultModel,
                             authMethods = uiState.authMethods[provider.id].orEmpty(),
                             isAuthenticating = uiState.isAuthenticating,
                             onToggle = {
@@ -288,6 +299,7 @@ private fun ProviderCard(
     provider: ProviderDto,
     isExpanded: Boolean,
     currentModel: String?,
+    canSetDefaultModel: Boolean,
     authMethods: List<ProviderAuthMethodDto>,
     isAuthenticating: Boolean,
     onToggle: () -> Unit,
@@ -343,6 +355,7 @@ private fun ProviderCard(
                         ModelItem(
                             model = model,
                             isSelected = currentProviderId == provider.id && currentModelId == model.id,
+                            enabled = canSetDefaultModel,
                             onClick = { onSelectModel(model.id) }
                         )
                     }
@@ -394,10 +407,12 @@ private fun ProviderCardHeader(
     }
 }
 
+@Suppress("FunctionNaming", "LongMethod")
 @Composable
 private fun ModelItem(
     model: ModelDto,
     isSelected: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -413,6 +428,7 @@ private fun ModelItem(
                 shape = RectangleShape
             )
             .selectable(
+                enabled = enabled,
                 selected = isSelected,
                 onClick = onClick,
                 role = Role.RadioButton,

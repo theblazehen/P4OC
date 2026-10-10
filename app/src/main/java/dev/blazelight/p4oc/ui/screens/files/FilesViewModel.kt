@@ -79,14 +79,9 @@ class FilesViewModel constructor(
     init {
         loadCapabilities()
         loadFiles(savedStateHandle[KEY_CURRENT_PATH] ?: ROOT_PATH)
-        when {
-            _uiState.value.isSymbolMode -> {
-                _uiState.value.symbolQuery.takeIf { it.isNotBlank() }?.let(::searchSymbols)
-            }
-            _uiState.value.isSearchActive -> {
-                _uiState.value.searchQuery.takeIf { it.isNotBlank() }?.let {
-                    searchFiles(it, debounce = true)
-                }
+        if (_uiState.value.isSearchActive) {
+            _uiState.value.searchQuery.takeIf { it.isNotBlank() }?.let {
+                searchFiles(it, debounce = true)
             }
         }
     }
@@ -221,6 +216,7 @@ class FilesViewModel constructor(
     }
 
     fun setSymbolMode(active: Boolean) {
+        if (active && _uiState.value.capabilitiesLoaded && !_uiState.value.capabilities.canSearchSymbols) return
         savedStateHandle[KEY_SYMBOL_MODE] = active
         if (active) {
             savedStateHandle[KEY_SEARCH_ACTIVE] = false
@@ -317,11 +313,17 @@ class FilesViewModel constructor(
 
     private fun loadCapabilities() {
         viewModelScope.launch {
+            val capabilities = fileRepository.capabilities()
+            if (_uiState.value.isSymbolMode) {
+                if (capabilities.canSearchSymbols) {
+                    _uiState.value.symbolQuery.takeIf { it.isNotBlank() }?.let(::searchSymbols)
+                } else {
+                    setSymbolMode(false)
+                    savedStateHandle[KEY_SYMBOL_MODE] = false
+                }
+            }
             _uiState.update {
-                it.copy(
-                    capabilities = fileRepository.capabilities(),
-                    capabilitiesLoaded = true,
-                )
+                it.copy(capabilities = capabilities, capabilitiesLoaded = true)
             }
         }
     }
@@ -411,7 +413,9 @@ class FilesViewModel constructor(
             state.symbolQuery == query
     }
 
-    fun loadFileContent(path: String) {
+    fun loadFileContent(path: String) = loadFileContent(path, replaceEditsOnSuccess = false)
+
+    private fun loadFileContent(path: String, replaceEditsOnSuccess: Boolean) {
         loadContentJob?.cancel()
         loadContentJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, fileContent = null, error = null) }
@@ -425,7 +429,7 @@ class FilesViewModel constructor(
                     // the decision of whether to enter edit mode; the baseline is only
                     // consumed when it does.
                     updateEditState { current ->
-                        if (current.path == path && current.isDirty) {
+                        if (current.path == path && current.isDirty && !replaceEditsOnSuccess) {
                             current
                         } else {
                             FileEditState(
@@ -495,7 +499,7 @@ class FilesViewModel constructor(
     fun reloadFromServer() {
         val path = _editState.value.path ?: return
         updateEditState { it.copy(conflict = null) }
-        loadFileContent(path)
+        loadFileContent(path, replaceEditsOnSuccess = true)
     }
 
     /** Re-issues the write with no baseline hash, suppressing stale-write detection. */

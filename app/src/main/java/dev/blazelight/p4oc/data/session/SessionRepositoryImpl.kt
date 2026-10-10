@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.data.session
 
 import dev.blazelight.p4oc.core.log.AppLog
+import dev.blazelight.p4oc.core.network.HTTP_NOT_FOUND
 import dev.blazelight.p4oc.data.files.ofish.OfishSessionNames
 import dev.blazelight.p4oc.data.remote.dto.CreateSessionRequest
 import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
@@ -33,6 +34,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +52,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import retrofit2.HttpException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.coroutineContext
@@ -68,6 +71,7 @@ class SessionRepositoryImpl(
     )
 
     val workspace = client.workspace
+    val supportsSessionSharing: Boolean get() = client.supportsSessionSharing
 
     private val reducer = SessionReducer(client.workspace)
     private val hydrateBuffer = HydrationEventBuffer()
@@ -94,6 +98,13 @@ class SessionRepositoryImpl(
     private val detectedQuestionToolCallIds = mutableSetOf<String>()
     private val recentlyResolvedQuestionIds = mutableMapOf<String, Long>()
     private var projectRefreshJob: Job? = null
+    private var locationRecoveryJob: Job? = null
+
+    // Guarded by hydrationTransitionLock, including publication and deletion, to prevent resurrection.
+    private val sessionRefreshJobs = mutableMapOf<String, Job>()
+    private val sessionRefreshPending = mutableSetOf<String>()
+    private val messageEventRefreshJobs = mutableMapOf<String, Job>()
+    private val messageEventRefreshPending = mutableSetOf<String>()
 
     // The in-flight reconnect message-recovery job. Replaced (cancelling the prior) on each new
     // reconnect and cancelled on close so overlapping recovery storms are never spawned.
@@ -233,7 +244,9 @@ class SessionRepositoryImpl(
 
     @Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount")
     override fun acceptEvent(event: OpenCodeEvent) {
-        if (event is OpenCodeEvent.ProjectUpdated || event is OpenCodeEvent.ProjectDirectoriesUpdated) {
+        if (event is OpenCodeEvent.ProjectUpdated || event is OpenCodeEvent.ProjectDirectoriesUpdated ||
+            event is OpenCodeEvent.ProjectRefreshRequested
+        ) {
             projectRefreshJob?.cancel()
             projectRefreshJob = scope.launch {
                 delay(PROJECT_EVENT_REFRESH_DEBOUNCE_MS)
@@ -242,6 +255,35 @@ class SessionRepositoryImpl(
                         if (error is CancellationException) throw error
                         AppLog.w(TAG, "Project event refresh failed: ${error.javaClass.simpleName}")
                     }
+            }
+            return
+        }
+        if (event is OpenCodeEvent.SessionRefreshRequested && !event.removed) {
+            requestSessionRefresh(event.sessionID)
+            return
+        }
+        if (event is OpenCodeEvent.MessageRefreshRequested) {
+            requestMessageEventRefresh(event.sessionID)
+            return
+        }
+        settledSessionId(event)?.let(::requestPostIdleReconcile)
+        if (event is OpenCodeEvent.LocationShutdown) {
+            if (event.directory == null || client.workspace.directory == null ||
+                client.workspace.directory == event.directory
+            ) {
+                locationRecoveryJob?.cancel()
+                locationRecoveryJob = scope.launch {
+                    try {
+                        refresh()
+                        reconcilePendingQuestionsForOwnedSessions()
+                        reconcileObservedPendingPermissions()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AppLog.w(TAG, "Location reload recovery failed: ${e.javaClass.simpleName}")
+                    }
+                }
+                reconcileMessagesForActiveSessions()
             }
             return
         }
@@ -267,8 +309,22 @@ class SessionRepositoryImpl(
         }
 
         synchronized(hydrationTransitionLock) {
+            when (event) {
+                is OpenCodeEvent.SessionDeleted -> cancelSessionRefresh(event.session.id)
+                is OpenCodeEvent.SessionRefreshRequested -> if (event.removed) cancelSessionRefresh(event.sessionID)
+                else -> Unit
+            }
             _state.value = when (val current = _state.value) {
-                is RepoState.Hydrating -> if (isSessionEvent(event)) hydrateBuffer.buffer(event).copy(snapshot = current.snapshot) else current
+                is RepoState.Hydrating -> if (isSessionEvent(event)) {
+                    val snapshot = if (event is OpenCodeEvent.SessionRefreshRequested && event.removed) {
+                        reducer.reduce(current.snapshot, event)
+                    } else {
+                        current.snapshot
+                    }
+                    hydrateBuffer.buffer(event).copy(snapshot = snapshot)
+                } else {
+                    current
+                }
                 is RepoState.Live -> RepoState.Live(reducer.reduce(current.snapshot, event))
                 is RepoState.Stale -> current.copy(snapshot = reducer.reduce(current.snapshot, event))
             }
@@ -278,26 +334,8 @@ class SessionRepositoryImpl(
             is OpenCodeEvent.SessionCreated -> {
                 updateSessionOwnership(event.session)
             }
-            is OpenCodeEvent.SessionDeleted -> {
-                removeSessionOwnership(event.session.id)
-                synchronized(messageStateLock) {
-                    messageStates.remove(event.session.id)?.value = emptyList()
-                    // Treat deletion as a revisioned invalidation: remove the state but mark the
-                    // session so reconnect recovery never authoritatively repopulates it, even while
-                    // a consumer lease is still held. Dropping the revision alone would let a stale
-                    // recovery capture collide with the default `?: 0L` and resurrect the session.
-                    recoveryInvalidatedSessions.add(event.session.id)
-                    sessionRevisions[event.session.id] = (sessionRevisions[event.session.id] ?: 0L) + 1
-                    // Deletion ends the state lifetime: any in-flight recovery-bound pending
-                    // reconciliation loses ownership.
-                    sessionLeaseGenerations[event.session.id] = (sessionLeaseGenerations[event.session.id] ?: 0L) + 1
-                    sessionLoadedLimits.remove(event.session.id)
-                    // UI-state removal happens inside the same critical section (nested order
-                    // messageStateLock -> sessionUiStates, matching releaseSession) so a guarded
-                    // recovery write can never recreate the entry between removal and invalidation.
-                    synchronized(sessionUiStates) { sessionUiStates.remove(event.session.id) }
-                }
-            }
+            is OpenCodeEvent.SessionDeleted -> removeSessionLocally(event.session.id)
+            is OpenCodeEvent.SessionRefreshRequested -> if (event.removed) removeSessionLocally(event.sessionID)
             is OpenCodeEvent.SessionUpdated -> {
                 updateSessionOwnership(event.session)
                 updateSession(event.session.id) { it.copy(session = event.session) }
@@ -344,14 +382,14 @@ class SessionRepositoryImpl(
                 updateOwnedSession(event.permission.sessionID) { state ->
                     state.copy(
                         pendingPermissionsByCallId = state.pendingPermissionsByCallId +
-                            (event.permission.pendingPermissionKey() to event.permission)
+                            (event.permission.pendingPermissionKey() to event.permission),
                     )
                 }
             }
             is OpenCodeEvent.PermissionReplied -> {
                 updateOwnedSession(event.sessionID) { state ->
                     state.copy(
-                        pendingPermissionsByCallId = state.pendingPermissionsByCallId.filterValues { it.id != event.requestID }
+                        pendingPermissionsByCallId = state.pendingPermissionsByCallId.filterValues { it.id != event.requestID },
                     )
                 }
             }
@@ -374,10 +412,102 @@ class SessionRepositoryImpl(
                 assistant?.error?.let { error -> applySessionError(assistant.sessionID, error) }
             }
             is OpenCodeEvent.MessagePartUpdated -> upsertPart(event.part, event.delta)
+            is OpenCodeEvent.V2ContentChanged -> applyV2Content(event)
             is OpenCodeEvent.MessagePartDelta -> applyPartDelta(event)
             is OpenCodeEvent.MessageRemoved -> removeMessage(event.sessionID, event.messageID)
             is OpenCodeEvent.PartRemoved -> removePart(event.sessionID, event.messageID, event.partID)
             else -> Unit
+        }
+    }
+
+    private fun requestSessionRefresh(sessionId: String) {
+        synchronized(hydrationTransitionLock) {
+            if (sessionRefreshJobs.containsKey(sessionId)) {
+                sessionRefreshPending.add(sessionId)
+                return
+            }
+            val refreshJob = scope.launch(start = CoroutineStart.LAZY) {
+                runSessionRefresh(sessionId)
+            }
+            sessionRefreshJobs[sessionId] = refreshJob
+            refreshJob.start()
+        }
+    }
+
+    private suspend fun runSessionRefresh(sessionId: String) {
+        val refreshJob = coroutineContext[Job]
+        try {
+            do {
+                delay(PROJECT_EVENT_REFRESH_DEBOUNCE_MS)
+                synchronized(hydrationTransitionLock) { sessionRefreshPending.remove(sessionId) }
+                refreshSessionMetadata(sessionId)
+            } while (takePendingSessionRefresh(sessionId, refreshJob))
+        } finally {
+            synchronized(hydrationTransitionLock) {
+                if (sessionRefreshJobs[sessionId] === refreshJob) {
+                    sessionRefreshJobs.remove(sessionId)
+                    sessionRefreshPending.remove(sessionId)
+                }
+            }
+        }
+    }
+
+    private fun takePendingSessionRefresh(sessionId: String, refreshJob: Job?): Boolean =
+        synchronized(hydrationTransitionLock) {
+            if (sessionRefreshJobs[sessionId] !== refreshJob) {
+                false
+            } else {
+                sessionRefreshPending.remove(sessionId).also { pending ->
+                    if (!pending) sessionRefreshJobs.remove(sessionId)
+                }
+            }
+        }
+
+    private suspend fun refreshSessionMetadata(sessionId: String) {
+        val event = fetchSessionRefreshEvent(sessionId) ?: return
+        synchronized(hydrationTransitionLock) {
+            if (sessionRefreshJobs[sessionId] !== coroutineContext[Job]) return
+            acceptEvent(event)
+            // Keep the visible catalog current even while a full hydrate buffers this update for replay.
+            val current = _state.value
+            if (current is RepoState.Hydrating) {
+                _state.value = current.copy(snapshot = reducer.reduce(current.snapshot, event))
+            }
+        }
+    }
+
+    /** Fetches the session's current metadata; a 404 becomes removal, other failures yield null. */
+    private suspend fun fetchSessionRefreshEvent(sessionId: String): OpenCodeEvent? = try {
+        OpenCodeEvent.SessionUpdated(SessionMapper.mapToDomain(client.getSession(sessionId)))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: HttpException) {
+        if (e.code() == HTTP_NOT_FOUND) {
+            OpenCodeEvent.SessionRefreshRequested(sessionId, removed = true)
+        } else {
+            AppLog.w(TAG, "Session event refresh failed: HTTP ${e.code()}")
+            null
+        }
+    } catch (e: Exception) {
+        AppLog.w(TAG, "Session event refresh failed: ${e.javaClass.simpleName}")
+        null
+    }
+
+    private fun cancelSessionRefresh(sessionId: String) {
+        sessionRefreshJobs.remove(sessionId)?.cancel()
+        sessionRefreshPending.remove(sessionId)
+    }
+
+    private fun removeSessionLocally(sessionId: String) {
+        removeSessionOwnership(sessionId)
+        synchronized(messageStateLock) {
+            messageStates.remove(sessionId)?.value = emptyList()
+            // Invalidate in-flight recovery before it can resurrect a deleted session.
+            recoveryInvalidatedSessions.add(sessionId)
+            sessionRevisions[sessionId] = (sessionRevisions[sessionId] ?: 0L) + 1
+            sessionLeaseGenerations[sessionId] = (sessionLeaseGenerations[sessionId] ?: 0L) + 1
+            sessionLoadedLimits.remove(sessionId)
+            synchronized(sessionUiStates) { sessionUiStates.remove(sessionId) }
         }
     }
 
@@ -454,6 +584,66 @@ class SessionRepositoryImpl(
                 runCatching { hydrate(client.listProjects()) }
             }.also { inFlight = it }
         }
+    }
+
+    /**
+     * Debounced, coalesced message reconcile for one session: requests during the debounce share the
+     * upcoming fetch, and a request arriving once that fetch started runs exactly one more reconcile.
+     */
+    private fun requestMessageEventRefresh(sessionId: String) {
+        synchronized(messageEventRefreshJobs) {
+            if (messageEventRefreshJobs[sessionId]?.isActive == true) {
+                messageEventRefreshPending.add(sessionId)
+            } else {
+                messageEventRefreshJobs[sessionId] = scope.launch { runMessageEventRefresh(sessionId) }
+            }
+        }
+    }
+
+    private suspend fun runMessageEventRefresh(sessionId: String) {
+        try {
+            var refreshAgain: Boolean
+            do {
+                delay(PROJECT_EVENT_REFRESH_DEBOUNCE_MS)
+                // Requests that arrived during the debounce are covered by the fetch about to start.
+                synchronized(messageEventRefreshJobs) { messageEventRefreshPending.remove(sessionId) }
+                try {
+                    reconcileMessages(SessionId(sessionId))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    AppLog.w(TAG, "Message event refresh failed: ${e.javaClass.simpleName}")
+                }
+                synchronized(messageEventRefreshJobs) {
+                    refreshAgain = messageEventRefreshPending.remove(sessionId)
+                    if (!refreshAgain) messageEventRefreshJobs.remove(sessionId)
+                }
+            } while (refreshAgain)
+        } finally {
+            synchronized(messageEventRefreshJobs) {
+                if (messageEventRefreshJobs[sessionId] === coroutineContext[Job]) {
+                    messageEventRefreshJobs.remove(sessionId)
+                    messageEventRefreshPending.remove(sessionId)
+                }
+            }
+        }
+    }
+
+    private fun settledSessionId(event: OpenCodeEvent): String? = when (event) {
+        is OpenCodeEvent.SessionIdle -> event.sessionID
+        is OpenCodeEvent.SessionStatusChanged -> event.sessionID.takeIf { event.status.isTerminalIdle() }
+        else -> null
+    }
+
+    /**
+     * v2 assistant text streams only over SSE and the REST projection can lag it, so a reconcile
+     * that ran mid-turn may have missed the final content and tool state, and nothing else repairs
+     * it once the turn ends. One trailing reconcile after the session settles fills it in for
+     * actively leased sessions. v1 keeps receiving authoritative message/part events instead.
+     */
+    private fun requestPostIdleReconcile(sessionId: String) {
+        if (!client.streamsEphemeralContent) return
+        if (synchronized(messageStateLock) { canRecover(sessionId) }) requestMessageEventRefresh(sessionId)
     }
 
     /**
@@ -636,10 +826,13 @@ class SessionRepositoryImpl(
      * pagination path, this repairs missed deletions and stale part content: the REST window is the
      * source of truth once the caller has confirmed the revision is unchanged and the session is
      * still active. Mutations that were concurrently applied for the same message/part are not
-     * distinguishable here because a committed replacement implies no revision changed.
+     * distinguishable here because a committed replacement implies no revision changed. When the
+     * client streams ephemeral content (v2), streamed text the lagging REST window would truncate or
+     * drop is preserved; see [V2MessageReconcile].
      */
     private fun replaceMessagesAuthoritatively(sessionId: String, loaded: List<MessageWithParts>) {
-        messageState(sessionId).value = loaded
+        val state = messageState(sessionId)
+        state.value = if (client.streamsEphemeralContent) V2MessageReconcile.replace(loaded, state.value) else loaded
     }
 
     private suspend fun reconcileLoadedPendingState(
@@ -663,11 +856,11 @@ class SessionRepositoryImpl(
     )
 
     override fun messages(sessionId: SessionId): StateFlow<List<MessageWithParts>> = messageState(
-        sessionId.value
+        sessionId.value,
     ).asStateFlow()
 
     override fun sessionUiState(sessionId: SessionId): StateFlow<SessionUiState> = sessionUiStateFor(
-        sessionId.value
+        sessionId.value,
     ).asStateFlow()
 
     override fun acquireSession(sessionId: SessionId): AutoCloseable {
@@ -715,7 +908,7 @@ class SessionRepositoryImpl(
     override fun clearPermission(sessionId: SessionId, permissionId: String) {
         updateSession(sessionId.value) { state ->
             state.copy(
-                pendingPermissionsByCallId = state.pendingPermissionsByCallId.filterValues { it.id != permissionId }
+                pendingPermissionsByCallId = state.pendingPermissionsByCallId.filterValues { it.id != permissionId },
             )
         }
     }
@@ -723,7 +916,7 @@ class SessionRepositoryImpl(
     override fun clearPermissionByRequestId(sessionId: SessionId, requestId: String) {
         updateSession(sessionId.value) { state ->
             state.copy(
-                pendingPermissionsByCallId = state.pendingPermissionsByCallId.filterValues { it.id != requestId }
+                pendingPermissionsByCallId = state.pendingPermissionsByCallId.filterValues { it.id != requestId },
             )
         }
     }
@@ -851,6 +1044,17 @@ class SessionRepositoryImpl(
 
     override fun close() {
         projectRefreshJob?.cancel()
+        locationRecoveryJob?.cancel()
+        synchronized(hydrationTransitionLock) {
+            sessionRefreshJobs.values.forEach { it.cancel() }
+            sessionRefreshJobs.clear()
+            sessionRefreshPending.clear()
+        }
+        synchronized(messageEventRefreshJobs) {
+            messageEventRefreshJobs.values.forEach { it.cancel() }
+            messageEventRefreshJobs.clear()
+            messageEventRefreshPending.clear()
+        }
         messageRecoveryJob?.cancel(CancellationException("Session repository closed"))
         messageRecoveryJob = null
         invalidate()
@@ -1183,6 +1387,7 @@ class SessionRepositoryImpl(
                 is OpenCodeEvent.SessionCreated -> updateSessionOwnership(event.session)
                 is OpenCodeEvent.SessionUpdated -> updateSessionOwnership(event.session)
                 is OpenCodeEvent.SessionDeleted -> removeSessionOwnership(event.session.id)
+                is OpenCodeEvent.SessionRefreshRequested -> if (event.removed) removeSessionOwnership(event.sessionID)
                 else -> Unit
             }
         }
@@ -1224,7 +1429,7 @@ class SessionRepositoryImpl(
                     pendingBeforeReconciliation[key] != permission
                 }
                 state.copy(
-                    pendingPermissionsByCallId = (recovered - concurrentlyRemovedKeys) + concurrentlyArrived
+                    pendingPermissionsByCallId = (recovered - concurrentlyRemovedKeys) + concurrentlyArrived,
                 )
             }
         }
@@ -1235,6 +1440,12 @@ class SessionRepositoryImpl(
         loaded: List<MessageWithParts>,
     ) {
         val state = messageState(sessionId)
+        if (client.streamsEphemeralContent) {
+            // v2 REST alone carries message metadata and tool state, so it wins everywhere except
+            // where it would truncate streamed text.
+            state.update { current -> V2MessageReconcile.merge(loaded, current) }
+            return
+        }
         state.update { current ->
             val currentById = current.associateBy { it.message.id }
             loaded.map { loadedMessage ->
@@ -1324,6 +1535,45 @@ class SessionRepositoryImpl(
         }
     }
 
+    private fun applyV2Content(event: OpenCodeEvent.V2ContentChanged) {
+        updateMessageState(event.sessionID) { messages ->
+            val existing = messages.firstOrNull { it.message.id == event.messageID }
+                ?: createPlaceholderMessage(event.sessionID, event.messageID)
+            val part = existing.parts.firstOrNull { it.id == event.partID }
+            val text = v2ContentText(part, event)
+            val updated = when (event.kind) {
+                "text" -> (part as? Part.Text ?: Part.Text(event.partID, event.sessionID, event.messageID, ""))
+                    .copy(text = text, isStreaming = event.phase != "ended")
+                "reasoning" -> (
+                    part as? Part.Reasoning
+                        ?: Part.Reasoning(event.partID, event.sessionID, event.messageID, "")
+                    )
+                    .copy(text = text)
+                else -> return@updateMessageState messages
+            }
+            val parts = if (part == null) {
+                existing.parts + updated
+            } else {
+                existing.parts.map { if (it.id == event.partID) updated else it }
+            }
+            (messages.filterNot { it.message.id == event.messageID } + existing.copy(parts = parts))
+                .sortedBy { it.message.createdAt }
+        }
+    }
+
+    private fun v2ContentText(part: Part?, event: OpenCodeEvent.V2ContentChanged): String {
+        val current = when (part) {
+            is Part.Text -> part.text
+            is Part.Reasoning -> part.text
+            else -> ""
+        }
+        return when (event.phase) {
+            "started" -> current
+            "ended" -> event.text
+            else -> current + event.text
+        }
+    }
+
     private fun applyPartDelta(event: OpenCodeEvent.MessagePartDelta) {
         val sessionId = event.sessionID ?: findSessionIdForPart(event.messageID, event.partID) ?: return
         updateMessageState(sessionId) { messages ->
@@ -1332,7 +1582,7 @@ class SessionRepositoryImpl(
                 message.copy(
                     parts = message.parts.map { part ->
                         if (part.id == event.partID) appendDeltaToPart(part, event.field, event.delta) else part
-                    }
+                    },
                 )
             }
         }
@@ -1404,12 +1654,15 @@ class SessionRepositoryImpl(
         is OpenCodeEvent.SessionCreated,
         is OpenCodeEvent.SessionUpdated,
         is OpenCodeEvent.SessionDeleted,
+        is OpenCodeEvent.SessionRefreshRequested,
         is OpenCodeEvent.SessionStatusChanged,
         is OpenCodeEvent.SessionDiff,
         is OpenCodeEvent.SessionIdle,
         is OpenCodeEvent.SessionCompacted,
         is OpenCodeEvent.SessionError,
-        is OpenCodeEvent.MessagePartDelta -> true
+        is OpenCodeEvent.MessageRefreshRequested,
+        -> true
+        // Streamed deltas are never replayed into the catalog; buffering them would evict real events.
         else -> false
     }
 

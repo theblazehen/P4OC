@@ -269,16 +269,18 @@ fun FileExplorerScreen(
                                         modifier = Modifier.size(Sizing.iconAction)
                                     )
                                 }
-                                IconButton(
-                                    onClick = { viewModel.setSymbolMode(true) },
-                                    modifier = Modifier.size(Sizing.iconButtonMd)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Code,
-                                        contentDescription = stringResource(R.string.cd_symbol_search),
-                                        tint = theme.textMuted,
-                                        modifier = Modifier.size(Sizing.iconAction)
-                                    )
+                                if (uiState.capabilities.canSearchSymbols) {
+                                    IconButton(
+                                        onClick = { viewModel.setSymbolMode(true) },
+                                        modifier = Modifier.size(Sizing.iconButtonMd)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Code,
+                                            contentDescription = stringResource(R.string.cd_symbol_search),
+                                            tint = theme.textMuted,
+                                            modifier = Modifier.size(Sizing.iconAction)
+                                        )
+                                    }
                                 }
                             }
                         }

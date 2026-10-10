@@ -134,6 +134,28 @@ class ProjectsViewModelTest {
         coVerify(exactly = 2) { api.listProjects(null, null) }
     }
 
+    @Test
+    fun v2ProjectRefreshEvent_reloadsProjects() = runTest(dispatcher) {
+        val api = mockk<OpenCodeApi>()
+        val initial = project("initial", "/initial", created = 1)
+        val refreshed = project("refreshed", "/refreshed", created = 2)
+        coEvery { api.listProjects(null, null) } returnsMany listOf(listOf(initial), listOf(refreshed))
+        coEvery { api.listFiles(".", any(), null) } returns emptyList()
+        val client = client("https://server.test", 7, api)
+        val events = MutableSharedFlow<ScopedEvent>(extraBufferCapacity = 8)
+        val registry = mockk<ServerConnectionRegistry>()
+        every { registry.events(client.workspace.server) } returns events
+
+        val viewModel = ProjectsViewModel(client, registry)
+        advanceUntilIdle()
+
+        events.emit(scoped(client, client.generation, OpenCodeEvent.ProjectRefreshRequested("refreshed")))
+        advanceTimeBy(151)
+        advanceUntilIdle()
+
+        assertEquals(listOf(refreshed), viewModel.uiState.value.projects)
+    }
+
     private fun scoped(
         client: WorkspaceClient,
         generation: ServerGeneration,

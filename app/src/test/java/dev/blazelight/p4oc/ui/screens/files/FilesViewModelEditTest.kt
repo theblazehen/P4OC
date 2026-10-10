@@ -114,6 +114,60 @@ class FilesViewModelEditTest {
     }
 
     @Test
+    fun conflictReloadReplacesDirtyBufferWithServerVersion() = runTest {
+        val repo = FakeRepo(
+            content = "original",
+            hash = "old-hash",
+            writeResult = FileOperationResult.Conflict("stale", currentHash = "new-hash"),
+        )
+        val vm = viewModel(repo)
+        vm.loadFileContent("p")
+        vm.onEditorTextChange("local edits")
+        vm.requestSave()
+        vm.confirmSave()
+        assertNotNull(vm.editState.value.conflict)
+
+        repo.content = "server edits"
+        repo.hash = "new-hash"
+        vm.reloadFromServer()
+
+        val edit = vm.editState.value
+        assertEquals("server edits", vm.uiState.value.fileContent)
+        assertEquals("server edits", edit.originalContent)
+        assertEquals("server edits", edit.currentContent)
+        assertEquals("new-hash", edit.baselineHash)
+        assertFalse(edit.isDirty)
+        assertNull(edit.conflict)
+    }
+
+    @Test
+    fun failedConflictReloadPreservesDirtyBufferForRetry() = runTest {
+        val repo = FakeRepo(
+            content = "original",
+            hash = "old-hash",
+            writeResult = FileOperationResult.Conflict("stale", currentHash = "new-hash"),
+        )
+        val vm = viewModel(repo)
+        vm.loadFileContent("p")
+        vm.onEditorTextChange("local edits")
+        vm.requestSave()
+        vm.confirmSave()
+
+        repo.readError = "offline"
+        vm.reloadFromServer()
+
+        assertEquals("offline", vm.uiState.value.error)
+        assertTrue(vm.editState.value.isDirty)
+        assertEquals("local edits", vm.editState.value.currentContent)
+        assertEquals("old-hash", vm.editState.value.baselineHash)
+
+        repo.readError = null
+        vm.loadFileContent("p")
+        assertEquals("local edits", vm.editState.value.currentContent)
+        assertTrue(vm.editState.value.isDirty)
+    }
+
+    @Test
     fun discardEdits_resetsBufferAndBumpsGeneration() = runTest {
         val repo = FakeRepo(content = "orig")
         val vm = viewModel(repo)
@@ -356,13 +410,14 @@ class FilesViewModelEditTest {
     }
 
     private class FakeRepo(
-        val content: String,
-        val hash: String? = null,
+        var content: String,
+        var hash: String? = null,
         val failedPaths: Set<String> = emptySet(),
         val canWrite: Boolean = true,
         val writeResult: FileOperationResult<FileWriteResult> =
             FileOperationResult.Ok(FileWriteResult("p", hash = null)),
     ) : FileRepository {
+        var readError: String? = null
         val writes = mutableListOf<FileWriteRequest>()
         val symbolQueries = mutableListOf<String>()
 
@@ -374,7 +429,8 @@ class FilesViewModelEditTest {
             }
 
         override suspend fun readFile(path: String): FileOperationResult<FileContent> =
-            FileOperationResult.Ok(FileContent(content = content, hash = hash))
+            readError?.let { FileOperationResult.Failed(it) }
+                ?: FileOperationResult.Ok(FileContent(content = content, hash = hash))
 
         override suspend fun searchFiles(query: String): FileOperationResult<List<FileNode>> =
             FileOperationResult.Ok(emptyList())

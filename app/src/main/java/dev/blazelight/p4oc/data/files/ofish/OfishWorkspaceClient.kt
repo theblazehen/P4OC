@@ -16,6 +16,8 @@ internal interface OfishWorkspaceClient {
     suspend fun deleteSession(id: String): Boolean
 
     suspend fun executeShellCommand(sessionId: String, request: ShellCommandRequest): MessageWrapperDto
+    suspend fun executeShellOutput(sessionId: String, request: ShellCommandRequest, marker: String): String? =
+        OfishShellOutputExtractor.extractMutationSegment(executeShellCommand(sessionId, request), marker)
 
     suspend fun listSessionsCurrentWorkspace(limit: Int?): List<SessionDto>
 
@@ -34,6 +36,8 @@ internal class WorkspaceClientOfishAdapter(
 
     override suspend fun executeShellCommand(sessionId: String, request: ShellCommandRequest): MessageWrapperDto =
         workspaceClient.executeShellCommand(sessionId, request)
+    override suspend fun executeShellOutput(sessionId: String, request: ShellCommandRequest, marker: String): String? =
+        workspaceClient.executeOfishShellOutput(sessionId, request, marker)
 
     override suspend fun listSessionsCurrentWorkspace(limit: Int?): List<SessionDto> =
         workspaceClient.listSessions(

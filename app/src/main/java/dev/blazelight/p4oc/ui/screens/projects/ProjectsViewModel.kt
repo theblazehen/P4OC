@@ -53,7 +53,8 @@ class ProjectsViewModel constructor(
                 .map { it.event }
                 .filter { event ->
                     event is OpenCodeEvent.ProjectUpdated ||
-                        event is OpenCodeEvent.ProjectDirectoriesUpdated
+                        event is OpenCodeEvent.ProjectDirectoriesUpdated ||
+                        event is OpenCodeEvent.ProjectRefreshRequested
                 }
                 .debounce(EVENT_REFRESH_DEBOUNCE_MS)
                 .collect { refreshProjects() }

@@ -12,7 +12,7 @@ import kotlinx.serialization.json.JsonObject
 data class ProviderDto(
     val id: String,
     val name: String,
-    val source: String, // "env" | "config" | "custom" | "api"
+    val source: String? = null, // v2 does not report env/config/custom/api provenance
     val env: List<String> = emptyList(),
     val key: String? = null,
     val options: JsonObject? = null,

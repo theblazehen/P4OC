@@ -319,6 +319,7 @@ fun SessionListScreen(
                                 forkingSessionIds = uiState.forkingSessionIds,
                                 isSessionForkPending = isSessionForkPending ||
                                     uiState.forkingSessionIds.isNotEmpty(),
+                                supportsSessionSharing = viewModel.supportsSessionSharing,
                                 showProjectChip = filterProjectId == null,
                                 onSessionClick = { session -> onSessionClick(session.id, session.directory) },
                                 onDeleteSession = { showDeleteDialog = it },
@@ -528,6 +529,7 @@ private fun SessionTreeNode(
     sessionPresences: Map<String, SessionPresence>,
     forkingSessionIds: Set<String>,
     isSessionForkPending: Boolean,
+    supportsSessionSharing: Boolean,
     showProjectChip: Boolean,
     onSessionClick: (Session) -> Unit,
     onDeleteSession: (Session) -> Unit,
@@ -556,6 +558,7 @@ private fun SessionTreeNode(
             isForking = session.id in forkingSessionIds,
             isSessionForkPending = isSessionForkPending,
             isShared = session.shareUrl != null,
+            supportsSessionSharing = supportsSessionSharing,
             onClick = { onSessionClick(session) },
             onDelete = { onDeleteSession(session) },
             onRename = { onRenameSession(session) },
@@ -588,6 +591,7 @@ private fun SessionTreeNode(
                         sessionPresences = sessionPresences,
                         forkingSessionIds = forkingSessionIds,
                         isSessionForkPending = isSessionForkPending,
+                        supportsSessionSharing = supportsSessionSharing,
                         showProjectChip = showProjectChip,
                         onSessionClick = onSessionClick,
                         onDeleteSession = onDeleteSession,
@@ -618,6 +622,7 @@ private fun SessionCard(
     isForking: Boolean,
     isSessionForkPending: Boolean,
     isShared: Boolean,
+    supportsSessionSharing: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
     onRename: () -> Unit,
@@ -820,7 +825,7 @@ private fun SessionCard(
             },
             leadingIcon = Icons.Default.Summarize
         )
-        if (isShared) {
+        if (supportsSessionSharing && isShared) {
             TuiDropdownMenuItem(
                 text = stringResource(R.string.sessions_unshare),
                 onClick = {
@@ -829,7 +834,7 @@ private fun SessionCard(
                 },
                 leadingIcon = Icons.Default.LinkOff
             )
-        } else {
+        } else if (supportsSessionSharing) {
             TuiDropdownMenuItem(
                 text = stringResource(R.string.sessions_share),
                 onClick = {

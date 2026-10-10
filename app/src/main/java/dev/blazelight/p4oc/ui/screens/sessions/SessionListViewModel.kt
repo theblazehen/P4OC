@@ -30,6 +30,7 @@ class SessionListViewModel constructor(
 
     private val _uiState = MutableStateFlow(SessionListUiState())
     val uiState: StateFlow<SessionListUiState> = _uiState.asStateFlow()
+    val supportsSessionSharing: Boolean get() = sessionRepository.supportsSessionSharing
 
     companion object {
         internal const val MAX_SEARCH_QUERY_CHARS = 512

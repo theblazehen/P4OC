@@ -13,6 +13,7 @@ import dev.blazelight.p4oc.data.remote.dto.SessionModelDto
 import dev.blazelight.p4oc.data.remote.dto.reasoningEfforts
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
+import dev.blazelight.p4oc.domain.server.affectsCatalogIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,8 +101,7 @@ class ModelAgentManager(
                     val refreshesCatalog = event is OpenCodeEvent.ModelsRefreshed ||
                         event is OpenCodeEvent.CatalogUpdated ||
                         event is OpenCodeEvent.McpToolsChanged
-                    scopedEvent.generation == workspaceClient.generation &&
-                        scopedEvent.workspaceKey == workspaceClient.workspace.key &&
+                    scopedEvent.affectsCatalogIn(workspaceClient.workspace, workspaceClient.generation) &&
                         refreshesCatalog
                 }
                 .debounce(EVENT_REFRESH_DEBOUNCE_MS)

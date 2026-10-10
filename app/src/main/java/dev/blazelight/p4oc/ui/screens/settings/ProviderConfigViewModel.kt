@@ -12,6 +12,7 @@ import dev.blazelight.p4oc.data.remote.dto.ProviderAuthMethodDto
 import dev.blazelight.p4oc.data.remote.dto.ProviderDto
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
+import dev.blazelight.p4oc.domain.server.affectsCatalogIn
 import dev.blazelight.p4oc.ui.screens.chat.ModelSelectionCoordinator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -35,8 +36,7 @@ internal fun ServerConnectionRegistry.observeWorkspaceCatalogEvents(
     scope.launch {
         events(workspaceClient.workspace.server)
             .filter { scoped ->
-                scoped.generation == workspaceClient.generation &&
-                    scoped.workspaceKey == workspaceClient.workspace.key &&
+                scoped.affectsCatalogIn(workspaceClient.workspace, workspaceClient.generation) &&
                     if (mcpOnly) {
                         scoped.event is OpenCodeEvent.McpToolsChanged
                     } else {
@@ -58,6 +58,7 @@ data class ProviderConfigUiState(
     val providers: List<ProviderDto> = emptyList(),
     val connectedProviderIds: List<String> = emptyList(),
     val currentModel: String? = null,
+    val canSetDefaultModel: Boolean = true,
     val selectedProviderId: String? = null,
     val authMethods: Map<String, List<ProviderAuthMethodDto>> = emptyMap(),
     val pendingAuthorization: PendingProviderAuthorization? = null,
@@ -78,7 +79,9 @@ class ProviderConfigViewModel constructor(
 
     private companion object { const val TAG = "ProviderConfigViewModel" }
 
-    private val _uiState = MutableStateFlow(ProviderConfigUiState())
+    private val _uiState = MutableStateFlow(
+        ProviderConfigUiState(canSetDefaultModel = workspaceClient.supportsGlobalModelConfig)
+    )
     val uiState: StateFlow<ProviderConfigUiState> = _uiState.asStateFlow()
 
     init {
@@ -96,7 +99,11 @@ class ProviderConfigViewModel constructor(
             try {
                 val providersResponse = workspaceClient.getProviders()
                 val config = workspaceClient.getConfig()
-                val authMethods = workspaceClient.getProviderAuthMethods()
+                val authMethods = if (workspaceClient.supportsGlobalModelConfig) {
+                    workspaceClient.getProviderAuthMethods()
+                } else {
+                    emptyMap()
+                }
 
                 _uiState.update { state ->
                     state.copy(

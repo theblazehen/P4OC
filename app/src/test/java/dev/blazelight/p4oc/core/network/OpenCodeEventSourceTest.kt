@@ -76,7 +76,7 @@ class OpenCodeEventSourceTest {
             val emit = source.javaClass.getDeclaredMethod(
                 "parseAndEmitEvent",
                 String::class.java,
-                Long::class.javaPrimitiveType
+                Long::class.javaPrimitiveType,
             )
                 .apply { isAccessible = true }
             val generation = source.javaClass.getDeclaredField("generation")
@@ -165,6 +165,186 @@ class OpenCodeEventSourceTest {
         } finally {
             source.shutdown()
         }
+    }
+
+    @Test
+    fun `v2 assistant streams content without REST reads per token and finalizes at ended`() {
+        val mapper = V2EventMapper(json, EventMapper(json, MessageMapper()))
+        val started = """{"type":"session.text.started","data":{
+            "sessionID":"ses_1","assistantMessageID":"msg_1","ordinal":0}}"""
+        val delta = """{"type":"session.text.delta","data":{
+            "sessionID":"ses_1","assistantMessageID":"msg_1","ordinal":0,"delta":"Hello"}}"""
+        val ended = """{"type":"session.text.ended","location":{"directory":"/workspace/project"},"data":{
+            "sessionID":"ses_1","assistantMessageID":"msg_1","ordinal":0,"text":"Hello!"}}"""
+        val id = v2AssistantPartId("msg_1", "text", 0)
+
+        assertEquals(
+            OpenCodeEvent.V2ContentChanged("ses_1", "msg_1", id, "text", "", "started"),
+            mapper.map(started)?.event,
+        )
+        assertEquals(
+            OpenCodeEvent.V2ContentChanged("ses_1", "msg_1", id, "text", "Hello", "delta"),
+            mapper.map(delta)?.event,
+        )
+        val mapped = mapper.map(ended)
+        assertEquals("/workspace/project", mapped?.directory)
+        assertEquals(
+            OpenCodeEvent.V2ContentChanged("ses_1", "msg_1", id, "text", "Hello!", "ended"),
+            mapped?.event,
+        )
+    }
+
+    @Test
+    fun `v2 text and reasoning ordinals identify independent content parts`() {
+        val mapper = V2EventMapper(json, EventMapper(json, MessageMapper()))
+        val reasoning = mapper.map(
+            """{"type":"session.reasoning.delta","data":{
+            "sessionID":"ses_1","assistantMessageID":"msg_1","ordinal":0,"delta":"Think"}}""",
+        )
+        val secondText = mapper.map(
+            """{"type":"session.text.delta","data":{
+            "sessionID":"ses_1","assistantMessageID":"msg_1","ordinal":1,"delta":"Next"}}""",
+        )
+        assertEquals(
+            OpenCodeEvent.V2ContentChanged(
+                "ses_1",
+                "msg_1",
+                "p4oc.v2.msg_1.reasoning.0",
+                "reasoning",
+                "Think",
+                "delta",
+            ),
+            reasoning?.event,
+        )
+        assertEquals(
+            OpenCodeEvent.V2ContentChanged(
+                "ses_1",
+                "msg_1",
+                "p4oc.v2.msg_1.text.1",
+                "text",
+                "Next",
+                "delta",
+            ),
+            secondText?.event,
+        )
+    }
+
+    @Test
+    fun `persisted interleaved content shares stream identity despite server ids`() {
+        val message = V2SessionDtoMapper(json).toMessageWrapper(
+            json.parseToJsonElement(
+                """{"id":"msg_1","sessionID":"ses_1","type":"assistant","time":{"created":1},
+                "content":[{"type":"reasoning","id":"srv_reason_0","text":"Think"},
+                {"type":"text","id":"srv_text_0","text":"First"},
+                {"type":"reasoning","id":"srv_reason_1","text":"More"},
+                {"type":"tool","id":"call_1","name":"read","state":{"status":"running","input":{}}},
+                {"type":"text","id":"srv_text_1","text":"Next"}]}""",
+            ),
+            expectedSessionId = "ses_1",
+        )
+        assertEquals(
+            listOf(
+                "p4oc.v2.msg_1.reasoning.0",
+                "p4oc.v2.msg_1.text.0",
+                "p4oc.v2.msg_1.reasoning.1",
+                "call_1",
+                "p4oc.v2.msg_1.text.1",
+            ),
+            message.parts.map { it.id },
+        )
+        val delta = V2EventMapper(json, EventMapper(json, MessageMapper())).map(
+            """{"type":"session.text.delta","data":{"sessionID":"ses_1",
+            "assistantMessageID":"msg_1","ordinal":1,"delta":"!"}}""",
+        )?.event as OpenCodeEvent.V2ContentChanged
+        assertEquals(message.parts.last().id, delta.partID)
+    }
+
+    @Test
+    fun `v2 permissions retain resource and tool source identity`() {
+        val mapped = V2EventMapper(json, EventMapper(json, MessageMapper())).map(
+            """
+            {"id":"evt_2","type":"permission.asked","location":{"directory":"/workspace/project"},
+             "data":{"id":"per_1","sessionID":"ses_1","action":"shell","resources":["npm test"],
+             "save":["npm *"],"source":{"type":"tool","messageID":"msg_1","id":"call_1"}}}
+            """.trimIndent(),
+        )
+
+        val permission = (mapped?.event as OpenCodeEvent.PermissionRequested).permission
+        assertEquals("shell", permission.type)
+        assertEquals(listOf("npm test"), permission.patterns)
+        assertEquals(listOf("npm *"), permission.always)
+        assertEquals("msg_1", permission.messageID)
+        assertEquals("call_1", permission.callID)
+    }
+
+    @Test
+    fun `v2 status retry and terminal events retain their payloads`() {
+        val mapper = V2EventMapper(json, EventMapper(json, MessageMapper()))
+        val status = mapper.map(
+            """{"type":"session.status","data":{"sessionID":"ses_1","status":{
+                "type":"retry","attempt":2,"message":"rate limited","next":1000}}}""",
+        )
+        val retry = (status?.event as OpenCodeEvent.SessionStatusChanged).status
+        assertEquals(dev.blazelight.p4oc.domain.model.SessionStatus.Retry(2, "rate limited", 1000), retry)
+        assertEquals(
+            OpenCodeEvent.PtyExited("pty_1", 7),
+            mapper.map(
+                """{"type":"pty.exited","data":{"id":"pty_1","exitCode":7}}""",
+            )?.event,
+        )
+        assertEquals(
+            OpenCodeEvent.InstallationUpdateAvailable("2.1.0"),
+            mapper.map(
+                """{"type":"installation.update-available","data":{"version":"2.1.0"}}""",
+            )?.event,
+        )
+        assertEquals(
+            OpenCodeEvent.VcsBranchUpdated("feature"),
+            mapper.map(
+                """{"type":"vcs.branch.updated","data":{"branch":"feature"}}""",
+            )?.event,
+        )
+    }
+
+    @Test
+    fun `v2 execution failure and unscoped location shutdown remain visible`() {
+        val mapper = V2EventMapper(json, EventMapper(json, MessageMapper()))
+        val failure = mapper.map(
+            """{"type":"session.execution.failed","data":{"sessionID":"ses_1","error":{
+                "type":"ProviderError","message":"denied","status":403}}}""",
+        )?.event as OpenCodeEvent.SessionError
+        assertEquals("ses_1", failure.sessionID)
+        assertEquals("denied", failure.error?.message)
+        assertEquals(403, failure.error?.statusCode)
+        assertEquals(
+            OpenCodeEvent.LocationShutdown(null),
+            mapper.map(
+                """{"type":"location.shutdown","data":{}}""",
+            )?.event,
+        )
+    }
+
+    @Test
+    fun `v2 catalog and MCP changes refresh their consumers`() {
+        val mapper = V2EventMapper(json, EventMapper(json, MessageMapper()))
+        assertEquals(
+            OpenCodeEvent.ModelsRefreshed,
+            mapper.map(
+                """{"type":"models-dev.refreshed","data":{}}""",
+            )?.event,
+        )
+        assertEquals(
+            OpenCodeEvent.McpToolsChanged("filesystem"),
+            mapper.map(
+                """{"type":"mcp.status.changed","data":{"server":"filesystem"}}""",
+            )?.event,
+        )
+        assertEquals(
+            OpenCodeEvent.McpToolsChanged("filesystem"),
+            mapper.map(
+                """{"type":"mcp.resources.changed","data":{"server":"filesystem"}}""",
+            )?.event,
+        )
     }
 
     private fun createSource() = OpenCodeEventSource(

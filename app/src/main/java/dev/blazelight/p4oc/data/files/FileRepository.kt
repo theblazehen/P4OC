@@ -47,6 +47,7 @@ data class FileList(
 data class FileCapabilities(
     val canRead: Boolean = true,
     val canList: Boolean = true,
+    val canSearchSymbols: Boolean = true,
     val canWrite: Boolean = false,
     val canCreateDirectory: Boolean = false,
     val canRename: Boolean = false,
@@ -162,7 +163,9 @@ class WorkspaceFileRepository internal constructor(
         return unsupportedMutationResult(request.path)
     }
 
-    override suspend fun capabilities(): FileCapabilities = FileCapabilities()
+    override suspend fun capabilities(): FileCapabilities = FileCapabilities(
+        canSearchSymbols = client.supportsSymbolSearch,
+    )
 
     private fun <T> unsupportedMutationResult(path: String): FileOperationResult<T> {
         FilePathValidator.normalizeForMutation(path).getOrElse { error ->
@@ -213,6 +216,7 @@ class WorkspaceFileRepository internal constructor(
 }
 
 internal interface FileWorkspaceClient {
+    val supportsSymbolSearch: Boolean get() = true
     suspend fun listFiles(path: String): List<FileNodeDto>
     suspend fun readFile(path: String): FileContentDto
     suspend fun getFileStatus(): List<FileStatusDto>
@@ -223,6 +227,7 @@ internal interface FileWorkspaceClient {
 private class WorkspaceClientFileAdapter(
     private val workspaceClient: WorkspaceClient,
 ) : FileWorkspaceClient {
+    override val supportsSymbolSearch: Boolean get() = workspaceClient.supportsSymbolSearch
     override suspend fun listFiles(path: String): List<FileNodeDto> = workspaceClient.listFiles(path)
 
     override suspend fun readFile(path: String): FileContentDto = workspaceClient.readFile(path)

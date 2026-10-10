@@ -48,7 +48,7 @@ data class Session(
     val directory: String,
     val parentID: String? = null,
     val title: String,
-    val version: String,
+    val version: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val compactingAt: Long? = null,

@@ -12,10 +12,12 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -188,6 +190,7 @@ fun TermuxTerminalView(
     onTerminalSizeChanged: ((rows: Int, cols: Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val terminalTextSizePx = with(LocalDensity.current) { MaterialTheme.typography.bodyMedium.fontSize.roundToPx() }
     val accessibilityLabel = stringResource(R.string.terminal_accessibility_label)
     val connectedState = stringResource(R.string.terminal_accessibility_connected)
     val focusInputLabel = stringResource(R.string.terminal_accessibility_focus_input)
@@ -204,7 +207,7 @@ fun TermuxTerminalView(
             }
 
             val terminalView = TerminalView(ctx, null).apply {
-                setTextSize(14)
+                setTextSize(terminalTextSizePx)
                 setTypeface(Typeface.MONOSPACE)
                 setTerminalViewClient(terminalViewClient)
                 keepScreenOn = true

@@ -129,10 +129,13 @@ class SessionRepositoryProvider(
         workspace: Workspace,
         generation: ServerGeneration,
     ): Boolean {
-        if (scopedEvent.event is OpenCodeEvent.Connected) return false
-        return scopedEvent.serverRef == workspace.server &&
-            scopedEvent.generation == generation &&
-            scopedEvent.workspaceKey == workspace.key
+        val shutdown = scopedEvent.event as? OpenCodeEvent.LocationShutdown
+        val sameSource = scopedEvent.serverRef == workspace.server && scopedEvent.generation == generation
+        val directoryMatch = scopedEvent.workspaceKey == workspace.key
+        val shutdownBroadcast = shutdown != null &&
+            (workspace.key == WorkspaceKey.Global || shutdown.directory == null)
+        return scopedEvent.event !is OpenCodeEvent.Connected && sameSource &&
+            (directoryMatch || shutdownBroadcast)
     }
 
     /**

@@ -20,18 +20,17 @@ internal class OfishCapabilityProbe(
 ) {
     suspend fun probe(): OfishProbeResult = runCatching {
         sessionFactory.withSession(OPERATION_NAME) { session ->
-            val response = client.executeShellCommand(
+            val output = client.executeShellOutput(
                 sessionId = session.id,
                 request = ShellCommandRequest(
                     agent = shellAgent,
                     model = null,
                     command = OfishCapabilityProbeCommand.build(),
                 ),
+                marker = CAPABILITY_MARKER,
+            ) ?: return@withSession OfishProbeResult.Failed(
+                "Malformed OFISH capability probe output: missing $CAPABILITY_MARKER output segment",
             )
-            val output = OfishShellOutputExtractor.extractCapabilitySegment(response)
-                ?: return@withSession OfishProbeResult.Failed(
-                    "Malformed OFISH capability probe output: missing $CAPABILITY_MARKER output segment",
-                )
             OfishCapabilityParser.parse(output)
         }
     }.getOrElse { error ->

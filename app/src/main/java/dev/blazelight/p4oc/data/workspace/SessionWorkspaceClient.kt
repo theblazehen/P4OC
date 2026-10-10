@@ -15,6 +15,13 @@ import dev.blazelight.p4oc.domain.workspace.Workspace
 
 interface SessionWorkspaceClient {
     val workspace: Workspace
+    val supportsSessionSharing: Boolean get() = true
+
+    /**
+     * True when assistant text/reasoning streams only as ephemeral SSE content events and the REST
+     * message projection may lag it (OpenCode v2), so message reconciliation must not truncate it.
+     */
+    val streamsEphemeralContent: Boolean get() = false
 
     suspend fun listProjects(): List<ProjectDto>
 

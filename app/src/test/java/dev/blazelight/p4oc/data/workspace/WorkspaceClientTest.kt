@@ -2,6 +2,7 @@ package dev.blazelight.p4oc.data.workspace
 
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.OpenCodeApi
+import dev.blazelight.p4oc.core.network.V2WorkspaceOpenCodeApi
 import dev.blazelight.p4oc.data.remote.dto.ConfigDto
 import dev.blazelight.p4oc.data.remote.dto.FileContentDto
 import dev.blazelight.p4oc.data.remote.dto.ForkSessionRequest
@@ -40,6 +41,7 @@ import okio.Source
 import okio.Timeout
 import okio.buffer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -541,6 +543,27 @@ class WorkspaceClientTest {
         }
         assertEquals(2, providerCalls)
         coVerify(exactly = 1) { api.listProjects(null, null) }
+    }
+
+    @Test
+    fun `capabilities stay readable after the generation retires`() {
+        var retired = false
+        val client = WorkspaceClient(
+            workspace = Workspace(ServerRef.fromEndpointKey("http://test.local"), directory = "/repo"),
+            generation = ServerGeneration(1L),
+            apiProvider = ActiveServerApiProvider { _, generation ->
+                if (retired) throw StaleWorkspaceClientException("Workspace generation ${generation.value} is stale")
+                mockk<V2WorkspaceOpenCodeApi>()
+            },
+            connectionState = MutableStateFlow(ConnectionState.Connected),
+        )
+
+        assertTrue(client.supportsV2Forms)
+        retired = true
+
+        assertTrue(client.supportsV2Forms)
+        assertFalse(client.supportsSessionSharing)
+        assertFalse(client.supportsSessionTodos)
     }
 
     private fun questionClient(api: OpenCodeApi): WorkspaceClient = workspaceClient(api)

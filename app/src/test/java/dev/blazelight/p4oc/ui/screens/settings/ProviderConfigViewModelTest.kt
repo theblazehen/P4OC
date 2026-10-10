@@ -43,6 +43,7 @@ class ProviderConfigViewModelTest {
         every { workspaceClient.workspace } returns
             Workspace(ServerRef.fromEndpointKey("http://test.local"), "/test")
         every { workspaceClient.generation } returns ServerGeneration(2L)
+        every { workspaceClient.supportsGlobalModelConfig } returns true
         coEvery { workspaceClient.getProviderAuthMethods() } returns emptyMap()
     }
 
@@ -176,6 +177,24 @@ class ProviderConfigViewModelTest {
             viewModel.uiState.value.error
         )
         assertNull(viewModel.uiState.value.pendingAuthorization)
+    }
+
+    @Test
+    fun v2CatalogLoadsWithoutLegacyProviderAuthEndpoint() = runTest(dispatcher) {
+        every { workspaceClient.supportsGlobalModelConfig } returns false
+        coEvery { workspaceClient.getProviders() } returns providersResponse()
+        coEvery { workspaceClient.getConfig() } returns ConfigDto(model = "openai/gpt-4")
+        coEvery { workspaceClient.getProviderAuthMethods() } throws
+            UnsupportedOperationException("No v2 provider auth endpoint")
+
+        val viewModel = ProviderConfigViewModel(workspaceClient)
+        advanceUntilIdle()
+
+        assertEquals(listOf("openai", "anthropic"), viewModel.uiState.value.providers.map { it.id })
+        assertEquals("openai/gpt-4", viewModel.uiState.value.currentModel)
+        assertEquals(false, viewModel.uiState.value.canSetDefaultModel)
+        assertNull(viewModel.uiState.value.error)
+        coVerify(exactly = 0) { workspaceClient.getProviderAuthMethods() }
     }
 
     private fun providersResponse() = ProvidersResponseDto(

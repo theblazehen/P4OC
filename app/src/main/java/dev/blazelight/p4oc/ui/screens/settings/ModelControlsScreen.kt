@@ -65,6 +65,7 @@ data class ModelControlsState(
     val models: List<ModelInfo> = emptyList(),
     val favorites: Set<String> = emptySet(),
     val selectedModelId: String? = null,
+    val canSetDefaultModel: Boolean = true,
     val isLoading: Boolean = false,
     val error: String? = null,
     val loadFailed: Boolean = false,
@@ -78,7 +79,9 @@ class ModelControlsViewModel constructor(
     serverConnectionRegistry: dev.blazelight.p4oc.core.network.ServerConnectionRegistry? = null,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ModelControlsState())
+    private val _state = MutableStateFlow(
+        ModelControlsState(canSetDefaultModel = workspaceClient.supportsGlobalModelConfig)
+    )
     val state: StateFlow<ModelControlsState> = _state.asStateFlow()
 
     init {
@@ -259,6 +262,14 @@ fun ModelControlsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            if (!state.canSetDefaultModel) {
+                Text(
+                    text = stringResource(R.string.v2_model_settings_info),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = theme.textMuted,
+                    modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.sm),
+                )
+            }
             SearchBar(
                 query = state.searchQuery,
                 onQueryChange = viewModel::updateSearchQuery,
@@ -347,6 +358,7 @@ fun ModelControlsScreen(
                             ModelCard(
                                 model = model,
                                 isSelected = model.id == state.selectedModelId,
+                                enabled = state.canSetDefaultModel,
                                 onSelect = { viewModel.selectModel(model.id) },
                                 onToggleFavorite = { viewModel.toggleFavorite(model.id) }
                             )
@@ -367,6 +379,7 @@ fun ModelControlsScreen(
                             ModelCard(
                                 model = model,
                                 isSelected = model.id == state.selectedModelId,
+                                enabled = state.canSetDefaultModel,
                                 onSelect = { viewModel.selectModel(model.id) },
                                 onToggleFavorite = { viewModel.toggleFavorite(model.id) }
                             )
@@ -448,6 +461,7 @@ private fun ProviderFilterChips(
 internal fun ModelCard(
     model: ModelInfo,
     isSelected: Boolean,
+    enabled: Boolean,
     onSelect: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -461,6 +475,7 @@ internal fun ModelCard(
             .fillMaxWidth()
             .selectable(
                 selected = isSelected,
+                enabled = enabled,
                 onClick = onSelect,
                 role = Role.RadioButton
             )

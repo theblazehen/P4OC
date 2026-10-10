@@ -306,18 +306,17 @@ internal class OfishMutationClient(
         command: String,
         expectedMarker: String,
     ): OfishMutationStatus {
-        val response = client.executeShellCommand(
+        val output = client.executeShellOutput(
             sessionId = sessionId,
             request = ShellCommandRequest(
                 agent = shellAgent,
                 model = null,
                 command = command,
             ),
+            marker = expectedMarker,
+        ) ?: return OfishMutationStatus.Malformed(
+            "Malformed OFISH mutation output: missing $expectedMarker output segment"
         )
-        val output = OfishShellOutputExtractor.extractMutationSegment(response, expectedMarker)
-            ?: return OfishMutationStatus.Malformed(
-                "Malformed OFISH mutation output: missing $expectedMarker output segment"
-            )
         return OfishMutationParser.parse(output, expectedMarker)
     }
 

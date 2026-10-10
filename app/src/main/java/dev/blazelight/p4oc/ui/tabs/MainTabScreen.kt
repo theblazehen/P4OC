@@ -57,14 +57,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -972,6 +975,13 @@ object MainTabScreen {
         val uiState = rememberStartWorkUiState()
         val tabMaps = rememberTabStateMaps()
         val lifecycleOwner = LocalLifecycleOwner.current
+        val focusManager = LocalFocusManager.current
+        val keyboardController = LocalSoftwareKeyboardController.current
+        val releasePageFocus: () -> Unit = {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            Unit
+        }
 
         LaunchedEffect(Unit) { deps.tabManager.ensureHomeTab(focus = false) }
         mainTabForegroundEffect(deps.serverConnectionRegistry, lifecycleOwner)
@@ -1059,14 +1069,17 @@ object MainTabScreen {
             savedServerViews = savedServerViews,
             scopedConnectionStates = scopedConnectionStates,
             homeRepositoryStates = homeRepositoryStates,
-            closeTab = closeTab,
+            closeTab = { id ->
+                if (id == activeTabId) releasePageFocus()
+                closeTab(id)
+            },
             savedServerExists = savedServerExists,
             connectSavedServer = connectSavedServer,
             onDisconnect = onDisconnect,
             onSettings = onSettings,
             onRefreshHome = onRefreshHome,
         )
-        mainTabScaffold(params, snackbarHostState, modifier)
+        mainTabScaffold(params, snackbarHostState, releasePageFocus, modifier)
         startWorkSheets(params)
     }
 }
@@ -1076,6 +1089,7 @@ object MainTabScreen {
 private fun mainTabScaffold(
     params: MainTabContentParams,
     snackbarHostState: SnackbarHostState,
+    releasePageFocus: () -> Unit,
     modifier: Modifier,
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -1089,6 +1103,7 @@ private fun mainTabScaffold(
     LaunchedEffect(params.activeTabId, params.tabs.size) {
         val index = params.tabs.indexOfFirst { it.id == params.activeTabId }
         if (index >= 0 && pagerState.currentPage != index) {
+            releasePageFocus()
             pagerState.animateScrollToPage(index)
         }
     }
@@ -1113,7 +1128,10 @@ private fun mainTabScaffold(
                 tabTitles = tabTitles,
                 tabIcons = tabIcons,
                 tabConnectionStates = params.tabMaps.connectionStates,
-                onTabClick = { id -> params.deps.tabManager.focusTab(id) },
+                onTabClick = { id ->
+                    if (id != params.activeTabId) releasePageFocus()
+                    params.deps.tabManager.focusTab(id)
+                },
                 onTabClose = params.closeTab,
                 onAddClick = {
                     if (params.deps.tabManager.activeTab?.isPinnedHome == true) {
@@ -1125,7 +1143,7 @@ private fun mainTabScaffold(
                     }
                 },
             )
-            mainTabPager(params, pagerState)
+            mainTabPager(params, pagerState, releasePageFocus)
         }
     }
 }
@@ -1134,8 +1152,16 @@ private fun mainTabScaffold(
 private fun ColumnScope.mainTabPager(
     params: MainTabContentParams,
     pagerState: PagerState,
+    releasePageFocus: () -> Unit,
 ) {
     val saveableStateHolder = rememberSaveableStateHolder()
+    LaunchedEffect(pagerState, params.tabs) {
+        var currentTabId = params.tabs.getOrNull(pagerState.currentPage)?.id
+        snapshotFlow { params.tabs.getOrNull(pagerState.currentPage)?.id }.collect { tabId ->
+            if (tabId != null && tabId != currentTabId) releasePageFocus()
+            currentTabId = tabId
+        }
+    }
     HorizontalPager(
         state = pagerState,
         modifier = Modifier.weight(1f),

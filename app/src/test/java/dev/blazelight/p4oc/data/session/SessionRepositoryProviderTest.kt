@@ -16,11 +16,14 @@ import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.domain.model.Message
 import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
+import dev.blazelight.p4oc.domain.model.Part
 import dev.blazelight.p4oc.domain.model.Session
 import dev.blazelight.p4oc.domain.model.TokenUsage
 import dev.blazelight.p4oc.domain.server.ScopedEvent
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.ServerRef
+import dev.blazelight.p4oc.domain.server.WorkspaceKey
+import dev.blazelight.p4oc.domain.server.affectsCatalogIn
 import dev.blazelight.p4oc.domain.session.SessionId
 import dev.blazelight.p4oc.domain.workspace.Workspace
 import io.mockk.coEvery
@@ -42,6 +45,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -152,6 +156,20 @@ class SessionRepositoryProviderTest {
                 json = json,
             )
         }
+    }
+
+    @Test
+    fun `global catalog refresh reaches directory tabs but not another server generation`() {
+        val event = ScopedEvent(server, generation, WorkspaceKey.Global, OpenCodeEvent.ModelsRefreshed)
+        assertTrue(event.affectsCatalogIn(workspace, generation))
+        assertTrue(event.affectsCatalogIn(Workspace(server, null), generation))
+        assertFalse(event.affectsCatalogIn(workspace, ServerGeneration(2)))
+        assertFalse(
+            event.affectsCatalogIn(
+                Workspace(ServerRef.fromEndpointKey("http://other.test"), "/repo"),
+                generation,
+            ),
+        )
     }
 
     @Test
@@ -319,6 +337,64 @@ class SessionRepositoryProviderTest {
             emptyList<MessageWithParts>(),
             lease.repository.messages(SessionId("s1")).value,
         )
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `v2 stream frames stay within their directory and server generation`() = runTest {
+        val harness = harness()
+        harness.bind(server, ServerGeneration(2))
+        val provider = harness.provider(dispatcher = StandardTestDispatcher(testScheduler))
+        val otherWorkspace = Workspace(server, "/other")
+        val target = provider.acquire(workspace, generation)
+        val other = provider.acquire(otherWorkspace, generation)
+        val newer = provider.acquire(workspace, ServerGeneration(2))
+        val stream = OpenCodeEvent.V2ContentChanged("s1", "m1", "p4oc.v2.m1.text.0", "text", "Hello", "delta")
+        try {
+            runCurrent()
+            harness.scopedEvents.emit(ScopedEvent(server, generation, workspace.key, stream))
+            runCurrent()
+            val part = target.repository.messages(SessionId("s1")).value.single().parts.single() as Part.Text
+            assertEquals("Hello", part.text)
+            assertTrue(other.repository.messages(SessionId("s1")).value.isEmpty())
+            assertTrue(newer.repository.messages(SessionId("s1")).value.isEmpty())
+        } finally {
+            provider.release(workspace, generation)
+            provider.release(otherWorkspace, generation)
+            provider.release(workspace, ServerGeneration(2))
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `scoped and unscoped shutdown revalidate directory and global workspaces`() = runTest {
+        val harness = harness()
+        val bound = harness.bind()
+        coEvery { bound.api.listSessions(any(), any()) } returns emptyList()
+        val provider = harness.provider(dispatcher = StandardTestDispatcher(testScheduler))
+        provider.acquire(workspace, generation)
+        val global = Workspace(server = server, directory = null)
+        provider.acquire(global, generation)
+        try {
+            runCurrent()
+            harness.scopedEvents.emit(
+                ScopedEvent(
+                    server,
+                    generation,
+                    WorkspaceKey.Directory("/repo"),
+                    OpenCodeEvent.LocationShutdown("/repo"),
+                ),
+            )
+            testScheduler.advanceUntilIdle()
+            harness.scopedEvents.emit(
+                ScopedEvent(server, generation, WorkspaceKey.Global, OpenCodeEvent.LocationShutdown(null)),
+            )
+            testScheduler.advanceUntilIdle()
+            coVerify(exactly = 4) { bound.api.listProjects(null, null) }
+        } finally {
+            provider.release(workspace, generation)
+            provider.release(global, generation)
+        }
     }
 
     @Test

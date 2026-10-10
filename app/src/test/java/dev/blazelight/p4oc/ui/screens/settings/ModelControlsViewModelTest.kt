@@ -49,6 +49,7 @@ class ModelControlsViewModelTest {
         every { workspaceClient.workspace } returns
             Workspace(ServerRef.fromEndpointKey("http://test.local"), "/test")
         every { workspaceClient.generation } returns ServerGeneration(2L)
+        every { workspaceClient.supportsGlobalModelConfig } returns true
     }
 
     @After

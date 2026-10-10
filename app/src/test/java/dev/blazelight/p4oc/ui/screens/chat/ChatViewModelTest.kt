@@ -1,6 +1,7 @@
 package dev.blazelight.p4oc.ui.screens.chat
 
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelStore
 import dev.blazelight.p4oc.core.datastore.ChatSettings
 import dev.blazelight.p4oc.core.datastore.NotificationSettings
 import dev.blazelight.p4oc.core.datastore.SessionComposerSelection
@@ -10,6 +11,10 @@ import dev.blazelight.p4oc.core.haptic.HapticFeedback
 import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.core.network.ConnectionState
 import dev.blazelight.p4oc.core.network.OpenCodeApi
+import dev.blazelight.p4oc.core.network.V2FormInfo
+import dev.blazelight.p4oc.core.network.V2FormState
+import dev.blazelight.p4oc.core.network.V2Forms
+import dev.blazelight.p4oc.core.network.V2WorkspaceOpenCodeApi
 import dev.blazelight.p4oc.data.files.FileRepository
 import dev.blazelight.p4oc.data.files.FileRepositoryFactory
 import dev.blazelight.p4oc.data.remote.dto.CommandDto
@@ -107,6 +112,8 @@ class ChatViewModelTest {
 
     @get:Rule
     val mainDispatcherRule = ChatViewModelMainDispatcherRule()
+    private val viewModelStore = ViewModelStore()
+    private var nextViewModelId = 0
 
     private lateinit var messageMapper: MessageMapper
     private lateinit var settingsDataStore: SettingsDataStore
@@ -159,6 +166,7 @@ class ChatViewModelTest {
 
     @After
     fun tearDown() {
+        viewModelStore.clear()
         unmockkObject(AppLog)
     }
 
@@ -257,6 +265,23 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertEquals(perm, vm.dialogManager.pendingPermissionsByCallId.value[perm.callID])
+    }
+
+    @Test
+    fun respondToPermission_repliesOnTheSubagentSessionThatAsked() = runTest {
+        coEvery { api.respondToPermissionV2(any(), any(), any()) } returns Response.success(Unit)
+        val vm = createViewModel()
+        emitEvent(OpenCodeEvent.SessionCreated(testSession(id = "child-1", parentID = "session-1")))
+        advanceUntilIdle()
+        val perm = permission(id = "perm-child", sessionId = "child-1")
+        emitEvent(OpenCodeEvent.PermissionRequested(perm))
+        advanceUntilIdle()
+
+        vm.respondToPermission(perm.id, "once")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { api.respondToPermissionV2("child-1", "perm-child", any()) }
+        assertTrue(vm.dialogManager.pendingPermissionsByCallId.value.isEmpty())
     }
 
     @Test
@@ -1920,6 +1945,63 @@ class ChatViewModelTest {
             coVerify(exactly = 0) { api.unrevertSession(any(), any(), null) }
         }
 
+    @Test
+    fun refreshPendingForms_queuesInFlightRefreshAndDisplaysNewestV2Form() = runTest {
+        val firstListStarted = CompletableDeferred<Unit>()
+        val staleListResponse = CompletableDeferred<List<V2FormInfo>>()
+        var listCalls = 0
+        val staleForm = V2FormInfo(
+            id = "stale-form",
+            sessionID = "session-1",
+            title = "Stale form",
+            fields = emptyList(),
+            state = V2FormState(status = "pending"),
+        )
+        val newestForm = V2FormInfo(
+            id = "newest-form",
+            sessionID = "session-1",
+            title = "Newest form",
+            fields = emptyList(),
+            state = V2FormState(status = "pending"),
+        )
+        val v2Api = mockk<V2WorkspaceOpenCodeApi>(relaxed = true)
+        val formsApi = mockk<V2Forms>()
+        every { v2Api.forms } returns formsApi
+        workspaceClient = WorkspaceClient(
+            workspace = workspaceClient.workspace,
+            generation = workspaceClient.generation,
+            apiProvider = ActiveServerApiProvider { _, _ -> v2Api },
+            connectionState = workspaceClient.connectionState,
+        )
+        coEvery { formsApi.listSessionForms("session-1", "/test") } coAnswers {
+            when (++listCalls) {
+                1 -> {
+                    firstListStarted.complete(Unit)
+                    staleListResponse.await()
+                }
+                2 -> listOf(newestForm)
+                else -> error("Unexpected pending form list request $listCalls")
+            }
+        }
+        coEvery { formsApi.getSessionForm("session-1", "stale-form", "/test") } returns staleForm
+        coEvery { formsApi.getSessionForm("session-1", "newest-form", "/test") } returns newestForm
+
+        val vm = createViewModel()
+        vm.refreshPendingForms()
+        runCurrent()
+        firstListStarted.await()
+
+        vm.refreshPendingForms()
+        staleListResponse.complete(listOf(staleForm))
+        advanceUntilIdle()
+
+        val pending = vm.pendingV2Forms.value
+        assertEquals(2, listCalls)
+        assertFalse(pending.isLoading)
+        assertEquals(listOf("newest-form"), pending.forms.map(PendingV2FormUi::id))
+        assertEquals(newestForm, pending.forms.single().form)
+    }
+
     private fun TestScope.createViewModel(
         savedStateHandle: SavedStateHandle = SavedStateHandle(mapOf(Screen.Chat.ARG_SESSION_ID to "session-1")),
         repository: SessionRepositoryImpl = SessionRepositoryImpl(
@@ -1938,6 +2020,7 @@ class ChatViewModelTest {
             settingsDataStore = settingsDataStore,
             hapticFeedback = hapticFeedback,
         )
+        viewModelStore.put("chat-${nextViewModelId++}", vm)
         advanceUntilIdle()
         return vm
     }
@@ -2122,6 +2205,7 @@ class ChatViewModelMainDispatcherRule(
     }
 
     override fun finished(description: Description) {
+        dispatcher.scheduler.runCurrent()
         Dispatchers.resetMain()
     }
 }

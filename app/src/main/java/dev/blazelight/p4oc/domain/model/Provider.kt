@@ -14,7 +14,7 @@ import java.nio.charset.StandardCharsets
 data class Provider(
     val id: String,
     val name: String,
-    val source: String,
+    val source: String? = null,
     val env: List<String> = emptyList(),
     val key: String? = null,
     val options: JsonObject? = null,
