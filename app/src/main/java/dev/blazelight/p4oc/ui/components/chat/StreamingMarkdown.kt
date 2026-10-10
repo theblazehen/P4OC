@@ -363,24 +363,33 @@ private fun highlightCode(
             .getHighlights()
     }.getOrDefault(emptyList())
         .filterIsInstance<ColorHighlight>()
-        .sortedBy { it.location.start }
+        .map { highlight ->
+            CodeHighlight(
+                start = highlight.location.start,
+                end = highlight.location.end,
+                color = androidx.compose.ui.graphics.Color(highlight.rgb).copy(alpha = 1f),
+            )
+        }
+    return styleCode(code, highlights, fallbackColor)
+}
 
-    return buildAnnotatedString {
-        var cursor = 0
-        highlights.forEach { highlight ->
-            val start = highlight.location.start.coerceIn(0, code.length)
-            val end = highlight.location.end.coerceIn(start, code.length)
-            if (cursor < start) append(code.substring(cursor, start))
-            withStyle(SpanStyle(color = androidx.compose.ui.graphics.Color(highlight.rgb).copy(alpha = 1f))) {
-                append(code.substring(start, end))
-            }
-            cursor = end
-        }
-        if (cursor < code.length) {
-            withStyle(SpanStyle(color = fallbackColor)) {
-                append(code.substring(cursor))
-            }
-        }
+internal data class CodeHighlight(val start: Int, val end: Int, val color: androidx.compose.ui.graphics.Color)
+
+/**
+ * Styles [code] without ever changing its text. The highlighter can emit overlapping ranges
+ * (a number literal and the `.` inside it), so ranges become styles over the source, applied
+ * shortest first so the enclosing token's color wins.
+ */
+internal fun styleCode(
+    code: String,
+    highlights: List<CodeHighlight>,
+    fallbackColor: androidx.compose.ui.graphics.Color,
+): AnnotatedString = buildAnnotatedString {
+    withStyle(SpanStyle(color = fallbackColor)) { append(code) }
+    highlights.sortedBy { it.end - it.start }.forEach { highlight ->
+        val start = highlight.start.coerceIn(0, code.length)
+        val end = highlight.end.coerceIn(start, code.length)
+        if (start < end) addStyle(SpanStyle(color = highlight.color), start, end)
     }
 }
 
