@@ -2,14 +2,18 @@ package dev.blazelight.p4oc.core.network
 
 import dev.blazelight.p4oc.core.datastore.SavedServerRegistry
 import dev.blazelight.p4oc.domain.server.ServerGeneration
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -19,6 +23,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.Timeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -171,6 +176,49 @@ class PtyWebSocketClientTest {
         assertEquals("OpenCode returned an invalid PTY connect ticket", failure?.message)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `disconnecting while a v2 ticket request is stalled cancels the http call`() = runTest {
+        val server = SavedServerRegistry.fromConnection("https://terminal.example.com", "Terminal")
+        val serverRef = server.toServerRef()
+        val serverGeneration = ServerGeneration(1)
+        val connection = Connection(
+            config = server.toServerConfig(),
+            generation = serverGeneration,
+            api = mockk<V2WorkspaceOpenCodeApi>(relaxed = true),
+            eventSource = mockk(relaxed = true),
+        )
+        val ticketTimeout = Timeout()
+        val stalledCall = mockk<Call>(relaxed = true) {
+            every { timeout() } returns ticketTimeout
+            every { enqueue(any()) } just Runs // the server never answers
+        }
+        val authClient = mockk<OkHttpClient> { every { newCall(any()) } returns stalledCall }
+        val registry = mockk<ServerConnectionRegistry>()
+        every { registry.terminalTransport(serverRef, serverGeneration) } returns
+            TerminalTransport(connection, authClient)
+        val client = PtyWebSocketClient(
+            serverConnectionRegistry = registry,
+            serverRef = serverRef,
+            serverGeneration = serverGeneration,
+            dispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        try {
+            client.connect("pty-a", directory = null, workspace = null)
+            runCurrent()
+            verify(exactly = 1) { stalledCall.enqueue(any()) }
+            assertTrue("ticket call needs its own deadline", ticketTimeout.timeoutNanos() > 0)
+
+            client.disconnect()
+            runCurrent()
+
+            verify(exactly = 1) { stalledCall.cancel() }
+        } finally {
+            client.close()
+        }
+    }
+
     private fun stubConnectTickets(authClient: OkHttpClient, requestedPtys: MutableList<String>) {
         every { authClient.newCall(any()) } answers {
             val request = firstArg<Request>()
@@ -189,9 +237,12 @@ class PtyWebSocketClientTest {
                 .message(if (statusCode == 200) "OK" else "Unavailable")
                 .body(body.toResponseBody("application/json".toMediaType()))
                 .build()
-            mockk<Call> {
-                every { execute() } returns response
-            }
+            respondingCall(response)
         }
+    }
+
+    private fun respondingCall(response: Response): Call = mockk(relaxed = true) {
+        every { timeout() } returns Timeout()
+        every { enqueue(any()) } answers { firstArg<Callback>().onResponse(self as Call, response) }
     }
 }

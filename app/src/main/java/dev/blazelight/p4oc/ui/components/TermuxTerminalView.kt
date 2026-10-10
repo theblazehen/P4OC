@@ -34,7 +34,7 @@ import com.termux.view.TerminalView
 import com.termux.view.TerminalViewClient
 import dev.blazelight.p4oc.R
 import dev.blazelight.p4oc.core.log.AppLog
-import dev.blazelight.p4oc.terminal.TerminalFontSize
+import dev.blazelight.p4oc.terminal.TerminalTextSizer
 
 class KeyInterceptingContainer(context: Context) : FrameLayout(context) {
 
@@ -200,13 +200,19 @@ fun TermuxTerminalView(
     val connectedState = stringResource(R.string.terminal_accessibility_connected)
     val focusInputLabel = stringResource(R.string.terminal_accessibility_focus_input)
     val inputViewHolder = remember { arrayOfNulls<TerminalInputView>(1) }
+    val terminalViewHolder = remember { arrayOfNulls<TerminalView>(1) }
     val currentOnTextSizeChange by rememberUpdatedState(onTextSizeChange)
     val currentOnTerminalSizeChanged by rememberUpdatedState(onTerminalSizeChanged)
     val sizer = remember(density) {
         TerminalTextSizer(
             initialSp = textSizeSp,
-            toPx = { sp -> with(density) { sp.sp.roundToPx() } },
-            onResized = { view -> notifyTerminalSizeChanged(view, currentOnTerminalSizeChanged) },
+            applySize = { sp ->
+                terminalViewHolder[0]?.let { view ->
+                    view.setTextSize(with(density) { sp.sp.roundToPx() })
+                    notifyTerminalSizeChanged(view, currentOnTerminalSizeChanged)
+                    view.invalidate()
+                } != null
+            },
             onPinchSize = { sp -> currentOnTextSizeChange(sp) },
         )
     }
@@ -222,7 +228,7 @@ fun TermuxTerminalView(
             }
 
             val terminalView = TerminalView(ctx, null).apply {
-                setTextSize(sizer.initialPx())
+                setTextSize(with(density) { sizer.appliedSp.sp.roundToPx() })
                 setTypeface(Typeface.MONOSPACE)
                 setTerminalViewClient(terminalViewClient)
                 keepScreenOn = true
@@ -237,7 +243,7 @@ fun TermuxTerminalView(
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }
             inputViewHolder[0] = inputView
-            sizer.view = terminalView
+            terminalViewHolder[0] = terminalView
             container.terminalView = terminalView
 
             container.addView(
@@ -334,46 +340,6 @@ private fun notifyTerminalSizeChanged(
     val cols = maxOf(4, (width / charWidth).toInt())
     val rows = maxOf(4, height / charLineSpacing)
     onTerminalSizeChanged?.invoke(rows, cols)
-}
-
-/**
- * Owns the native view's text size. Pinch steps apply immediately and are reported for saving;
- * a setting change applies only when the requested value itself changes, so a stale value from
- * the pinch's async save can never snap the size back.
- */
-private class TerminalTextSizer(
-    initialSp: Int,
-    private val toPx: (Int) -> Int,
-    private val onResized: (TerminalView) -> Unit,
-    private val onPinchSize: (Int) -> Unit,
-) {
-    var view: TerminalView? = null
-    private var appliedSp = TerminalFontSize.clamp(initialSp)
-    private var requestedSp = appliedSp
-
-    fun initialPx(): Int = toPx(appliedSp)
-
-    fun request(sizeSp: Int) {
-        val clamped = TerminalFontSize.clamp(sizeSp)
-        if (clamped == requestedSp) return
-        requestedSp = clamped
-        if (clamped != appliedSp) apply(clamped)
-    }
-
-    fun onPinch(scaleFactor: Float): Float {
-        val step = TerminalFontSize.pinchStep(scaleFactor, appliedSp)
-        if (step.sizeSp != appliedSp && apply(step.sizeSp)) onPinchSize(step.sizeSp)
-        return step.scaleFactor
-    }
-
-    private fun apply(sizeSp: Int): Boolean {
-        val target = view ?: return false
-        appliedSp = sizeSp
-        target.setTextSize(toPx(sizeSp))
-        onResized(target)
-        target.invalidate()
-        return true
-    }
 }
 
 private fun createTerminalViewClient(

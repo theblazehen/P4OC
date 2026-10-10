@@ -67,6 +67,22 @@ internal class V2Http(
                 Response.success(response.body)
             }
 
+    /**
+     * Reads a successful GET body with [read] inside the cancellable exchange, on OkHttp's thread
+     * rather than the caller's, and always closes it. Cancelling the caller aborts a read in progress.
+     */
+    suspend fun <T> readBody(
+        path: String,
+        query: Map<String, String?> = emptyMap(),
+        read: (ResponseBody) -> T,
+    ): T = client.newCall(Request.Builder().url(url(path, query)).get().build())
+        .await(onDiscard = {}) { response ->
+            response.use {
+                if (!response.isSuccessful) throw httpFailure(response)
+                read(response.body)
+            }
+        }
+
     private fun parseJson(text: String, method: String, path: String): JsonElement =
         if (text.isBlank()) {
             JsonNull
@@ -76,31 +92,6 @@ internal class V2Http(
             } catch (e: IllegalArgumentException) {
                 throw IOException("OpenCode v2 returned a non-JSON response for $method $path", e)
             }
-        }
-
-    /**
-     * Enqueues the call and runs [handle] on OkHttp's callback thread, where cancelling the call
-     * still aborts a body read in progress. A result produced after the coroutine was cancelled is
-     * passed to [onDiscard] so owned resources are released instead of leaked.
-     */
-    private suspend fun <T> Call.await(onDiscard: (T) -> Unit, handle: (okhttp3.Response) -> T): T =
-        suspendCancellableCoroutine { continuation ->
-            continuation.invokeOnCancellation { this@await.cancel() }
-            enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    continuation.resumeWith(Result.failure(e))
-                }
-
-                override fun onResponse(call: Call, response: okhttp3.Response) {
-                    val result = runCatching { handle(response) }
-                    result.fold(
-                        onSuccess = { value ->
-                            continuation.resume(value) { _, discarded, _ -> onDiscard(discarded) }
-                        },
-                        onFailure = { continuation.resumeWith(Result.failure(it)) },
-                    )
-                }
-            })
         }
 
     private fun url(path: String, query: Map<String, String?>): HttpUrl =
@@ -119,3 +110,29 @@ internal class V2Http(
 }
 
 internal const val HTTP_NOT_FOUND = 404
+
+/**
+ * Enqueues the call and runs [handle] on OkHttp's callback thread, where cancelling the call
+ * still aborts a body read in progress. Cancelling the calling coroutine cancels the call. A result
+ * produced after the coroutine was cancelled is passed to [onDiscard] so owned resources are
+ * released instead of leaked.
+ */
+internal suspend fun <T> Call.await(onDiscard: (T) -> Unit, handle: (okhttp3.Response) -> T): T =
+    suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation { this@await.cancel() }
+        enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                continuation.resumeWith(Result.failure(e))
+            }
+
+            override fun onResponse(call: Call, response: okhttp3.Response) {
+                val result = runCatching { handle(response) }
+                result.fold(
+                    onSuccess = { value ->
+                        continuation.resume(value) { _, discarded, _ -> onDiscard(discarded) }
+                    },
+                    onFailure = { continuation.resumeWith(Result.failure(it)) },
+                )
+            }
+        })
+    }

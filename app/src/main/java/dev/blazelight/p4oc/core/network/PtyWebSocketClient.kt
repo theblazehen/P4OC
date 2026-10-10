@@ -29,6 +29,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -48,6 +49,7 @@ class PtyWebSocketClient constructor(
     companion object {
         private const val TAG = "PtyWebSocketClient"
         private const val MAX_RECONNECT_ATTEMPTS = 5
+        private const val PTY_TICKET_TIMEOUT_SECONDS = 15L
         private val RECONNECT_DELAYS_MS = listOf(1_000L, 2_000L, 4_000L, 8_000L, 15_000L)
     }
 
@@ -222,7 +224,11 @@ class PtyWebSocketClient constructor(
         if (shouldReconnect) scheduleReconnect(ptyId, directory, workspace, gen)
     }
 
-    private fun requestV2PtyConnectTicket(
+    /**
+     * The auth client is the WebSocket client (no read timeout), so the ticket call gets its own
+     * deadline, and cancelling the connect coroutine cancels the HTTP call instead of abandoning it.
+     */
+    private suspend fun requestV2PtyConnectTicket(
         authClient: OkHttpClient,
         baseUrl: String,
         ptyId: String,
@@ -230,13 +236,15 @@ class PtyWebSocketClient constructor(
         workspace: String?,
     ): String {
         val request = buildV2PtyConnectTokenRequest(baseUrl, ptyId, directory, workspace)
-        return authClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IOException("PTY connect-token request failed (HTTP ${response.code})")
+        val call = authClient.newCall(request)
+        call.timeout().timeout(PTY_TICKET_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        return call.await(onDiscard = {}) { response ->
+            response.use {
+                if (!response.isSuccessful) {
+                    throw IOException("PTY connect-token request failed (HTTP ${response.code})")
+                }
+                parseV2PtyConnectTicket(response.body.string())
             }
-            val body = response.body?.string()
-                ?: throw IOException("PTY connect-token response was empty")
-            parseV2PtyConnectTicket(body)
         }
     }
 

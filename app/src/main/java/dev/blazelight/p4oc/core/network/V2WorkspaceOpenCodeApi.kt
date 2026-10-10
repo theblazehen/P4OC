@@ -227,14 +227,12 @@ internal class V2WorkspaceOpenCodeApi(
         return http.raw("api/fs/read/$path", locationQuery(directory, workspace))
     }
 
-    override suspend fun readFile(path: String, directory: String?, workspace: String?): FileContentDto {
-        val response = readFileRaw(path, directory, workspace)
-        val body = response.body() ?: throw IOException("OpenCode v2 returned an empty file response")
-        try {
+    override suspend fun readFile(path: String, directory: String?, workspace: String?): FileContentDto =
+        http.readBody("api/fs/read/$path", locationQuery(directory, workspace)) { body ->
             val bytes = body.bytes()
             val mimeType = body.contentType()?.toString()
             val text = bytes.decodeUtf8OrNull()?.takeIf { '\u0000' !in it }
-            return if (text != null && mimeType.isTextualMimeType()) {
+            if (text != null && mimeType.isTextualMimeType()) {
                 FileContentDto(type = "text", content = text, mimeType = mimeType)
             } else {
                 FileContentDto(
@@ -244,10 +242,7 @@ internal class V2WorkspaceOpenCodeApi(
                     mimeType = mimeType,
                 )
             }
-        } finally {
-            body.close()
         }
-    }
 
     override suspend fun getFileStatus(directory: String?, workspace: String?): List<FileStatusDto> {
         val response = http.request("GET", "api/vcs/status", locationQuery(directory, workspace))

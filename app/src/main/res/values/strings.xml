@@ -699,6 +699,9 @@
     <string name="v2_form_missing_choices">This required selection field has no available choices.</string>
     <string name="v2_form_remove_custom">Remove</string>
     <string name="v2_form_choose_option">Choose one of the available options.</string>
+    <string name="v2_form_external_ack">I\'ve completed this step</string>
+    <string name="v2_form_external_ack_error">Open the link, finish the step there, then confirm it here.</string>
+    <string name="v2_form_hidden_field_error">The automatic value for %1$s is missing or invalid, so this form can\'t be submitted. You can reject it.</string>
     <!-- Command Palette -->
     <string name="command_palette">Command Palette</string>
     <string name="search_commands">Search commands…</string>

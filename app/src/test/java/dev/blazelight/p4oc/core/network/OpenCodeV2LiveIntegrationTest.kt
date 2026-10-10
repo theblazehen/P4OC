@@ -29,6 +29,8 @@ import dev.blazelight.p4oc.domain.model.OpenCodeEvent
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.ServerRef
 import dev.blazelight.p4oc.domain.workspace.Workspace
+import dev.blazelight.p4oc.ui.components.form.initialDrafts
+import dev.blazelight.p4oc.ui.components.form.resolveForm
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +45,11 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -547,6 +553,77 @@ class OpenCodeV2LiveIntegrationTest {
         }
     }
 
+    @Test
+    fun `server accepts the app answer for a hidden required field with a default`() = runBlocking {
+        withLiveFormSession {
+            val form = create(
+                "Hidden default",
+                buildJsonArray {
+                    add(
+                        formField("token", "string") {
+                            put("required", true)
+                            put("hidden", true)
+                            put("default", "preset-token")
+                        },
+                    )
+                    add(formField("note", "string"))
+                },
+            )
+            val answer = resolveForm(form.fields, initialDrafts(form.fields)).answer
+            assertEquals(buildJsonObject { put("token", "preset-token") }, answer)
+            assertRejected(form, JsonObject(answer - "token"))
+            assertSettled(form, answer)
+        }
+    }
+
+    @Test
+    fun `server accepts the app answer for chained conditions behind an inactive controller`() = runBlocking {
+        withLiveFormSession {
+            val fields = buildJsonArray {
+                add(formField("enable", "boolean") { put("default", false) })
+                add(formField("mode", "string") { put("when", whenEq("enable", JsonPrimitive(true))) })
+                add(
+                    formField("detail", "string") {
+                        put("required", true)
+                        put("when", whenEq("mode", JsonPrimitive("advanced")))
+                    },
+                )
+            }
+            val retained = mapOf("mode" to JsonPrimitive("advanced"), "detail" to JsonPrimitive("leftover"))
+
+            val inactive = create("Chained inactive", fields)
+            val inactiveAnswer = resolveForm(inactive.fields, initialDrafts(inactive.fields) + retained).answer
+            assertEquals(buildJsonObject { put("enable", false) }, inactiveAnswer)
+            // The pre-fix answer: the dependent was activated by its inactive controller's retained draft.
+            assertRejected(inactive, JsonObject(inactiveAnswer + ("detail" to JsonPrimitive("leftover"))))
+            assertSettled(inactive, inactiveAnswer)
+
+            val active = create("Chained active", fields)
+            val activeDrafts = initialDrafts(active.fields) + retained + ("enable" to JsonPrimitive(true))
+            val activeAnswer = resolveForm(active.fields, activeDrafts).answer
+            assertEquals(setOf("enable", "mode", "detail"), activeAnswer.keys)
+            assertSettled(active, activeAnswer)
+        }
+    }
+
+    @Test
+    fun `server accepts the app answer once an external step is acknowledged`() = runBlocking {
+        withLiveFormSession {
+            val form = create(
+                "External step",
+                buildJsonArray {
+                    add(formField("authorize", "external") { put("url", "https://example.com/authorize") })
+                },
+            )
+            val unacknowledged = resolveForm(form.fields, initialDrafts(form.fields)).answer
+            assertTrue(unacknowledged.isEmpty())
+            assertRejected(form, unacknowledged)
+            val acknowledged = resolveForm(form.fields, mapOf("authorize" to JsonPrimitive(true))).answer
+            assertEquals(buildJsonObject { put("authorize", true) }, acknowledged)
+            assertSettled(form, acknowledged)
+        }
+    }
+
     @Suppress("LongMethod")
     @Test
     fun `create list and reply to a live v2 permission request`() = runBlocking {
@@ -1034,6 +1111,67 @@ class OpenCodeV2LiveIntegrationTest {
             }
             delay(500)
         }
+    }
+
+    private suspend fun withLiveFormSession(block: suspend LiveFormSession.() -> Unit) {
+        connect()
+        val api = manager.requireApi() as V2WorkspaceOpenCodeApi
+        val session = api.createSession(
+            directory,
+            null,
+            CreateSessionRequest(title = "P4OC form semantics ${UUID.randomUUID()}"),
+        )
+        try {
+            LiveFormSession(api.forms, session.id, V2Http(url, fixtureClient(), json)).block()
+        } finally {
+            assertTrue(api.deleteSession(session.id, directory, null))
+        }
+    }
+
+    private inner class LiveFormSession(
+        private val forms: V2Forms,
+        private val sessionId: String,
+        private val http: V2Http,
+    ) {
+        suspend fun create(title: String, fields: JsonArray): V2FormInfo {
+            val payload = buildJsonObject {
+                put("title", title)
+                put("fields", fields)
+            }
+            val created = http.request("POST", "api/session/$sessionId/form", body = payload)
+            val formId = created.jsonObject.getValue("data").jsonObject.getValue("id").jsonPrimitive.content
+            return forms.getSessionForm(sessionId, formId, directory)
+        }
+
+        suspend fun assertRejected(form: V2FormInfo, answer: JsonObject) {
+            val error = runCatching { forms.reply(sessionId, form.id, answer, directory) }.exceptionOrNull()
+            assertTrue("Expected the server to reject $answer, got $error", error is HttpException)
+            assertEquals("pending", forms.getSessionForm(sessionId, form.id, directory).state?.status)
+        }
+
+        suspend fun assertSettled(form: V2FormInfo, answer: JsonObject) {
+            forms.reply(sessionId, form.id, answer, directory)
+            val state = forms.getSessionForm(sessionId, form.id, directory).state
+            assertEquals("answered", state?.status)
+            assertEquals(answer, state?.answer)
+        }
+    }
+
+    private fun formField(key: String, type: String, configure: JsonObjectBuilder.() -> Unit = {}) =
+        buildJsonObject {
+            put("key", key)
+            put("type", type)
+            configure()
+        }
+
+    private fun whenEq(key: String, value: JsonPrimitive) = buildJsonArray {
+        add(
+            buildJsonObject {
+                put("key", key)
+                put("op", "eq")
+                put("value", value)
+            },
+        )
     }
 
     private fun shellQuote(value: String): String = "'${value.replace("'", "'\\''")}'"

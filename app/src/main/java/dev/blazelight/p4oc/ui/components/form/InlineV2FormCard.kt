@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -42,7 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import dev.blazelight.p4oc.R
@@ -54,7 +57,6 @@ import dev.blazelight.p4oc.ui.theme.Sizing
 import dev.blazelight.p4oc.ui.theme.Spacing
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -197,10 +199,8 @@ private fun V2FormFieldsCard(
     val draftState = remember(form.id) { V2FormDraftState() }
 
     LaunchedEffect(form.id, form.fields) {
-        form.fields.forEach { field ->
-            if (field.key !in draftState.drafts && field.default != null && field.default != JsonNull) {
-                draftState.drafts[field.key] = initialDraft(field)
-            }
+        initialDrafts(form.fields).forEach { (key, draft) ->
+            if (key !in draftState.drafts) draftState.drafts[key] = draft
         }
     }
 
@@ -225,9 +225,7 @@ private fun V2FormFieldsCard(
             actions = actions,
             onSubmit = {
                 draftState.showValidation = true
-                if (validation.answerErrors.isEmpty() && validation.unsupportedFields.isEmpty()) {
-                    actions.onSubmit(buildAnswer(validation.visibleFields, draftState.drafts))
-                }
+                if (validation.canSubmit) actions.onSubmit(validation.resolution.answer)
             },
         )
     }
@@ -259,7 +257,7 @@ private fun V2FormFieldInputs(
     context: android.content.Context,
     uriHandler: androidx.compose.ui.platform.UriHandler,
 ) {
-    validation.visibleFields.forEach { field ->
+    validation.resolution.renderedFields.forEach { field ->
         V2FormFieldInput(
             field = field,
             input = draftState.inputState(
@@ -288,6 +286,9 @@ private fun V2FormValidationWarnings(validation: V2FormValidation) {
             color = theme.error,
             style = MaterialTheme.typography.bodySmall,
         )
+    }
+    validation.hiddenFieldErrors.forEach { message ->
+        Text(message, color = theme.error, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -328,8 +329,8 @@ private fun V2FormActionRow(
         }
         Button(
             onClick = onSubmit,
-            enabled = !isSubmitting && !isLoading &&
-                validation.unsupportedFields.isEmpty() && !validation.missingChoices,
+            enabled = !isSubmitting && !isLoading && validation.unsupportedFields.isEmpty() &&
+                !validation.missingChoices && validation.hiddenFieldErrors.isEmpty(),
             modifier = Modifier.weight(1f),
             shape = RectangleShape,
         ) {
@@ -353,7 +354,7 @@ private fun V2FormFieldInput(field: V2FormField, input: V2FormFieldInputState) {
                 color = theme.text,
                 fontWeight = FontWeight.SemiBold,
             )
-            if (field.required == true) {
+            if (field.required == true || field.type == "external") {
                 Spacer(Modifier.width(Spacing.xxs))
                 Text("*", color = theme.warning, style = MaterialTheme.typography.bodyMedium)
             }
@@ -416,7 +417,11 @@ private fun V2ExternalInput(field: V2FormField, input: V2FormFieldInputState) {
     val url = field.url.orEmpty()
     val safeUrl = url.takeIf(::isWebUrl)
     if (safeUrl != null) {
-        OutlinedButton(onClick = { input.openExternal(safeUrl) }, shape = RectangleShape) {
+        OutlinedButton(
+            onClick = { input.openExternal(safeUrl) },
+            modifier = Modifier.testTag("v2_form_external_open_${field.key}"),
+            shape = RectangleShape,
+        ) {
             Text(field.title?.ifBlank { null } ?: stringResource(R.string.v2_form_external_open))
         }
     } else {
@@ -428,6 +433,31 @@ private fun V2ExternalInput(field: V2FormField, input: V2FormFieldInputState) {
         )
     }
     input.externalError?.let { Text(it, color = theme.error, style = MaterialTheme.typography.bodySmall) }
+    V2ExternalAcknowledgement(field, input)
+}
+
+/** Opening the link is not completion; the server only accepts an external field once the user confirms it. */
+@Composable
+private fun V2ExternalAcknowledgement(field: V2FormField, input: V2FormFieldInputState) {
+    val acknowledged = (input.draft as? JsonPrimitive)?.booleanOrNull == true
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = acknowledged,
+                role = Role.Checkbox,
+                onValueChange = { checked -> input.onDraftChange(if (checked) JsonPrimitive(true) else null) },
+            )
+            .testTag("v2_form_external_ack_${field.key}"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = acknowledged, onCheckedChange = null)
+        Text(
+            text = stringResource(R.string.v2_form_external_ack),
+            style = MaterialTheme.typography.bodyMedium,
+            color = LocalOpenCodeTheme.current.text,
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
