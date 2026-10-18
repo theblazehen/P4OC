@@ -135,7 +135,7 @@ internal class V2WorkspaceOpenCodeApi(
             .filter { provider -> modelDtosByProvider[provider.id].orEmpty().isNotEmpty() }
             .map(V2ProviderInfo::id)
             .toList()
-        val defaults = defaultModel?.let { mapOf(it.providerID to it.modelID) }.orEmpty()
+        val defaults = defaultModel?.let { mapOf(it.providerID to it.id) }.orEmpty()
         return ProvidersResponseDto(all = providerDtos, default = defaults, connected = connected)
     }
 
@@ -578,6 +578,10 @@ private data class V2ProviderInfo(
 
 @Serializable
 private data class V2ModelInfo(
+    // `id` is the server's routing key for the model (what session model refs and prompts carry).
+    // `modelID` is the upstream provider's model name and may differ, e.g. a proxied provider
+    // exposes id `glm-5.3-flash` with modelID `ollama-cloud/glm-5.3-flash`. Never route by modelID.
+    val id: String,
     val modelID: String,
     val providerID: String,
     val family: String? = null,
@@ -704,7 +708,7 @@ private class V2WorkspaceDtoMapper(private val v2Json: Json) {
         defaultBranch = branch?.default,
     )
 
-    fun V2ModelInfo.legacyModelId(): String = "$providerID/$modelID"
+    fun V2ModelInfo.legacyModelId(): String = "$providerID/$id"
 
     fun V2Project.toProjectDto(): ProjectDto = ProjectDto(
         id = id,
@@ -737,7 +741,7 @@ private class V2WorkspaceDtoMapper(private val v2Json: Json) {
             // V2 Provider.Info does not expose the legacy source classification.
             source = null,
             options = null,
-            models = models.associate { model -> model.modelID to model.toModelDto() },
+            models = models.associate { model -> model.id to model.toModelDto() },
         )
 
     fun V2ModelInfo.toModelDto(): ModelDto {
@@ -763,7 +767,7 @@ private class V2WorkspaceDtoMapper(private val v2Json: Json) {
             JsonObject(entries.associate { it.id to v2Json.encodeToJsonElement(it) })
         }
         return ModelDto(
-            id = modelID,
+            id = id,
             providerId = providerID,
             name = name,
             family = family,

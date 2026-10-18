@@ -21,6 +21,19 @@ class V2SessionDtoMapperTest {
     }
 
     @Test
+    fun `a session model is read by its routing id never the provider-side modelID`() {
+        val dto = mapper.toSessionDto(
+            session(
+                """{"id":"ses_1","model":{"id":"glm-5.3-flash","modelID":"ollama-cloud/glm-5.3-flash",
+                "providerID":"sohoai","variant":"default"}}""",
+            ),
+        )
+
+        assertEquals("glm-5.3-flash", dto.model!!.id)
+        assertEquals("sohoai", dto.model!!.providerID)
+    }
+
+    @Test
     fun `an image returned by a tool becomes an attachment instead of failing the history`() {
         val message = mapper.toMessageWrapper(
             assistant(

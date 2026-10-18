@@ -191,8 +191,10 @@ private class V2SessionInfoMapper(
             ?: throw IOException("OpenCode v2 session `$id` did not include location.directory")
 
     private fun toSessionModel(modelInfo: JsonObject): SessionModelDto {
-        val modelId = fields.string(modelInfo, "modelID") ?: fields.string(modelInfo, "id")
-            ?: throw IOException("OpenCode v2 session model did not include modelID")
+        // A session model is a v2 Model.Ref ({id, providerID, variant}); `id` is the routing key.
+        // Never fall back to a provider-side `modelID`: routing by it fails with provider.no-route.
+        val modelId = fields.string(modelInfo, "id")
+            ?: throw IOException("OpenCode v2 session model did not include id")
         return SessionModelDto(
             id = modelId,
             providerID = fields.requiredString(modelInfo, "providerID", "session model"),
