@@ -492,12 +492,6 @@ private fun ModelSearchField(query: String, onQueryChange: (String) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(
-                text = "/",
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = FontFamily.Monospace,
-                color = theme.primary,
-            )
             androidx.compose.foundation.text.BasicTextField(
                 value = query,
                 onValueChange = onQueryChange,

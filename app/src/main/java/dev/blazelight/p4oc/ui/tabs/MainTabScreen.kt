@@ -286,12 +286,6 @@ private val startWorkPickerSearch: @Composable (StartWorkUiState) -> Unit = { ui
                 Modifier.fillMaxSize().padding(horizontal = Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "/",
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
-                    color = theme.primary,
-                )
-                Spacer(Modifier.width(Spacing.xs))
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     field()
                     if (uiState.pickerSearchQuery.isEmpty()) {

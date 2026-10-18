@@ -438,13 +438,6 @@ private fun remoteUrlField(
                     modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = "/",
-                        color = theme.primary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = TuiCodeFontSize.xl,
-                    )
-                    Spacer(Modifier.width(Spacing.md))
                     Box(Modifier.weight(1f)) {
                         if (value.text.isEmpty()) {
                             Text(

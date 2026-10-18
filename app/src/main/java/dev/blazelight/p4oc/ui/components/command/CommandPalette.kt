@@ -169,7 +169,7 @@ private fun CommandSearchView(
 ) {
     val theme = LocalOpenCodeTheme.current
 
-    // Search field with / prefix (vim-style)
+    // Search field
     Surface(
         color = theme.backgroundElement,
         modifier = Modifier
@@ -180,13 +180,6 @@ private fun CommandSearchView(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "/",
-                style = MaterialTheme.typography.bodyLarge,
-                color = theme.accent,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier.padding(start = Spacing.md)
-            )
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchChange,

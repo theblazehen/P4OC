@@ -294,12 +294,6 @@ private fun homeSearchField(query: String, onQueryChange: (String) -> Unit) {
                 Modifier.fillMaxSize().padding(horizontal = Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "/",
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
-                    color = theme.primary,
-                )
-                Spacer(Modifier.width(Spacing.xs))
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     field()
                     if (query.isEmpty()) {

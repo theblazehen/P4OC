@@ -175,7 +175,6 @@ private fun setupHero() {
 
 @Composable
 private fun serverUrlField(value: String, onValueChange: (String) -> Unit) {
-    val theme = LocalOpenCodeTheme.current
     fieldLabel(
         stringResource(R.string.setup_server_url_label),
         stringResource(R.string.setup_field_required),
@@ -190,14 +189,6 @@ private fun serverUrlField(value: String, onValueChange: (String) -> Unit) {
             testTag = "setup_url_input",
             contentDescription = stringResource(R.string.cd_server_url_field),
         ),
-        leading = {
-            Text(
-                text = "/",
-                color = theme.primary,
-                fontFamily = FontFamily.Monospace,
-                fontSize = TuiCodeFontSize.xl,
-            )
-        },
     )
 }
 
@@ -602,7 +593,6 @@ private fun setupInputBox(
     value: String,
     onValueChange: (String) -> Unit,
     options: SetupFieldOptions = SetupFieldOptions(),
-    leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val theme = LocalOpenCodeTheme.current
@@ -638,10 +628,6 @@ private fun setupInputBox(
                     .padding(horizontal = Spacing.lg),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (leading != null) {
-                    leading()
-                    Spacer(Modifier.width(Spacing.md))
-                }
                 Box(Modifier.weight(1f)) {
                     if (value.isEmpty() && options.placeholder.isNotEmpty()) {
                         Text(

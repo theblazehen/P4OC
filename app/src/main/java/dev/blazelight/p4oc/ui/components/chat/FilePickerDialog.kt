@@ -179,16 +179,9 @@ fun FilePickerDialog(
                         .padding(horizontal = Spacing.md, vertical = Spacing.sm),
                     placeholder = {
                         Text(
-                            "/ ${stringResource(R.string.search_files)}",
+                            stringResource(R.string.search_files),
                             fontFamily = FontFamily.Monospace,
                             color = theme.textMuted
-                        )
-                    },
-                    leadingIcon = {
-                        Text(
-                            "/",
-                            fontFamily = FontFamily.Monospace,
-                            color = theme.accent
                         )
                     },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
