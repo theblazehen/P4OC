@@ -387,6 +387,26 @@ class ChatViewModel constructor(
         _uiState.update { it.copy(error = null) }
     }
 
+    /**
+     * Renames the open session from the chat header. A blank or unchanged title is a no-op.
+     * The server's returned copy is applied straight away so the header updates even before
+     * the repository's session state (and any `SessionUpdated` event) propagates; both carry
+     * the same server value, so the last write wins harmlessly.
+     */
+    fun renameSession(newTitle: String) {
+        val title = newTitle.trim()
+        if (title.isEmpty() || title == _uiState.value.session?.title) return
+        viewModelScope.launch {
+            when (val result = safeApiCall { sessionRepository.renameSession(SessionId(sessionId), title) }) {
+                is ApiResult.Success -> _uiState.update { it.copy(session = result.data.session) }
+                is ApiResult.Error -> {
+                    AppLog.e(TAG, "Failed to rename session")
+                    _uiState.update { it.copy(error = "Could not rename the session. Try again.") }
+                }
+            }
+        }
+    }
+
     // --- Session lifecycle ---
 
     private fun loadSession() {

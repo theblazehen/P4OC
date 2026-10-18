@@ -34,6 +34,7 @@ import dev.blazelight.p4oc.data.remote.dto.SessionModelDto
 import dev.blazelight.p4oc.data.remote.dto.SessionRevertDto
 import dev.blazelight.p4oc.data.remote.dto.SessionStatusDto
 import dev.blazelight.p4oc.data.remote.dto.TimeDto
+import dev.blazelight.p4oc.data.remote.dto.UpdateSessionRequest
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.data.session.SessionRepositoryImpl
@@ -2000,6 +2001,50 @@ class ChatViewModelTest {
         assertFalse(pending.isLoading)
         assertEquals(listOf("newest-form"), pending.forms.map(PendingV2FormUi::id))
         assertEquals(newestForm, pending.forms.single().form)
+    }
+
+    @Test
+    fun renameSession_trimsTitleUpdatesServerAndHeader() = runTest {
+        coEvery { api.getSession("session-1", any(), null) } returns sessionDto()
+        coEvery {
+            api.updateSession("session-1", UpdateSessionRequest(title = "Renamed"), "/test", null)
+        } returns sessionDto().copy(title = "Renamed")
+        val vm = createViewModel()
+
+        vm.renameSession("  Renamed  ")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            api.updateSession("session-1", UpdateSessionRequest(title = "Renamed"), "/test", null)
+        }
+        assertEquals("Renamed", vm.uiState.value.session?.title)
+        assertNull(vm.uiState.value.error)
+    }
+
+    @Test
+    fun renameSession_blankOrUnchangedTitleDoesNotCallServer() = runTest {
+        coEvery { api.getSession("session-1", any(), null) } returns sessionDto()
+        val vm = createViewModel()
+
+        vm.renameSession("   ")
+        vm.renameSession("Test Session")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { api.updateSession(any(), any(), any(), any()) }
+        assertEquals("Test Session", vm.uiState.value.session?.title)
+    }
+
+    @Test
+    fun renameSession_failureKeepsTitleAndShowsError() = runTest {
+        coEvery { api.getSession("session-1", any(), null) } returns sessionDto()
+        coEvery { api.updateSession(any(), any(), any(), any()) } throws java.io.IOException("offline")
+        val vm = createViewModel()
+
+        vm.renameSession("Renamed")
+        advanceUntilIdle()
+
+        assertEquals("Test Session", vm.uiState.value.session?.title)
+        assertEquals("Could not rename the session. Try again.", vm.uiState.value.error)
     }
 
     private fun TestScope.createViewModel(

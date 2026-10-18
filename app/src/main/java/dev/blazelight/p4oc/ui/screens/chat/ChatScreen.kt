@@ -45,6 +45,7 @@ import dev.blazelight.p4oc.domain.model.Permission
 import dev.blazelight.p4oc.domain.model.SessionConnectionState
 import dev.blazelight.p4oc.domain.model.SessionPresence
 import dev.blazelight.p4oc.ui.components.TuiAlertDialog
+import dev.blazelight.p4oc.ui.components.TuiInputDialog
 import dev.blazelight.p4oc.ui.components.TuiButton
 import dev.blazelight.p4oc.ui.components.TuiConfirmDialog
 import dev.blazelight.p4oc.ui.components.TuiDropdownMenuItem
@@ -279,6 +280,7 @@ fun ChatScreen(
     val listState = rememberSaveable(uiState.session?.id, saver = LazyListState.Saver) { LazyListState() }
     var showCommandPalette by remember { mutableStateOf(false) }
     var showTodoTracker by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
     var showFilePicker by remember { mutableStateOf(false) }
     var showAttachmentSources by remember { mutableStateOf(false) }
     var choosingUploadFolder by remember { mutableStateOf(false) }
@@ -484,6 +486,8 @@ fun ChatScreen(
             ChatTopBar(
                 // v2 sessions start without a title; match Home's fallback instead of rendering an empty header.
                 title = uiState.session?.title?.ifBlank { "Untitled session" } ?: "Chat",
+                // Tapping the title renames the session in place; disabled until the session has loaded.
+                onTitleClick = uiState.session?.let { { showRenameDialog = true } },
                 connectionState = connectionState,
                 onBack = onNavigateBack,
                 onTerminal = onOpenTerminal,
@@ -895,6 +899,23 @@ fun ChatScreen(
         )
     }
 
+    if (showRenameDialog) {
+        // Same dialog as the session list's long-press Rename, so both entry points behave alike.
+        TuiInputDialog(
+            onDismissRequest = { showRenameDialog = false },
+            onConfirm = { newTitle ->
+                showRenameDialog = false
+                viewModel.renameSession(newTitle)
+            },
+            title = stringResource(R.string.sessions_rename_title),
+            initialValue = uiState.session?.title.orEmpty(),
+            label = stringResource(R.string.sessions_title_optional),
+            confirmText = stringResource(R.string.sessions_rename),
+            dismissText = stringResource(R.string.button_cancel),
+            modifier = Modifier.testTag("chat_rename_dialog"),
+        )
+    }
+
     if (showAttachmentSources) {
         AttachmentSourceSheet(
             onPhotos = {
@@ -1070,7 +1091,8 @@ private fun ChatTopBar(
     onViewChanges: () -> Unit,
     branchName: String? = null,
     todoCount: Int = 0,
-    onTodos: () -> Unit = {}
+    onTodos: () -> Unit = {},
+    onTitleClick: (() -> Unit)? = null
 ) {
     val theme = LocalOpenCodeTheme.current
     var showOverflow by remember { mutableStateOf(false) }
@@ -1079,7 +1101,18 @@ private fun ChatTopBar(
         onNavigateBack = onBack,
         titleContent = {
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    // The title itself is the rename affordance: no extra chrome in the agent space.
+                    modifier = Modifier
+                        .clickable(
+                            enabled = onTitleClick != null,
+                            onClickLabel = stringResource(R.string.sessions_rename),
+                            role = Role.Button,
+                            onClick = { onTitleClick?.invoke() },
+                        )
+                        .testTag("chat_title"),
+                ) {
                     ConnectionDot(state = connectionState)
                     Spacer(Modifier.width(Spacing.xs))
                     Text(
