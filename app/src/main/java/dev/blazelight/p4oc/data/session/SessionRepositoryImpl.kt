@@ -865,6 +865,31 @@ class SessionRepositoryImpl(
         sessionId.value,
     ).asStateFlow()
 
+    /**
+     * True when this workspace owns [sessionId]: an open chat in this workspace holds a lease on it,
+     * its catalog entry lives in this workspace's directory, or it is a direct child (one level, like
+     * [updateOwnedSession]) of a session owned in either of those ways. Used to route location-less,
+     * session-scoped events here (design lock F, routing rule 2).
+     *
+     * Catalog membership alone is not ownership: hydration lists sessions from every project on the
+     * server, so each workspace's catalog also holds other directories' sessions. Deliberately does
+     * not consult [sessionUiStates] either, which [sessionUiState] creates on demand for any id.
+     */
+    fun ownsSession(sessionId: String): Boolean =
+        isLeasedOrInWorkspaceDirectory(sessionId) ||
+            synchronized(childToParentSessionIds) { childToParentSessionIds[sessionId] }
+                ?.let(::isLeasedOrInWorkspaceDirectory) == true
+
+    private fun isLeasedOrInWorkspaceDirectory(sessionId: String): Boolean {
+        val leased = synchronized(messageStateLock) { sessionId in sessionConsumerCounts }
+        // A Global workspace (no directory) already receives Global-keyed events directly, so only a
+        // directory workspace can own a session through its catalog.
+        val directory = client.workspace.directory
+        val inWorkspaceDirectory = directory != null &&
+            _state.value.snapshot.sessions[sessionId]?.workspace?.directory == directory
+        return leased || inWorkspaceDirectory
+    }
+
     override fun acquireSession(sessionId: SessionId): AutoCloseable {
         synchronized(messageStateLock) {
             // A fresh lease means state starts empty and may be recovered again on reconnect.

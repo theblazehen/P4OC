@@ -32,6 +32,20 @@ sealed interface WorkspaceKey {
    - Miss → `WorkspaceKey.SessionScoped(sessionID)` (orphan; not delivered to any workspace store; logged at debug).
 3. **Wrapper empty + lifecycle event** (Connected/Disconnected/Error/InstallationUpdated/PTY/LSP) → `WorkspaceKey.Global`. Only the global app shell subscribes.
 
+#### Implementation note: rule 2 is resolved at the subscriber
+
+The central `SessionWorkspaceIndex` / `directoryForSession` lookup was not built; until OpenCode v2 every
+event carried a wrapper directory, so rule 2 never fired. OpenCode v2 publishes some session events without a
+`location` (observed on 2.0.28: `session.execution.started|succeeded|failed`, `session.usage.updated`), so they
+arrive keyed `WorkspaceKey.Global`. Rule 2 is enforced in `SessionRepositoryProvider.isDeliverableEvent`: a
+`Global`-keyed event whose `OpenCodeEvent.sessionIdOrNull()` is owned by that workspace's repository is
+delivered to it. Ownership (`SessionRepositoryImpl.ownsSession`) means: an open chat in that workspace leases
+the session, or the session's catalog entry lives in that workspace's directory, or it is a direct child (one
+level) of a session owned either way. Catalog membership alone is not enough: hydration lists every project's sessions, so a
+workspace's catalog also holds other directories' sessions. Only owning workspace(s) receive the event (plus
+the Global workspace, which receives Global-keyed events anyway); an unowned session's event is dropped,
+never broadcast.
+
 ### Subscription filter
 
 ```kotlin

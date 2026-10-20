@@ -11,9 +11,12 @@ import dev.blazelight.p4oc.core.network.ServerConfig
 import dev.blazelight.p4oc.core.network.ServerConnectionRegistry
 import dev.blazelight.p4oc.core.network.toServerConfig
 import dev.blazelight.p4oc.core.network.toServerRef
+import dev.blazelight.p4oc.data.remote.dto.SessionDto
+import dev.blazelight.p4oc.data.remote.dto.TimeDto
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
 import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.domain.model.Message
+import dev.blazelight.p4oc.domain.model.MessageError
 import dev.blazelight.p4oc.domain.model.MessageWithParts
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
 import dev.blazelight.p4oc.domain.model.Part
@@ -47,6 +50,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -368,6 +372,93 @@ class SessionRepositoryProviderTest {
             provider.release(workspace, ServerGeneration(2))
         }
     }
+
+    @Test
+    fun `location-less session error reaches only the workspace whose open chat owns the session`() = runTest {
+        // OpenCode v2 publishes session.execution.failed without a location, so it arrives keyed
+        // Global (design lock F, rule 2: route by the session's owning workspace instead).
+        val harness = harness()
+        val provider = harness.provider(dispatcher = StandardTestDispatcher(testScheduler))
+        val otherWorkspace = Workspace(server, "/other")
+        val target = provider.acquire(workspace, generation)
+        val other = provider.acquire(otherWorkspace, generation)
+        val chatLease = target.repository.acquireSession(SessionId("ses_1"))
+        val error = MessageError(name = "provider.no-route", message = "Model unavailable: sohoai/x")
+        try {
+            runCurrent()
+            harness.scopedEvents.emit(
+                ScopedEvent(server, generation, WorkspaceKey.Global, OpenCodeEvent.SessionError("ses_1", error)),
+            )
+            runCurrent()
+
+            assertEquals(error, target.repository.sessionUiState(SessionId("ses_1")).value.error)
+            assertNull(other.repository.sessionUiState(SessionId("ses_1")).value.error)
+        } finally {
+            chatLease.close()
+            provider.release(workspace, generation)
+            provider.release(otherWorkspace, generation)
+        }
+    }
+
+    @Test
+    fun `location-less session error for a session no workspace owns is dropped`() = runTest {
+        val harness = harness()
+        val provider = harness.provider(dispatcher = StandardTestDispatcher(testScheduler))
+        val target = provider.acquire(workspace, generation)
+        val error = MessageError(name = "provider.no-route")
+        try {
+            runCurrent()
+            harness.scopedEvents.emit(
+                ScopedEvent(server, generation, WorkspaceKey.Global, OpenCodeEvent.SessionError("ses_unknown", error)),
+            )
+            runCurrent()
+
+            assertNull(target.repository.sessionUiState(SessionId("ses_unknown")).value.error)
+        } finally {
+            provider.release(workspace, generation)
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `location-less session error goes only to the workspace whose directory owns the cataloged session`() =
+        runTest {
+            // Hydration lists every project's sessions, so both workspaces catalog ses_1 (directory /repo).
+            // Catalog membership is not ownership: only /repo may receive the location-less error.
+            val harness = harness()
+            val bound = harness.bind()
+            coEvery { bound.api.listSessions(any(), any(), any(), any(), any(), any(), any(), any()) } returns listOf(
+                SessionDto(
+                    id = "ses_1",
+                    projectID = "project-1",
+                    directory = "/repo",
+                    title = "ses_1",
+                    time = TimeDto(created = 1, updated = 2),
+                ),
+            )
+            val provider = harness.provider(dispatcher = StandardTestDispatcher(testScheduler))
+            val otherWorkspace = Workspace(server, "/other")
+            val target = provider.acquire(workspace, generation)
+            val other = provider.acquire(otherWorkspace, generation)
+            val error = MessageError(name = "provider.no-route")
+            try {
+                target.repository.refresh()
+                other.repository.refresh()
+                testScheduler.advanceUntilIdle()
+                assertTrue("ses_1" in other.repository.state.value.snapshot.sessions)
+
+                harness.scopedEvents.emit(
+                    ScopedEvent(server, generation, WorkspaceKey.Global, OpenCodeEvent.SessionError("ses_1", error)),
+                )
+                runCurrent()
+
+                assertEquals(error, target.repository.sessionUiState(SessionId("ses_1")).value.error)
+                assertNull(other.repository.sessionUiState(SessionId("ses_1")).value.error)
+            } finally {
+                provider.release(workspace, generation)
+                provider.release(otherWorkspace, generation)
+            }
+        }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test

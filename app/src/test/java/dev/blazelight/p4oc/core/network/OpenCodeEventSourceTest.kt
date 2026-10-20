@@ -3,6 +3,7 @@ package dev.blazelight.p4oc.core.network
 import dev.blazelight.p4oc.core.log.AppLog
 import dev.blazelight.p4oc.data.remote.mapper.EventMapper
 import dev.blazelight.p4oc.data.remote.mapper.MessageMapper
+import dev.blazelight.p4oc.domain.model.MessageError
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
 import io.mockk.every
 import io.mockk.mockkObject
@@ -22,6 +23,7 @@ import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -257,6 +259,29 @@ class OpenCodeEventSourceTest {
             "assistantMessageID":"msg_1","ordinal":1,"delta":"!"}}""",
         )?.event as OpenCodeEvent.V2ContentChanged
         assertEquals(message.parts.last().id, delta.partID)
+    }
+
+    @Test
+    fun `v2 execution failure without a location maps to a session error with no directory`() {
+        // Envelope as published by OpenCode 2.0.28: no `location`, only data.sessionID. Routing
+        // must therefore resolve the owning workspace from the session (design lock F, rule 2).
+        val mapped = V2EventMapper(json, EventMapper(json, MessageMapper())).map(
+            """{"id":"evt_1","created":1,"type":"session.execution.failed","data":{"sessionID":"ses_1",
+            "error":{"type":"provider.no-route","message":"Model unavailable: sohoai/ollama-cloud/glm-5.3-flash"}},
+            "durable":{"aggregateID":"ses_1","seq":6,"version":1}}""",
+        )
+
+        assertEquals(
+            OpenCodeEvent.SessionError(
+                "ses_1",
+                MessageError(
+                    name = "provider.no-route",
+                    message = "Model unavailable: sohoai/ollama-cloud/glm-5.3-flash",
+                ),
+            ),
+            mapped?.event,
+        )
+        assertNull(mapped?.directory)
     }
 
     @Test

@@ -7,6 +7,7 @@ import dev.blazelight.p4oc.data.server.ActiveServerApiProvider
 import dev.blazelight.p4oc.data.workspace.UserWorkspaceRootsSource
 import dev.blazelight.p4oc.data.workspace.WorkspaceClient
 import dev.blazelight.p4oc.domain.model.OpenCodeEvent
+import dev.blazelight.p4oc.domain.model.sessionIdOrNull
 import dev.blazelight.p4oc.domain.server.ScopedEvent
 import dev.blazelight.p4oc.domain.server.ServerGeneration
 import dev.blazelight.p4oc.domain.server.WorkspaceKey
@@ -110,7 +111,7 @@ class SessionRepositoryProvider(
             // per-workspace fan-out. Reconnect is delivered exclusively via the registry's exact
             // server-and-generation connection-state transition in [collectReconnects]; ignoring
             // it here prevents a duplicate signal on global workspaces.
-            if (isDeliverableEvent(scopedEvent, workspace, generation)) {
+            if (isDeliverableEvent(scopedEvent, workspace, generation, repository)) {
                 try {
                     repository.acceptEvent(scopedEvent.event)
                 } catch (ce: CancellationException) {
@@ -128,19 +129,32 @@ class SessionRepositoryProvider(
         }
     }
 
-    /** True for a real event scoped to this exact server, generation, and workspace key. */
+    /**
+     * True for a real event scoped to this exact server, generation, and workspace key, or a
+     * location-less session event for a session this workspace owns.
+     *
+     * Design lock F, routing rule 2: an event arriving without a location but with a `sessionID`
+     * belongs to the workspace that owns that session. OpenCode v2 publishes some session events
+     * (e.g. `session.execution.failed`) without a location, so they arrive keyed [WorkspaceKey.Global];
+     * without this rule a directory workspace drops them and a failed turn shows no error.
+     * Ownership is resolved here, by the repository that already tracks its sessions, rather than
+     * by a central index; an unowned session's event is still dropped, never broadcast.
+     */
     private fun isDeliverableEvent(
         scopedEvent: ScopedEvent,
         workspace: Workspace,
         generation: ServerGeneration,
+        repository: SessionRepositoryImpl,
     ): Boolean {
         val shutdown = scopedEvent.event as? OpenCodeEvent.LocationShutdown
         val sameSource = scopedEvent.serverRef == workspace.server && scopedEvent.generation == generation
         val directoryMatch = scopedEvent.workspaceKey == workspace.key
         val shutdownBroadcast = shutdown != null &&
             (workspace.key == WorkspaceKey.Global || shutdown.directory == null)
+        val ownedLocationlessSessionEvent = scopedEvent.workspaceKey == WorkspaceKey.Global &&
+            scopedEvent.event.sessionIdOrNull()?.let(repository::ownsSession) == true
         return scopedEvent.event !is OpenCodeEvent.Connected && sameSource &&
-            (directoryMatch || shutdownBroadcast)
+            (directoryMatch || shutdownBroadcast || ownedLocationlessSessionEvent)
     }
 
     /**

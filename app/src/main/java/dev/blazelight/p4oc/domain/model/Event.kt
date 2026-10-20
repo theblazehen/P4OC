@@ -99,6 +99,41 @@ sealed class OpenCodeEvent {
     data class ServerInstanceDisposed(val directory: String) : OpenCodeEvent()
 }
 
+/**
+ * The session an event belongs to, or null for events that are not session-scoped.
+ * Used to route events that arrive without a location to the workspace that owns the session
+ * (design lock F, routing rule 2): OpenCode v2 publishes e.g. `session.execution.failed`
+ * without a location, only with `sessionID`.
+ */
+@Suppress("CyclomaticComplexMethod") // One flat entry per session-scoped event type; no real branching.
+fun OpenCodeEvent.sessionIdOrNull(): String? = when (this) {
+    is OpenCodeEvent.MessageUpdated -> message.sessionID
+    is OpenCodeEvent.MessagePartUpdated -> part.sessionID
+    is OpenCodeEvent.MessageRefreshRequested -> sessionID
+    is OpenCodeEvent.V2ContentChanged -> sessionID
+    is OpenCodeEvent.MessagePartDelta -> sessionID
+    is OpenCodeEvent.MessageRemoved -> sessionID
+    is OpenCodeEvent.PartRemoved -> sessionID
+    is OpenCodeEvent.SessionCreated -> session.id
+    is OpenCodeEvent.SessionUpdated -> session.id
+    is OpenCodeEvent.SessionDeleted -> session.id
+    is OpenCodeEvent.SessionRefreshRequested -> sessionID
+    is OpenCodeEvent.SessionStatusChanged -> sessionID
+    is OpenCodeEvent.SessionDiff -> sessionID
+    is OpenCodeEvent.SessionError -> sessionID
+    is OpenCodeEvent.SessionCompacted -> sessionID
+    is OpenCodeEvent.SessionIdle -> sessionID
+    is OpenCodeEvent.PermissionRequested -> permission.sessionID
+    is OpenCodeEvent.PermissionReplied -> sessionID
+    is OpenCodeEvent.QuestionAsked -> request.sessionID
+    is OpenCodeEvent.QuestionReplied -> sessionID
+    is OpenCodeEvent.QuestionRejected -> sessionID
+    is OpenCodeEvent.FormRefreshRequested -> sessionID
+    is OpenCodeEvent.TodoUpdated -> sessionID
+    is OpenCodeEvent.CommandExecuted -> sessionID
+    else -> null
+}
+
 @Serializable
 sealed class SessionStatus {
     @Serializable
